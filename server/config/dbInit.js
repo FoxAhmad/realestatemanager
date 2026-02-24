@@ -46,6 +46,40 @@ const initDatabase = async () => {
       }
     }
 
+    // Create Inventory table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS inventory (
+        id SERIAL PRIMARY KEY,
+        category VARCHAR(20) NOT NULL CHECK (category IN ('plot', 'house', 'shop_office')),
+        address TEXT NOT NULL,
+        price DECIMAL(15, 2) NOT NULL,
+        quantity INTEGER DEFAULT 1 NOT NULL,
+        status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'assigned', 'paid', 'sold')),
+        assigned_to INTEGER,
+        plot_numbers_input TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
+    // Create Inventory Plots table (tracks individual plots/units)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS inventory_plots (
+        id SERIAL PRIMARY KEY,
+        inventory_id INTEGER NOT NULL,
+        plot_number VARCHAR(100) NOT NULL,
+        status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'assigned', 'paid', 'sold', 'used_in_deal')),
+        assigned_to INTEGER,
+        assigned_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (inventory_id) REFERENCES inventory(id) ON DELETE CASCADE,
+        FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+        UNIQUE(inventory_id, plot_number)
+      )
+    `);
+
     // Create Deals table
     await db.query(`
       CREATE TABLE IF NOT EXISTS deals (
@@ -123,52 +157,6 @@ const initDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date)
     `);
 
-    // Create Inventory table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS inventory (
-        id SERIAL PRIMARY KEY,
-        category VARCHAR(20) NOT NULL CHECK (category IN ('plot', 'house', 'shop_office')),
-        address TEXT NOT NULL,
-        price DECIMAL(15, 2) NOT NULL,
-        quantity INTEGER DEFAULT 1 NOT NULL,
-        status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'assigned', 'paid', 'sold')),
-        assigned_to INTEGER,
-        plot_numbers_input TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
-      )
-    `);
-
-    // Add plot_numbers_input column if it doesn't exist (for existing databases)
-    try {
-      await db.query(`
-        ALTER TABLE inventory 
-        ADD COLUMN IF NOT EXISTS plot_numbers_input TEXT
-      `);
-    } catch (error) {
-      // Column might already exist, ignore error
-      if (error.code !== '42701') {
-        console.log('Note: plot_numbers_input column already exists or error:', error.message);
-      }
-    }
-
-    // Create Inventory Plots table (tracks individual plots/units)
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS inventory_plots (
-        id SERIAL PRIMARY KEY,
-        inventory_id INTEGER NOT NULL,
-        plot_number VARCHAR(100) NOT NULL,
-        status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'assigned', 'paid', 'sold', 'used_in_deal')),
-        assigned_to INTEGER,
-        assigned_at TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (inventory_id) REFERENCES inventory(id) ON DELETE CASCADE,
-        FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
-        UNIQUE(inventory_id, plot_number)
-      )
-    `);
 
     // Create Inventory Plot Assignments table (tracks assignments with payment details)
     await db.query(`
@@ -496,7 +484,7 @@ const initDatabase = async () => {
 
     // Create default admin user (password: admin123)
     const hashedPassword = await bcrypt.hash('admin123', 10);
-    
+
     await db.query(`
       INSERT INTO users (name, email, password, role) 
       VALUES ($1, $2, $3, $4)
