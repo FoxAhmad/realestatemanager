@@ -1,0 +1,18 @@
+:root {
+  --brown-primary: #fd9c00;
+  --brown-light: #f4c2a1;
+  --brown-dark: #c97d1a;
+  --brown-lighter: #fae4d3;
+  --brown-darker: #b8731a;
+  --black: #1a1a1a;
+  --black-light: #2d2d2d;
+  --white: #ffffff;
+  --gray-light: #faf8f5;
+  --gray: #e8e0d6;
+  --gray-dark: #999;
+}
+
+.app {
+  min-height: 100vh;
+  background-color: var(--gray-light);
+}

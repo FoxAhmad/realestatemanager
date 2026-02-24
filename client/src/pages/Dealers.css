@@ -1,0 +1,66 @@
+.dealers {
+  max-width: 100%;
+  margin: 0;
+}
+
+.dealers-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.dealers-title {
+  color: var(--black);
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.dealers-table-container {
+  background-color: var(--white);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  border: 1px solid var(--gray);
+  overflow-x: auto;
+}
+
+.dealers-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 500px;
+}
+
+.dealers-table thead {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid var(--gray);
+}
+
+.dealers-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-dark);
+}
+
+.dealers-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--gray);
+  font-size: 0.875rem;
+}
+
+.dealers-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.dealers-loading {
+  text-align: center;
+  padding: 3rem;
+  color: var(--gray-dark);
+}

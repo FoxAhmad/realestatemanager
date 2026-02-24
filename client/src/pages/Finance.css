@@ -1,0 +1,114 @@
+.finance {
+  max-width: 100%;
+  margin: 0;
+}
+
+.finance-title {
+  color: var(--black);
+  font-size: 1.75rem;
+  margin-bottom: 2rem;
+  font-weight: 600;
+}
+
+.finance-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.summary-card {
+  background-color: var(--white);
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  border: 1px solid var(--gray);
+}
+
+.summary-card h3 {
+  color: var(--gray-dark);
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-card .amount {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--black);
+  margin: 0;
+}
+
+.summary-card .amount.revenue {
+  color: var(--brown-primary);
+}
+
+.summary-card .amount.profit {
+  color: #28a745;
+}
+
+.finance-section {
+  background-color: var(--white);
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--gray);
+}
+
+.finance-section h2 {
+  color: var(--black);
+  font-size: 1.125rem;
+  margin-bottom: 1.25rem;
+  font-weight: 600;
+}
+
+.monthly-table-container,
+.dealer-table-container {
+  overflow-x: auto;
+}
+
+.monthly-table,
+.dealer-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 500px;
+}
+
+.monthly-table thead,
+.dealer-table thead {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid var(--gray);
+}
+
+.monthly-table th,
+.dealer-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-dark);
+}
+
+.monthly-table td,
+.dealer-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--gray);
+  font-size: 0.875rem;
+}
+
+.monthly-table tbody tr:hover,
+.dealer-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.finance-loading {
+  text-align: center;
+  padding: 3rem;
+  color: var(--gray-dark);
+}
