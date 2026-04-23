@@ -10,11 +10,23 @@ const initDatabase = async () => {
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
-        role VARCHAR(20) NOT NULL DEFAULT 'dealer' CHECK (role IN ('admin', 'dealer')),
+        role VARCHAR(20) NOT NULL DEFAULT 'dealer' CHECK (role IN ('admin', 'dealer', 'accountant')),
+        is_employee BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Add is_employee and update role constraint if modifying existing DB
+    try {
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_employee BOOLEAN DEFAULT FALSE`);
+    } catch (e) { /* ignore */ }
+    try {
+      await db.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`);
+      await db.query(`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'dealer', 'accountant'))`);
+    } catch (e) {
+      console.log('Note: users role check updates error:', e.message);
+    }
 
     // Create Customers table
     await db.query(`
@@ -70,6 +82,8 @@ const initDatabase = async () => {
         inventory_id INTEGER NOT NULL,
         plot_number VARCHAR(100) NOT NULL,
         status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'assigned', 'paid', 'sold', 'used_in_deal')),
+        plot_category VARCHAR(20) DEFAULT 'standard' CHECK (plot_category IN ('corner', 'park_face', 'standard')),
+        plot_type VARCHAR(5) DEFAULT 'R' CHECK (plot_type IN ('C', 'R')),
         assigned_to INTEGER,
         assigned_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -79,6 +93,17 @@ const initDatabase = async () => {
         UNIQUE(inventory_id, plot_number)
       )
     `);
+
+    try {
+      await db.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS plot_category VARCHAR(255) DEFAULT 'standard'`);
+      await db.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS plot_type VARCHAR(5) DEFAULT 'R'`);
+      await db.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS size VARCHAR(255)`);
+      await db.query(`ALTER TABLE inventory_plots DROP CONSTRAINT IF EXISTS inventory_plots_plot_category_check`);
+      await db.query(`ALTER TABLE inventory_plots DROP CONSTRAINT IF EXISTS inventory_plots_plot_type_check`);
+      await db.query(`ALTER TABLE inventory_plots ADD CONSTRAINT inventory_plots_plot_type_check CHECK (plot_type IN ('C', 'R'))`);
+    } catch (error) {
+      console.log('Note: inventory_plots new columns may already exist or error:', error.message);
+    }
 
     // Create Deals table
     await db.query(`
@@ -295,6 +320,22 @@ const initDatabase = async () => {
       )
     `);
 
+    // Create Dealer Exchanges table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS dealer_exchanges (
+        id SERIAL PRIMARY KEY,
+        sender_id INTEGER NOT NULL,
+        receiver_id INTEGER NOT NULL,
+        amount DECIMAL(15, 2) NOT NULL,
+        exchange_date DATE NOT NULL,
+        detail TEXT,
+        proof_file VARCHAR(500),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     // Add status and source columns to customers if they don't exist
     try {
       await db.query(`
@@ -380,6 +421,55 @@ const initDatabase = async () => {
     `);
     await db.query(`
       CREATE INDEX IF NOT EXISTS idx_deals_inventory ON deals(inventory_id)
+    `);
+
+    // Create Accounting tables
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS accounts (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        type VARCHAR(20) NOT NULL CHECK (type IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense')),
+        parent_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (parent_id) REFERENCES accounts(id) ON DELETE SET NULL
+      )
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS transactions (
+        id SERIAL PRIMARY KEY,
+        transaction_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        description TEXT,
+        reference_type VARCHAR(50) CHECK (reference_type IN ('DEAL', 'DEPOSIT', 'ADJUSTMENT', 'TRANSFER', 'COMMISSION')),
+        reference_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS transaction_lines (
+        id SERIAL PRIMARY KEY,
+        transaction_id INTEGER NOT NULL,
+        account_id INTEGER NOT NULL,
+        user_id INTEGER,
+        debit DECIMAL(15, 2) DEFAULT 0,
+        credit DECIMAL(15, 2) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
+        FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
+    // Add indexes for accounting tables
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_transaction_lines_account ON transaction_lines(account_id)
+    `);
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_transactions_ref ON transactions(reference_type, reference_id)
     `);
 
     // Create function to update updated_at timestamp
@@ -482,14 +572,59 @@ const initDatabase = async () => {
         EXECUTE FUNCTION update_updated_at_column();
     `);
 
+    await db.query(`
+      DROP TRIGGER IF EXISTS update_accounts_updated_at ON accounts;
+      CREATE TRIGGER update_accounts_updated_at
+        BEFORE UPDATE ON accounts
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `);
+
+    await db.query(`
+      DROP TRIGGER IF EXISTS update_transactions_updated_at ON transactions;
+      CREATE TRIGGER update_transactions_updated_at
+        BEFORE UPDATE ON transactions
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `);
+
+    await db.query(`
+      DROP TRIGGER IF EXISTS update_transaction_lines_updated_at ON transaction_lines;
+      CREATE TRIGGER update_transaction_lines_updated_at
+        BEFORE UPDATE ON transaction_lines
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `);
+
     // Create default admin user (password: admin123)
     const hashedPassword = await bcrypt.hash('admin123', 10);
 
     await db.query(`
-      INSERT INTO users (name, email, password, role) 
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO users (name, email, password, role, is_employee) 
+      VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (email) DO NOTHING
-    `, ['Azam', 'admin@uhcrm.com', hashedPassword, 'admin']);
+    `, ['Azam', 'admin@uhcrm.com', hashedPassword, 'admin', true]);
+
+    // Seed Default Chart of Accounts
+    try {
+      await db.query(`
+        INSERT INTO accounts (id, name, type)
+        VALUES 
+          (1, 'Cash / Bank', 'Asset'),
+          (2, 'Accounts Receivable', 'Asset'),
+          (3, 'Dealer Advances', 'Liability'),
+          (4, 'Savings Deposits', 'Liability'),
+          (5, 'Commission Payable', 'Liability'),
+          (6, 'Corporate Revenue', 'Revenue'),
+          (7, 'Dealer Commission Expense', 'Expense'),
+          (8, 'Advance for Certificate', 'Liability')
+        ON CONFLICT (id) DO NOTHING
+      `);
+      // Update sequence if hardcoded IDs are used
+      await db.query(`SELECT setval('accounts_id_seq', (SELECT MAX(id) FROM accounts))`);
+    } catch(err) {
+      console.log('Note: Seed accounts error:', err.message);
+    }
 
     console.log('Database tables initialized successfully');
   } catch (error) {

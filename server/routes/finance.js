@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { auth, adminOnly } = require('../middleware/auth');
+const { auth, adminOnly, adminAndAccountantOnly } = require('../middleware/auth');
 const db = require('../config/database');
 
 // Get finance summary (Salespersons see only their own, Admin sees all)
@@ -8,7 +8,7 @@ router.get('/summary', auth, async (req, res) => {
   try {
     let result;
     
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'admin' || req.user.role === 'accountant') {
       // Admin sees all finances
       result = await db.query(`
         SELECT 
@@ -46,7 +46,7 @@ router.get('/monthly', auth, async (req, res) => {
   try {
     let result;
     
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'admin' || req.user.role === 'accountant') {
       result = await db.query(`
         SELECT 
           DATE_TRUNC('month', d.updated_at) as month,
@@ -81,7 +81,7 @@ router.get('/monthly', auth, async (req, res) => {
 });
 
 // Get salesperson-wise finance (Admin only)
-router.get('/by-dealer', auth, adminOnly, async (req, res) => {
+router.get('/by-dealer', auth, adminAndAccountantOnly, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT 

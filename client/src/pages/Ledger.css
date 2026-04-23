@@ -1,0 +1,47 @@
+/* Ledger-specific styles */
+
+.ledger-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 300px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem !important;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.amount-col {
+  text-align: right !important;
+  font-family: 'Inter', monospace;
+  font-weight: 700;
+}
+
+.credit-account {
+  padding-left: 3rem !important;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.tx-group-header td {
+  background-color: rgba(248, 250, 252, 0.8);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.tx-line-debit {
+  border-left: 3px solid var(--primary);
+}
+
+.tx-line-credit {
+  border-left: 3px solid var(--success);
+}

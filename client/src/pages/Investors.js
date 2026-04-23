@@ -1,30 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { FaUserPlus, FaEdit, FaTrash, FaShieldAlt } from 'react-icons/fa';
 import './Investors.css';
 
 const Investors = () => {
-  const { isAdmin, isDealer, user } = useAuth();
   const [investors, setInvestors] = useState([]);
-  const [investorBalances, setInvestorBalances] = useState([]);
-  const [salespersonBalance, setSalespersonBalance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingInvestor, setEditingInvestor] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
-    phone: '',
+    cnic: '',
+    contact_number: '',
     address: '',
-    total_invested: '',
-    paid_amount: '',
   });
 
+  const { isAdmin, isAccountant } = useAuth();
+
   useEffect(() => {
-    fetchInvestors();
-    if (user) {
-      fetchBalances();
+    if (isAdmin || isAccountant) {
+      fetchInvestors();
+    } else {
+      setLoading(false);
     }
-  }, [user]);
+  }, [isAdmin, isAccountant]);
 
   const fetchInvestors = async () => {
     try {
@@ -37,44 +37,18 @@ const Investors = () => {
     }
   };
 
-  const fetchBalances = async () => {
-    try {
-      // Fetch salesperson total balance
-      const balanceResponse = await api.get(`/inventory-payments/salesperson/${user.id}/balance`);
-      setSalespersonBalance(balanceResponse.data);
-
-      // Fetch individual investor balances
-      const investorsResponse = await api.get(`/inventory-payments/salesperson/${user.id}/investors/balances`);
-      setInvestorBalances(investorsResponse.data);
-    } catch (error) {
-      console.error('Error fetching balances:', error);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (editingInvestor) {
-        await api.put(
-          `/investors/${editingInvestor.id}`,
-          formData
-        );
+        await api.put(`/investors/${editingInvestor.id}`, formData);
       } else {
         await api.post('/investors', formData);
       }
       fetchInvestors();
-      if (user) {
-        fetchBalances();
-      }
       setShowModal(false);
       setEditingInvestor(null);
-      setFormData({
-        name: '',
-        phone: '',
-        address: '',
-        total_invested: '',
-        paid_amount: '',
-      });
+      setFormData({ name: '', cnic: '', contact_number: '', address: '' });
     } catch (error) {
       console.error('Error saving investor:', error);
       alert(error.response?.data?.message || 'Error saving investor');
@@ -85,10 +59,9 @@ const Investors = () => {
     setEditingInvestor(investor);
     setFormData({
       name: investor.name || '',
-      phone: investor.phone || '',
+      cnic: investor.cnic || '',
+      contact_number: investor.contact_number || '',
       address: investor.address || '',
-      total_invested: investor.total_invested || '',
-      paid_amount: investor.paid_amount || '',
     });
     setShowModal(true);
   };
@@ -98,9 +71,6 @@ const Investors = () => {
       try {
         await api.delete(`/investors/${id}`);
         fetchInvestors();
-        if (user) {
-          fetchBalances();
-        }
       } catch (error) {
         console.error('Error deleting investor:', error);
         alert('Error deleting investor');
@@ -108,212 +78,140 @@ const Investors = () => {
     }
   };
 
-  const getInvestorBalance = (investorId) => {
-    return investorBalances.find(b => b.id === investorId) || null;
-  };
-
-
-  if (loading) {
-    return <div className="investors-loading">Loading investors...</div>;
+  if (!(isAdmin || isAccountant)) {
+    return (
+      <div className="premium-page">
+        <div className="glass-card investors-access-denied">
+          <FaShieldAlt style={{ fontSize: '4rem', color: 'var(--danger)', marginBottom: '1.5rem' }} />
+          <h2>Restricted Repository</h2>
+          <p>You do not have the clearance levels required to view the Investor Registry.</p>
+        </div>
+      </div>
+    );
   }
 
+  if (loading) return <div className="investors-loading">Synchronizing Investor Database...</div>;
+
   return (
-    <div className="investors">
-      <div className="investors-header">
-        <h1 className="investors-title">My Investors</h1>
+    <div className="premium-page">
+      <div className="premium-page-header">
+        <div>
+          <h1>Investor Relations</h1>
+          <p>Master registry of capital partners and their portfolio allocations.</p>
+        </div>
         <button
-          className="btn-primary"
+          className="premium-btn premium-btn-primary"
           onClick={() => {
             setEditingInvestor(null);
-            setFormData({
-              name: '',
-              phone: '',
-              address: '',
-              total_invested: '',
-              paid_amount: '',
-            });
+            setFormData({ name: '', cnic: '', contact_number: '', address: '' });
             setShowModal(true);
           }}
         >
-          + Add Investor
+          <FaUserPlus /> Onboard Investor
         </button>
       </div>
 
-      {salespersonBalance && (
-        <div style={{
-          background: '#f8f9fa',
-          padding: '1rem',
-          borderRadius: '8px',
-          marginBottom: '1.5rem',
-          border: '1px solid #dee2e6'
-        }}>
-          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Total Balance Summary</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-            <div>
-              <div style={{ fontSize: '0.875rem', color: '#666', marginBottom: '0.25rem' }}>Total Invested</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#333' }}>
-                ${parseFloat(salespersonBalance.total_invested || 0).toLocaleString()}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.875rem', color: '#666', marginBottom: '0.25rem' }}>Total Used</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#dc3545' }}>
-                ${parseFloat(salespersonBalance.total_used || 0).toLocaleString()}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.875rem', color: '#666', marginBottom: '0.25rem' }}>Remaining Balance</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#28a745' }}>
-                ${parseFloat(salespersonBalance.remaining_balance || 0).toLocaleString()}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-
-      <div className="investors-table-container">
-        <table className="investors-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Phone</th>
-              <th>Address</th>
-              <th>Total Invested</th>
-              <th>Used Balance</th>
-              <th>Remaining Balance</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {investors.length === 0 ? (
+      <div className="glass-card">
+        <div className="premium-table-container">
+          <table className="premium-table">
+            <thead>
               <tr>
-                <td colSpan="7" className="empty-state">
-                  No investors found
-                </td>
+                <th>Partner Name</th>
+                <th>Identity (CNIC)</th>
+                <th>Communication</th>
+                <th>Current Balance</th>
+                <th>Actions</th>
               </tr>
-            ) : (
-              investors.map((investor) => {
-                const balance = getInvestorBalance(investor.id);
-                const usedBalance = balance ? parseFloat(balance.used_balance || 0) : parseFloat(investor.paid_amount || 0);
-                const remainingBalance = balance ? parseFloat(balance.remaining_balance || 0) : parseFloat(investor.remaining_balance || 0);
-
-                return (
+            </thead>
+            <tbody>
+              {investors.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="empty-state">
+                    No registered investors found in current portfolio
+                  </td>
+                </tr>
+              ) : (
+                investors.map((investor) => (
                   <tr key={investor.id}>
-                    <td>{investor.name}</td>
-                    <td>{investor.phone || '-'}</td>
-                    <td>{investor.address || '-'}</td>
-                    <td>${parseFloat(investor.total_invested || 0).toLocaleString()}</td>
-                    <td style={{ color: '#dc3545', fontWeight: '500' }}>
-                      ${usedBalance.toLocaleString()}
-                    </td>
+                    <td style={{ fontWeight: '700' }}>{investor.name}</td>
+                    <td>{investor.cnic}</td>
+                    <td>{investor.contact_number}</td>
                     <td>
-                      <span
-                        style={{
-                          color: remainingBalance > 0 ? '#28a745' : '#dc3545',
-                          fontWeight: '500'
-                        }}
-                      >
-                        ${remainingBalance.toLocaleString()}
+                      <span className={parseFloat(investor.balance) >= 0 ? 'balance-positive' : 'balance-negative'}>
+                        ${parseFloat(investor.balance || 0).toLocaleString()}
                       </span>
                     </td>
                     <td>
                       <div className="action-buttons">
                         <button
-                          className="btn-edit"
+                          className="premium-btn premium-btn-secondary"
+                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                           onClick={() => handleEdit(investor)}
                         >
-                          Edit
+                           Profile
                         </button>
                         <button
-                          className="btn-delete"
+                          className="premium-btn premium-btn-danger"
+                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                           onClick={() => handleDelete(investor.id)}
                         >
-                          Delete
+                          Revoke
                         </button>
                       </div>
                     </td>
                   </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>
-              {editingInvestor ? 'Edit Investor' : 'Add Investor'}
-            </h2>
+            <h2>{editingInvestor ? 'Update Investor Profile' : 'Onboard New Partner'}</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Name *</label>
+                <label>Full Legal Name *</label>
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
               </div>
               <div className="form-group">
-                <label>Phone</label>
+                <label>CNIC Number *</label>
                 <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
+                  type="text"
+                  value={formData.cnic}
+                  onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
+                  required
                 />
               </div>
               <div className="form-group">
-                <label>Address</label>
+                <label>Contact Number</label>
+                <input
+                  type="text"
+                  value={formData.contact_number}
+                  onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Registered Address</label>
                 <textarea
                   value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   rows="3"
                 />
               </div>
-              <div className="form-group">
-                <label>Total Invested</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.total_invested}
-                  onChange={(e) =>
-                    setFormData({ ...formData, total_invested: e.target.value })
-                  }
-                />
-              </div>
-              <div className="form-group">
-                <label>Paid Amount</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.paid_amount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, paid_amount: e.target.value })
-                  }
-                />
-              </div>
               <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => {
-                    setShowModal(false);
-                    setEditingInvestor(null);
-                  }}
-                >
+                <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowModal(false)}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
-                  {editingInvestor ? 'Update' : 'Create'}
+                <button type="submit" className="premium-btn premium-btn-primary">
+                  {editingInvestor ? 'Update Credentials' : 'Authorize Partner'}
                 </button>
               </div>
             </form>
@@ -325,4 +223,3 @@ const Investors = () => {
 };
 
 export default Investors;
-

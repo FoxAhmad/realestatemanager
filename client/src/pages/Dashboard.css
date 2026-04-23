@@ -1,189 +1,344 @@
-.dashboard {
-  max-width: 100%;
-  margin: 0;
+.dashboard-v2 {
+  padding: 2.5rem;
+  background-color: #f0f2f5;
+  min-height: calc(100vh - 120px);
+  font-family: 'Inter', sans-serif;
 }
 
 .dashboard-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 3rem;
 }
 
-.dashboard-title {
-  color: var(--black);
-  font-size: 1.75rem;
-  font-weight: 600;
+.welcome-section h1 {
   margin: 0;
+  font-size: 2.25rem;
+  color: #1a1f36;
+  font-weight: 800;
+  letter-spacing: -0.5px;
 }
 
-.dashboard-tabs {
-  display: flex;
-  gap: 0.5rem;
-  border-bottom: 2px solid var(--gray);
-}
-
-.dashboard-tab {
-  padding: 0.75rem 1.5rem;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--gray-dark);
-  font-size: 0.9rem;
+.welcome-section p {
+  margin: 0.5rem 0 0 0;
+  color: #5469d4;
+  font-size: 1.1rem;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-bottom: -2px;
 }
 
-.dashboard-tab:hover {
-  color: var(--brown-primary);
-}
-
-.dashboard-tab.active {
-  color: var(--brown-primary);
-  border-bottom-color: var(--brown-primary);
-}
-
-.dashboard-filters {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.filter-select {
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--gray);
-  border-radius: 6px;
-  font-size: 0.875rem;
-  background-color: var(--white);
-  cursor: pointer;
-}
-
-/* KPI Cards */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.kpi-card {
-  background-color: var(--white);
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid var(--gray);
-}
-
-.kpi-label {
-  font-size: 0.75rem;
+.header-date {
+  color: #697386;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--gray-dark);
-  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
 }
 
-.kpi-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--brown-primary);
-  margin-bottom: 0.5rem;
-  line-height: 1;
+/* Glass Cards */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  border-radius: 20px;
+  padding: 2rem;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.kpi-subvalue {
-  font-size: 0.875rem;
-  color: var(--gray-dark);
-  margin-top: 0.5rem;
+.glass-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.1);
 }
 
-.kpi-subvalue strong {
-  color: var(--black);
-  font-weight: 600;
-}
-
-/* Stats Grid */
-.stats-grid {
+/* Topline Ledger */
+.topline-ledger-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
 }
 
-.stat-card {
-  background-color: var(--white);
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid var(--gray);
+.ledger-card {
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  transition: transform 0.2s, box-shadow 0.2s;
+  padding: 1.75rem;
 }
 
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.stat-icon {
-  width: 60px;
-  height: 60px;
+.ledger-card .card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--brown-primary), var(--brown-dark));
-  border-radius: 8px;
-  flex-shrink: 0;
-  color: var(--white);
-  font-size: 1.5rem;
+  font-size: 1.6rem;
 }
 
-.stat-content {
-  flex: 1;
+.gold-border { border-left: 6px solid #e2a100; }
+.gold-border .card-icon { background: rgba(226, 161, 0, 0.1); color: #e2a100; }
+
+.blue-border { border-left: 6px solid #0070f3; }
+.blue-border .card-icon { background: rgba(0, 112, 243, 0.1); color: #0070f3; }
+
+.green-border { border-left: 6px solid #00c851; }
+.green-border .card-icon { background: rgba(0, 200, 81, 0.1); color: #00c851; }
+
+.card-info {
+  display: flex;
+  flex-direction: column;
 }
 
-.stat-value {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--black);
-  margin: 0;
-  line-height: 1;
+.card-info .label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #697386;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   margin-bottom: 0.25rem;
 }
 
-.stat-label {
-  color: var(--gray-dark);
-  font-size: 0.875rem;
+.card-info .value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #1a1f36;
+}
+
+/* Main Grid */
+.main-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+}
+
+.stats-section.wider {
+  grid-column: span 2;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.section-header h2 {
   margin: 0;
+  font-size: 1.4rem;
+  color: #1a1f36;
+  font-weight: 700;
+}
+
+.header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.header-icon.finance { background: #fee2e2; color: #ef4444; }
+.header-icon.mutuals { background: #dcfce7; color: #22c55e; }
+.header-icon.inventory { background: #e0e7ff; color: #6366f1; }
+
+/* Finance Items */
+.finance-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #697386;
+  margin-bottom: 0.5rem;
   font-weight: 500;
 }
 
-.dashboard-loading {
-  text-align: center;
-  padding: 3rem;
-  color: var(--gray-dark);
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.stat-value.revenue { color: #5469d4; }
+.stat-value.profit { color: #22c55e; }
+
+/* Mutuals */
+.mutual-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-box {
+  padding: 1.25rem;
+  border-radius: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.owe { background: #fff1f2; }
+.owed { background: #f0fdf4; }
+
+.box-label { font-weight: 600; color: #4b5563; }
+.box-value { font-weight: 800; font-size: 1.25rem; }
+
+.owe .box-value { color: #e11d48; }
+.owed .box-value { color: #16a34a; }
+
+.summary-footer {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Operations Grid */
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.ops-item {
+  background: #f8fafc;
+  padding: 1.5rem;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.ops-icon {
+  font-size: 1.5rem;
+  color: #64748b;
+}
+
+.ops-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.ops-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #1a1f36;
+}
+
+.ops-label {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.ops-item.attention {
+  background: #fef2f2;
+}
+
+.ops-item.attention .ops-icon,
+.ops-item.attention .ops-value {
+  color: #dc2626;
+}
+
+@media (max-width: 1024px) {
+  .stats-section.wider {
+    grid-column: span 1;
+  }
 }
 
 @media (max-width: 768px) {
   .dashboard-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 1rem;
   }
+  
+  .dashboard-v2 {
+    padding: 1.5rem;
+  }
+}
 
-  .dashboard-tabs {
-    width: 100%;
-    overflow-x: auto;
-  }
+/* Dealer Balances List (Accountant Dashboard) */
+.dealer-balances-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+  padding-right: 0.5rem;
+}
 
-  .kpi-grid,
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
+.dealer-breakdown-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.sub-section-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 1rem;
+}
+
+.dealer-balances-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dealer-balances-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.dealer-balances-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+.dealer-balance-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: rgba(248, 250, 252, 0.8);
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  transition: background 0.2s ease;
+}
+
+.dealer-balance-item:hover {
+  background: #f1f5f9;
+}
+
+.dealer-name {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.dealer-value {
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.dealer-value.owe { color: #e11d48; }
+.dealer-value.owed { color: #16a34a; }
+
+.no-data {
+  text-align: center;
+  color: #64748b;
+  font-style: italic;
+  padding: 2rem 0;
 }

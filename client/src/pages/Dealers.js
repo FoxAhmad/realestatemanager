@@ -72,15 +72,18 @@ const Dealers = () => {
   };
 
   if (loading) {
-    return <div className="dealers-loading">Loading salespersons...</div>;
+    return <div className="dealers-loading">Connecting to Sales Network...</div>;
   }
 
   return (
-    <div className="dealers">
-      <div className="dealers-header">
-        <h1 className="dealers-title">Salespersons</h1>
+    <div className="premium-page">
+      <div className="premium-page-header">
+        <div>
+          <h1>Sales Force</h1>
+          <p>Manage your authorized salespersons and their platform access.</p>
+        </div>
         <button
-          className="btn-primary"
+          className="premium-btn premium-btn-primary"
           onClick={() => {
             setEditingDealer(null);
             setFormData({ name: '', email: '', password: '' });
@@ -91,59 +94,63 @@ const Dealers = () => {
         </button>
       </div>
 
-      <div className="dealers-table-container">
-        <table className="dealers-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Created At</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {dealers.length === 0 ? (
+      <div className="glass-card">
+        <div className="premium-table-container">
+          <table className="premium-table">
+            <thead>
               <tr>
-                <td colSpan="4" className="empty-state">
-                  No salespersons found
-                </td>
+                <th>Full Name</th>
+                <th>Access Email</th>
+                <th>Onboarding Date</th>
+                <th>Actions</th>
               </tr>
-            ) : (
-              dealers.map((dealer) => (
-                <tr key={dealer.id}>
-                  <td>{dealer.name}</td>
-                  <td>{dealer.email}</td>
-                  <td>{new Date(dealer.created_at).toLocaleDateString()}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="btn-edit"
-                        onClick={() => handleEdit(dealer)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="btn-delete"
-                        onClick={() => handleDelete(dealer.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
+            </thead>
+            <tbody>
+              {dealers.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="empty-state">
+                    No salespersons found in the registry
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                dealers.map((dealer) => (
+                  <tr key={dealer.id}>
+                    <td style={{ fontWeight: '700' }}>{dealer.name}</td>
+                    <td>{dealer.email}</td>
+                    <td>{new Date(dealer.created_at).toLocaleDateString()}</td>
+                    <td>
+                      <div className="action-buttons">
+                        <button
+                          className="premium-btn premium-btn-secondary"
+                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                          onClick={() => handleEdit(dealer)}
+                        >
+                          Edit Profile
+                        </button>
+                        <button
+                          className="premium-btn premium-btn-danger"
+                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                          onClick={() => handleDelete(dealer.id)}
+                        >
+                          Revoke Access
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingDealer ? 'Edit Salesperson' : 'Add Salesperson'}</h2>
+            <h2>{editingDealer ? 'Update Salesperson Profile' : 'Register New Salesperson'}</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Name *</label>
+                <label>Legal Name *</label>
                 <input
                   type="text"
                   value={formData.name}
@@ -154,7 +161,7 @@ const Dealers = () => {
                 />
               </div>
               <div className="form-group">
-                <label>Email *</label>
+                <label>Corporate Email *</label>
                 <input
                   type="email"
                   value={formData.email}
@@ -165,7 +172,7 @@ const Dealers = () => {
                 />
               </div>
               <div className="form-group">
-                <label>{editingDealer ? 'New Password (leave empty to keep current)' : 'Password *'}</label>
+                <label>{editingDealer ? 'Update Password (leave empty to keep current)' : 'Account Password *'}</label>
                 <input
                   type="password"
                   value={formData.password}
@@ -178,16 +185,16 @@ const Dealers = () => {
               <div className="modal-actions">
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="premium-btn premium-btn-secondary"
                   onClick={() => {
                     setShowModal(false);
                     setEditingDealer(null);
                   }}
                 >
-                  Cancel
+                  Discard
                 </button>
-                <button type="submit" className="btn-primary">
-                  {editingDealer ? 'Update' : 'Create'}
+                <button type="submit" className="premium-btn premium-btn-primary">
+                  {editingDealer ? 'Save Changes' : 'Register Agent'}
                 </button>
               </div>
             </form>
@@ -199,4 +206,3 @@ const Dealers = () => {
 };
 
 export default Dealers;
-

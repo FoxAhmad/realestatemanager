@@ -1,61 +1,50 @@
-.payments {
-  padding: 2rem;
-}
+/* Payments-specific styles */
 
-.payments-header {
+.payments-loading {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.payments-title {
-  font-size: 2rem;
+  height: 300px;
+  font-size: 1.2rem;
   font-weight: 600;
-  color: #333;
+  color: var(--primary);
 }
 
-.payments-summary {
+.payments-summary-container {
   display: flex;
-  gap: 1rem;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .summary-card {
-  background: white;
-  padding: 1rem 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
 .summary-label {
-  font-size: 0.875rem;
-  color: #666;
-  font-weight: 500;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .summary-value {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #333;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text-main);
 }
 
 .summary-value.amount {
-  color: #28a745;
+  color: var(--success);
 }
 
 .payments-filters {
-  background: white;
-  padding: 1rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
   display: flex;
   gap: 2rem;
+  margin-bottom: 2rem;
+  padding: 1.25rem;
   flex-wrap: wrap;
 }
 
@@ -66,127 +55,60 @@
 }
 
 .filter-group label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #333;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
 }
 
 .filter-group select {
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  min-width: 150px;
+  padding: 0.65rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  min-width: 180px;
+  background-color: white;
+  transition: var(--transition);
 }
 
-.payments-table-container {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow-x: auto;
-}
-
-.payments-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.payments-table thead {
-  background-color: #f8f9fa;
-}
-
-.payments-table th {
-  padding: 1rem;
-  text-align: left;
-  font-weight: 600;
-  color: #333;
-  border-bottom: 2px solid #dee2e6;
-}
-
-.payments-table td {
-  padding: 1rem;
-  border-bottom: 1px solid #dee2e6;
-}
-
-.payments-table tbody tr:hover {
-  background-color: #f8f9fa;
-}
-
-.payments-loading {
-  text-align: center;
-  padding: 3rem;
-  font-size: 1.2rem;
-  color: #666;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 2rem;
-  color: #999;
-}
-
-.payment-type-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  display: inline-block;
-}
-
-.payment-type-down_payment {
-  background-color: #cce5ff;
-  color: #004085;
-}
-
-.payment-type-installment {
-  background-color: #d1ecf1;
-  color: #0c5460;
+.filter-group select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(84, 105, 212, 0.1);
 }
 
 .amount-cell {
-  font-weight: 600;
-  color: #28a745;
+  font-weight: 800;
+  color: var(--success);
 }
 
 .notes-text {
-  font-size: 0.875rem;
-  color: #555;
-  max-width: 200px;
-  display: inline-block;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 250px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .link-button {
   background: none;
   border: none;
-  color: #007bff;
+  color: var(--primary);
+  font-weight: 700;
   cursor: pointer;
-  text-decoration: underline;
-  font-size: 0.875rem;
   padding: 0;
+  font-size: 0.9rem;
+  transition: var(--transition);
 }
 
 .link-button:hover {
-  color: #0056b3;
+  text-decoration: underline;
+  opacity: 0.8;
 }
 
-.action-buttons {
-  display: flex;
-  gap: 0.5rem;
+.empty-state {
+  text-align: center;
+  padding: 3rem !important;
+  color: var(--text-muted);
+  font-style: italic;
 }
-
-.btn-delete {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.2s;
-  background-color: #dc3545;
-  color: white;
-}
-
-.btn-delete:hover {
-  background-color: #c82333;
-}
-

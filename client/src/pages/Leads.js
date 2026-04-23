@@ -1,35 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { FaUserPlus, FaHistory, FaUserTag, FaExchangeAlt, FaEdit, FaTrash } from 'react-icons/fa';
 import './Leads.css';
 
 const Leads = () => {
-  const { isAdmin, user } = useAuth();
   const [leads, setLeads] = useState([]);
-  const [salespersons, setSalespersons] = useState([]);
+  const [dealers, setDealers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAssignModal, setShowAssignModal] = useState(null);
-  const [showStatusUpdateModal, setShowStatusUpdateModal] = useState(null);
-  const [showStatusChangeModal, setShowStatusChangeModal] = useState(null);
-  const [showHistoryModal, setShowHistoryModal] = useState(null);
-  const [statusHistory, setStatusHistory] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [statusUpdateForm, setStatusUpdateForm] = useState({
-    update_date: new Date().toISOString().split('T')[0],
-    activity_type: 'called',
-    description: '',
-  });
-  const [statusChangeForm, setStatusChangeForm] = useState({
+  const [showModal, setShowModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [editingLead, setEditingLead] = useState(null);
+  const [currentLeadHistory, setCurrentLeadHistory] = useState([]);
+  const [currentLeadId, setCurrentLeadId] = useState(null);
+  const { isAdmin, isAccountant, user } = useAuth();
+
+  const [formData, setFormData] = useState({
+    name: '',
+    phone_number: '',
+    email: '',
+    source: 'social_media',
     status: 'new',
+    interest_area: '',
+    notes: '',
   });
-  const [selectedSalesperson, setSelectedSalesperson] = useState('');
+
+  const [assignmentData, setAssignmentData] = useState({
+    dealer_id: '',
+  });
 
   useEffect(() => {
     fetchLeads();
-    if (isAdmin) {
-      fetchSalespersons();
+    if (isAdmin || isAccountant) {
+      fetchDealers();
     }
-  }, [isAdmin]);
+  }, []);
 
   const fetchLeads = async () => {
     try {
@@ -42,414 +48,301 @@ const Leads = () => {
     }
   };
 
-  const fetchSalespersons = async () => {
+  const fetchDealers = async () => {
     try {
       const response = await api.get('/dealers');
-      setSalespersons(response.data);
+      setDealers(response.data);
     } catch (error) {
-      console.error('Error fetching salespersons:', error);
+      console.error('Error fetching dealers:', error);
     }
   };
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls') && !fileName.endsWith('.csv')) {
-      alert('Please upload an Excel file (.xlsx or .xls) or CSV file (.csv)');
-      return;
-    }
-
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-
+  const fetchHistory = async (leadId) => {
     try {
-      const response = await api.post('/leads/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      alert(`Successfully imported ${response.data.imported} leads. ${response.data.skipped} duplicates skipped.`);
+      const response = await api.get(`/leads/${leadId}/history`);
+      setCurrentLeadHistory(response.data);
+      setCurrentLeadId(leadId);
+      setShowHistoryModal(true);
+    } catch (error) {
+      console.error('Error fetching history:', error);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingLead) {
+        await api.put(`/leads/${editingLead.id}`, formData);
+      } else {
+        await api.post('/leads', formData);
+      }
       fetchLeads();
+      setShowModal(false);
+      setEditingLead(null);
+      setFormData({
+        name: '',
+        phone_number: '',
+        email: '',
+        source: 'social_media',
+        status: 'new',
+        interest_area: '',
+        notes: '',
+      });
     } catch (error) {
-      console.error('Error uploading file:', error);
-      alert(error.response?.data?.message || 'Error uploading file');
-    } finally {
-      setUploading(false);
-      e.target.value = ''; // Reset file input
+      console.error('Error saving lead:', error);
+      alert(error.response?.data?.message || 'Error saving lead');
     }
   };
 
-  const handleAssign = async () => {
-    if (!selectedSalesperson) {
-      alert('Please select a salesperson');
-      return;
-    }
-
+  const handleAssign = async (e) => {
+    e.preventDefault();
     try {
-      await api.post(`/leads/${showAssignModal.id}/assign`, {
-        salesperson_id: parseInt(selectedSalesperson),
-      });
+      await api.post(`/leads/${currentLeadId}/assign`, assignmentData);
+      fetchLeads();
+      setShowAssignModal(false);
+      setAssignmentData({ dealer_id: '' });
       alert('Lead assigned successfully');
-      fetchLeads();
-      setShowAssignModal(null);
-      setSelectedSalesperson('');
     } catch (error) {
       console.error('Error assigning lead:', error);
       alert(error.response?.data?.message || 'Error assigning lead');
     }
   };
 
-  const handleAutoAssign = async () => {
-    if (!window.confirm('This will assign all unassigned leads equally to all salespersons. Continue?')) {
-      return;
-    }
-
-    try {
-      const response = await api.post('/leads/auto-assign');
-      alert(`Successfully assigned ${response.data.assigned} leads to ${response.data.salespersons} salespersons`);
-      fetchLeads();
-    } catch (error) {
-      console.error('Error auto-assigning leads:', error);
-      alert(error.response?.data?.message || 'Error auto-assigning leads');
-    }
+  const handleEdit = (lead) => {
+    setEditingLead(lead);
+    setFormData({
+      name: lead.name || '',
+      phone_number: lead.phone_number || '',
+      email: lead.email || '',
+      source: lead.source || 'social_media',
+      status: lead.status || 'new',
+      interest_area: lead.interest_area || '',
+      notes: '',
+    });
+    setShowModal(true);
   };
 
-  const handleStatusUpdate = async (e) => {
-    e.preventDefault();
-    if (!statusUpdateForm.description.trim()) {
-      alert('Please enter a description');
-      return;
-    }
-
-    try {
-      await api.post(`/leads/${showStatusUpdateModal.id}/status-update`, statusUpdateForm);
-      alert('Status update added successfully');
-      fetchLeads();
-      setShowStatusUpdateModal(null);
-      setStatusUpdateForm({
-        update_date: new Date().toISOString().split('T')[0],
-        activity_type: 'called',
-        description: '',
-      });
-    } catch (error) {
-      console.error('Error updating status:', error);
-      alert(error.response?.data?.message || 'Error updating status');
-    }
-  };
-
-  const handleStatusChange = async (e) => {
-    e.preventDefault();
-    const confirmMessage = statusChangeForm.status === 'successful'
-      ? 'This will mark the lead as successful and create a customer record. Continue?'
-      : statusChangeForm.status === 'unsuccessful'
-        ? 'This will mark the lead as unsuccessful and create a customer record. Continue?'
-        : 'Update lead status?';
-
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
-
-    try {
-      await api.put(`/leads/${showStatusChangeModal.id}/status`, {
-        status: statusChangeForm.status,
-      });
-      alert('Lead status updated successfully');
-      fetchLeads();
-      setShowStatusChangeModal(null);
-      setStatusChangeForm({ status: 'new' });
-    } catch (error) {
-      console.error('Error changing status:', error);
-      alert(error.response?.data?.message || 'Error changing status');
-    }
-  };
-
-  const handleViewHistory = async (lead) => {
-    try {
-      const response = await api.get(`/leads/${lead.id}/status-updates`);
-      setStatusHistory(response.data);
-      setShowHistoryModal(lead);
-    } catch (error) {
-      console.error('Error fetching history:', error);
-      alert('Error fetching status history');
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this lead?')) {
+      try {
+        await api.delete(`/leads/${id}`);
+        fetchLeads();
+      } catch (error) {
+        console.error('Error deleting lead:', error);
+        alert('Error deleting lead');
+      }
     }
   };
 
   const getStatusBadge = (status) => {
     const badges = {
-      new: <span className="badge badge-secondary">New</span>,
-      contacted: <span className="badge badge-info">Contacted</span>,
-      on_hold: <span className="badge badge-warning">On Hold</span>,
-      successful: <span className="badge badge-success">Successful</span>,
-      unsuccessful: <span className="badge badge-danger">Unsuccessful</span>,
+      new: <span className="premium-badge premium-badge-info">New</span>,
+      contacted: <span className="premium-badge premium-badge-warning">Contacted</span>,
+      qualified: <span className="premium-badge premium-badge-success">Qualified</span>,
+      lost: <span className="premium-badge premium-badge-danger">Lost</span>,
+      converted: <span className="premium-badge premium-badge-neutral">Converted</span>,
     };
     return badges[status] || status;
   };
 
   if (loading) {
-    return <div className="leads-loading">Loading leads...</div>;
+    return <div className="leads-loading">Initializing Lead Hub...</div>;
   }
 
   return (
-    <div className="leads">
-      <div className="leads-header">
-        <h1 className="leads-title">Leads</h1>
-        <div className="leads-header-actions">
-          {isAdmin && (
-            <>
-              <label className="btn-secondary" style={{ cursor: 'pointer', marginRight: '0.5rem' }}>
-                {uploading ? 'Uploading...' : '+ Upload File'}
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={handleFileUpload}
-                  style={{ display: 'none' }}
-                  disabled={uploading}
-                />
-              </label>
-              <button className="btn-primary" onClick={handleAutoAssign}>
-                Auto Assign Leads
-              </button>
-            </>
-          )}
+    <div className="premium-page">
+      <div className="premium-page-header">
+        <div>
+          <h1>Lead Management</h1>
+          <p>Track and nurture your potential clients effectively.</p>
+        </div>
+        <div className="header-actions">
+          <button
+            className="premium-btn premium-btn-primary"
+            onClick={() => {
+              setEditingLead(null);
+              setFormData({ name: '', phone_number: '', email: '', source: 'social_media', status: 'new', interest_area: '', notes: '' });
+              setShowModal(true);
+            }}
+          >
+            <FaUserPlus /> Add New Lead
+          </button>
         </div>
       </div>
 
-      <div className="leads-table-container">
-        <table className="leads-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Campaign</th>
-              <th>Lead Date</th>
-              <th>Status</th>
-              <th>Assigned To</th>
-              {isAdmin && <th>Actions</th>}
-              {!isAdmin && <th>Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {leads.length === 0 ? (
+      <div className="glass-card">
+        <div className="premium-table-container">
+          <table className="premium-table">
+            <thead>
               <tr>
-                <td colSpan={isAdmin ? 8 : 7} className="empty-state">
-                  No leads found
-                </td>
+                <th>Lead Name</th>
+                <th>Contact info</th>
+                <th>Source</th>
+                <th>Interest</th>
+                <th>Status</th>
+                {(isAdmin || isAccountant) && <th>Assigned To</th>}
+                <th>Actions</th>
               </tr>
-            ) : (
-              leads.map((lead) => (
-                <tr key={lead.id}>
-                  <td>{lead.name}</td>
-                  <td>{lead.email || '-'}</td>
-                  <td>{lead.phone_number || '-'}</td>
-                  <td>{lead.campaign_name || '-'}</td>
-                  <td>{lead.lead_date ? new Date(lead.lead_date).toLocaleDateString() : '-'}</td>
-                  <td>{getStatusBadge(lead.status)}</td>
-                  <td>{lead.assigned_to_name || 'Unassigned'}</td>
-                  <td>
-                    <div className="action-buttons">
-                      {isAdmin && !lead.assigned_to && (
-                        <button
-                          className="btn-assign"
-                          onClick={() => {
-                            setShowAssignModal(lead);
-                            setSelectedSalesperson('');
-                          }}
-                        >
-                          Assign
-                        </button>
-                      )}
-                      {(isAdmin || lead.assigned_to === user?.id) && lead.status !== 'successful' && lead.status !== 'unsuccessful' && (
-                        <>
-                          <button
-                            className="btn-edit"
-                            onClick={() => {
-                              setShowStatusUpdateModal(lead);
-                              setStatusUpdateForm({
-                                update_date: new Date().toISOString().split('T')[0],
-                                activity_type: 'called',
-                                description: '',
-                              });
-                            }}
-                          >
-                            Update Status
-                          </button>
-                          <button
-                            className="btn-secondary"
-                            onClick={() => {
-                              setShowStatusChangeModal(lead);
-                              setStatusChangeForm({ status: lead.status });
-                            }}
-                          >
-                            Change Status
-                          </button>
-                        </>
-                      )}
-                      <button
-                        className="btn-info"
-                        onClick={() => handleViewHistory(lead)}
-                      >
-                        History
-                      </button>
-                    </div>
+            </thead>
+            <tbody>
+              {leads.length === 0 ? (
+                <tr>
+                  <td colSpan={(isAdmin || isAccountant) ? 7 : 6} className="empty-state">
+                    No leads found in your pipeline
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                leads.map((lead) => (
+                  <tr key={lead.id}>
+                    <td style={{ fontWeight: '700' }}>{lead.name}</td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span>{lead.phone_number}</span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{lead.email}</span>
+                      </div>
+                    </td>
+                    <td><span className="premium-badge premium-badge-neutral">{(lead.source || 'other').replace('_', ' ')}</span></td>
+                    <td>{lead.interest_area || '-'}</td>
+                    <td>{getStatusBadge(lead.status)}</td>
+                    {(isAdmin || isAccountant) && (
+                      <td>{lead.assigned_to_name || <span style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>Unassigned</span>}</td>
+                    )}
+                    <td>
+                      <div className="action-buttons">
+                        {(isAdmin || isAccountant) && (
+                          <button
+                            className="premium-btn premium-btn-secondary"
+                            style={{ padding: '0.4rem 0.6rem' }}
+                            title="Assign Lead"
+                            onClick={() => {
+                              setCurrentLeadId(lead.id);
+                              setShowAssignModal(true);
+                            }}
+                          >
+                            <FaExchangeAlt />
+                          </button>
+                        )}
+                        <button
+                          className="premium-btn premium-btn-secondary"
+                          style={{ padding: '0.4rem 0.6rem' }}
+                          title="View History"
+                          onClick={() => fetchHistory(lead.id)}
+                        >
+                          <FaHistory />
+                        </button>
+                        <button
+                          className="premium-btn premium-btn-secondary"
+                          style={{ padding: '0.4rem 0.6rem' }}
+                          title="Edit"
+                          onClick={() => handleEdit(lead)}
+                        >
+                          <FaEdit />
+                        </button>
+                        {isAdmin && (
+                          <button
+                            className="premium-btn premium-btn-danger"
+                            style={{ padding: '0.4rem 0.6rem' }}
+                            title="Delete"
+                            onClick={() => handleDelete(lead.id)}
+                          >
+                            <FaTrash />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Assign Modal */}
-      {showAssignModal && (
-        <div className="modal-overlay" onClick={() => setShowAssignModal(null)}>
+      {/* Add/Edit Modal */}
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Assign Lead to Salesperson</h2>
-            <p><strong>Lead:</strong> {showAssignModal.name}</p>
-            <div className="form-group">
-              <label>Select Salesperson *</label>
-              <select
-                value={selectedSalesperson}
-                onChange={(e) => setSelectedSalesperson(e.target.value)}
-              >
-                <option value="">Select a salesperson</option>
-                {salespersons.map((sp) => (
-                  <option key={sp.id} value={sp.id}>
-                    {sp.name} ({sp.email})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setShowAssignModal(null)}
-              >
-                Cancel
-              </button>
-              <button type="button" className="btn-primary" onClick={handleAssign}>
-                Assign
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Status Update Modal */}
-      {showStatusUpdateModal && (
-        <div className="modal-overlay" onClick={() => setShowStatusUpdateModal(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Daily Status Update</h2>
-            <p><strong>Lead:</strong> {showStatusUpdateModal.name}</p>
-            <form onSubmit={handleStatusUpdate}>
+            <h2>{editingLead ? 'Edit Lead' : 'Add New Lead'}</h2>
+            <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Update Date *</label>
+                <label>Full Name *</label>
                 <input
-                  type="date"
-                  value={statusUpdateForm.update_date}
-                  onChange={(e) =>
-                    setStatusUpdateForm({ ...statusUpdateForm, update_date: e.target.value })
-                  }
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
               </div>
-              <div className="form-group">
-                <label>Activity Type *</label>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      value="called"
-                      checked={statusUpdateForm.activity_type === 'called'}
-                      onChange={(e) =>
-                        setStatusUpdateForm({ ...statusUpdateForm, activity_type: e.target.value })
-                      }
-                    />
-                    <span style={{ marginLeft: '0.5rem' }}>Called</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      value="messaged"
-                      checked={statusUpdateForm.activity_type === 'messaged'}
-                      onChange={(e) =>
-                        setStatusUpdateForm({ ...statusUpdateForm, activity_type: e.target.value })
-                      }
-                    />
-                    <span style={{ marginLeft: '0.5rem' }}>Messaged</span>
-                  </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>Phone Number *</label>
+                  <input
+                    type="text"
+                    value={formData.phone_number}
+                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>Source</label>
+                  <select
+                    value={formData.source}
+                    onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                  >
+                    <option value="social_media">Social Media</option>
+                    <option value="walk_in">Walk-in</option>
+                    <option value="referral">Referral</option>
+                    <option value="website">Website</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  >
+                    <option value="new">New</option>
+                    <option value="contacted">Contacted</option>
+                    <option value="qualified">Qualified</option>
+                    <option value="lost">Lost</option>
+                  </select>
                 </div>
               </div>
               <div className="form-group">
-                <label>Description *</label>
+                <label>Interest Area (Project/Plot Type)</label>
+                <input
+                  type="text"
+                  value={formData.interest_area}
+                  onChange={(e) => setFormData({ ...formData, interest_area: e.target.value })}
+                  placeholder="e.g. 5 Marla Residential, DHA Phase 6"
+                />
+              </div>
+              <div className="form-group">
+                <label>Notes / Update</label>
                 <textarea
-                  value={statusUpdateForm.description}
-                  onChange={(e) =>
-                    setStatusUpdateForm({ ...statusUpdateForm, description: e.target.value })
-                  }
-                  rows="4"
-                  placeholder="Describe what happened during the call or message..."
-                  required
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Enter current interaction details..."
+                  rows="3"
                 />
               </div>
               <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowStatusUpdateModal(null)}
-                >
+                <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowModal(false)}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
-                  Submit
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Status Change Modal */}
-      {showStatusChangeModal && (
-        <div className="modal-overlay" onClick={() => setShowStatusChangeModal(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Change Lead Status</h2>
-            <p><strong>Lead:</strong> {showStatusChangeModal.name}</p>
-            <form onSubmit={handleStatusChange}>
-              <div className="form-group">
-                <label>Status *</label>
-                <select
-                  value={statusChangeForm.status}
-                  onChange={(e) =>
-                    setStatusChangeForm({ ...statusChangeForm, status: e.target.value })
-                  }
-                  required
-                >
-                  <option value="new">New</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="on_hold">On Hold</option>
-                  <option value="successful">Successful</option>
-                  <option value="unsuccessful">Unsuccessful</option>
-                </select>
-                <small style={{ color: '#666', display: 'block', marginTop: '0.5rem' }}>
-                  {statusChangeForm.status === 'successful' && 'This will create a customer with "successful" status'}
-                  {statusChangeForm.status === 'unsuccessful' && 'This will create a customer with "unsuccessful" status'}
-                </small>
-              </div>
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowStatusChangeModal(null)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  Update
+                <button type="submit" className="premium-btn premium-btn-primary">
+                  {editingLead ? 'Update Lead' : 'Create Lead'}
                 </button>
               </div>
             </form>
@@ -459,38 +352,64 @@ const Leads = () => {
 
       {/* History Modal */}
       {showHistoryModal && (
-        <div className="modal-overlay" onClick={() => setShowHistoryModal(null)}>
+        <div className="modal-overlay" onClick={() => setShowHistoryModal(false)}>
           <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-            <h2>Status Update History</h2>
-            <p><strong>Lead:</strong> {showHistoryModal.name}</p>
-            {statusHistory.length === 0 ? (
-              <p style={{ color: '#999', fontStyle: 'italic' }}>No status updates yet</p>
-            ) : (
-              <div className="history-list">
-                {statusHistory.map((update) => (
-                  <div key={update.id} className="history-item">
+            <h2>Interaction History</h2>
+            <div className="history-list">
+              {currentLeadHistory.length === 0 ? (
+                <p className="empty-state">No history recorded for this lead yet.</p>
+              ) : (
+                currentLeadHistory.map((h, i) => (
+                  <div key={i} className="history-item">
                     <div className="history-header">
-                      <span className="badge badge-info">
-                        {update.activity_type === 'called' ? 'Called' : 'Messaged'}
-                      </span>
-                      <span style={{ marginLeft: 'auto', color: '#666', fontSize: '0.875rem' }}>
-                        {new Date(update.update_date).toLocaleDateString()} by {update.updated_by_name}
-                      </span>
+                      <strong>{new Date(h.created_at).toLocaleString()}</strong>
+                      {getStatusBadge(h.status)}
                     </div>
-                    <p style={{ marginTop: '0.5rem', color: '#333' }}>{update.description}</p>
+                    <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--text-main)' }}>{h.notes || 'No notes provided.'}</p>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                      Logged by: {h.created_by_name}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
             <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setShowHistoryModal(null)}
-              >
+              <button className="premium-btn premium-btn-secondary" onClick={() => setShowHistoryModal(false)}>
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Modal */}
+      {showAssignModal && (
+        <div className="modal-overlay" onClick={() => setShowAssignModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Assign Lead to Salesperson</h2>
+            <form onSubmit={handleAssign}>
+              <div className="form-group">
+                <label>Select Salesperson</label>
+                <select
+                  value={assignmentData.dealer_id}
+                  onChange={(e) => setAssignmentData({ dealer_id: e.target.value })}
+                  required
+                >
+                  <option value="">Choose a salesperson...</option>
+                  {dealers.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowAssignModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="premium-btn premium-btn-primary">
+                  Confirm Assignment
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -499,4 +418,3 @@ const Leads = () => {
 };
 
 export default Leads;
-

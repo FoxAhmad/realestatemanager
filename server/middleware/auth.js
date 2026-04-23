@@ -23,6 +23,13 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
+const adminAndAccountantOnly = (req, res, next) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'accountant') {
+    return res.status(403).json({ message: 'Access denied. Admins and Accountants only.' });
+  }
+  next();
+};
+
 const dealerOnly = (req, res, next) => {
   if (req.user.role !== 'dealer') {
     return res.status(403).json({ message: 'Access denied. Salesperson only.' });
@@ -30,5 +37,5 @@ const dealerOnly = (req, res, next) => {
   next();
 };
 
-module.exports = { auth, adminOnly, dealerOnly };
+module.exports = { auth, adminOnly, adminAndAccountantOnly, dealerOnly };
 

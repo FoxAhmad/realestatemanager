@@ -1,96 +1,65 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { FaArrowLeft, FaPlus, FaTrash, FaFileInvoiceDollar, FaUser, FaMapMarkerAlt } from 'react-icons/fa';
 import './DealDetail.css';
 
 const DealDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isAccountant } = useAuth();
   const [deal, setDeal] = useState(null);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
-    payment_type: 'down_payment',
     amount: '',
-    payment_date: '',
+    payment_type: 'installment',
+    payment_date: new Date().toISOString().split('T')[0],
     notes: '',
   });
-  const [editForm, setEditForm] = useState({});
 
-  useEffect(() => {
-    fetchDeal();
-  }, [id]);
-
-  const fetchDeal = async () => {
+  const fetchDealDetails = useCallback(async () => {
     try {
-      const response = await api.get(`/deals/${id}`);
-      setDeal(response.data);
-      setPayments(response.data.payments || []);
-      setEditForm({
-        status: response.data.status,
-        original_price: response.data.original_price || '',
-        sale_price: response.data.sale_price || '',
-        demand_price: response.data.demand_price || '',
-        difference_amount: response.data.difference_amount || '',
-        remaining_price: response.data.remaining_price || '',
-        remaining_price_time: response.data.remaining_price_time || '',
-        is_build: response.data.is_build || false,
-        admin_cash: response.data.admin_cash || false,
-        plot_info: response.data.plot_info || '',
-        house_address: response.data.house_address || '',
-        house_info: response.data.house_info || '',
-        sale_price_location: response.data.sale_price_location || '',
-      });
+      const dealRes = await api.get(`/deals/${id}`);
+      setDeal(dealRes.data);
+      const paymentsRes = await api.get(`/deals/${id}/payments`);
+      setPayments(paymentsRes.data);
     } catch (error) {
-      console.error('Error fetching deal:', error);
+      console.error('Error fetching deal details:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchDealDetails();
+  }, [fetchDealDetails]);
 
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/payments', {
-        ...paymentForm,
-        deal_id: id,
-      });
-      fetchDeal();
+      await api.post(`/deals/${id}/payments`, paymentForm);
+      fetchDealDetails();
       setShowPaymentModal(false);
       setPaymentForm({
-        payment_type: 'down_payment',
         amount: '',
-        payment_date: '',
+        payment_type: 'installment',
+        payment_date: new Date().toISOString().split('T')[0],
         notes: '',
       });
     } catch (error) {
-      console.error('Error creating payment:', error);
-      alert('Error creating payment');
+      console.error('Error recording payment:', error);
+      alert(error.response?.data?.message || 'Error recording payment');
     }
   };
 
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    if (!isAdmin) return;
-    try {
-      await api.put(`/deals/${id}`, editForm);
-      fetchDeal();
-      setShowEditModal(false);
-    } catch (error) {
-      console.error('Error updating deal:', error);
-      alert('Error updating deal');
-    }
-  };
-
-  const handleDeletePayment = async (paymentId) => {
-    if (window.confirm('Are you sure you want to delete this payment?')) {
+  const handlePaymentDelete = async (paymentId) => {
+    if (window.confirm('Are you sure you want to delete this payment record?')) {
       try {
-        await api.delete(`/payments/${paymentId}`);
-        fetchDeal();
+        await api.delete(`/deals/payments/${paymentId}`);
+        fetchDealDetails();
       } catch (error) {
         console.error('Error deleting payment:', error);
         alert('Error deleting payment');
@@ -98,183 +67,133 @@ const DealDetail = () => {
     }
   };
 
-  if (loading) {
-    return <div className="deal-detail-loading">Loading deal details...</div>;
-  }
+  if (loading) return <div className="deal-detail-loading">Loading Transaction Profile...</div>;
+  if (!deal) return <div className="deal-detail-error">Deal not found.</div>;
 
-  if (!deal) {
-    return <div className="deal-detail-error">Deal not found</div>;
-  }
-
-  const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-  const remaining = deal.sale_price ? parseFloat(deal.sale_price) - totalPaid : 0;
+  const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+  const remainingBalance = parseFloat(deal.total_amount) - totalPaid;
 
   return (
-    <div className="deal-detail">
-      <div className="deal-detail-header">
-        <button className="btn-back" onClick={() => navigate('/deals')}>
-          ← Back to Deals
-        </button>
-        {isAdmin && (
-          <button
-            className="btn-primary"
-            onClick={() => setShowEditModal(true)}
-          >
-            Edit Deal
+    <div className="premium-page">
+      <div className="premium-page-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <button className="premium-btn premium-btn-secondary" onClick={() => navigate('/deals')}>
+            <FaArrowLeft /> Back
           </button>
-        )}
+          <div>
+            <h1>Deal Profile #{deal.id}</h1>
+            <p>Comprehensive overview of property assignment and payment status.</p>
+          </div>
+        </div>
+        <div>
+          <span className={`premium-badge ${deal.status === 'done' ? 'premium-badge-success' : 'premium-badge-warning'}`}>
+            {(deal?.status || 'Active').replace('_', ' ')}
+          </span>
+        </div>
       </div>
 
       <div className="deal-detail-content">
-        <div className="deal-info-card">
-          <h2>Deal Information</h2>
-          <div className="info-grid">
-            <div className="info-item">
-              <label>Deal ID</label>
-              <span>{deal.id}</span>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+          {/* Customer & Asset Info */}
+          <div className="glass-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              <FaUser style={{ color: 'var(--primary)' }} />
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Associate Information</h2>
             </div>
-            <div className="info-item">
-              <label>Status</label>
-              <span className={`status-badge status-${deal.status}`}>
-                {deal.status.replace('_', ' ').toUpperCase()}
-              </span>
-            </div>
-            <div className="info-item">
-              <label>Customer</label>
-              <span>{deal.customer_name || '-'}</span>
-            </div>
-            <div className="info-item">
-              <label>Salesperson</label>
-              <span>{deal.dealer_name}</span>
-            </div>
-            {deal.inventory_address && (
+            <div className="info-grid">
               <div className="info-item">
-                <label>Inventory</label>
-                <span>{deal.inventory_category} - {deal.inventory_address}</span>
+                <label>Customer</label>
+                <span>{deal.customer_name}</span>
               </div>
-            )}
-            <div className="info-item">
-              <label>Property Type</label>
-              <span>{deal.property_type.replace('_', ' ').toUpperCase()}</span>
-            </div>
-            <div className="info-item">
-              <label>Original Price</label>
-              <span>
-                {deal.original_price
-                  ? `$${parseFloat(deal.original_price).toLocaleString()}`
-                  : '-'}
-              </span>
-            </div>
-            <div className="info-item">
-              <label>Sale Price</label>
-              <span>
-                {deal.sale_price
-                  ? `$${parseFloat(deal.sale_price).toLocaleString()}`
-                  : '-'}
-              </span>
-            </div>
-            <div className="info-item">
-              <label>Profit</label>
-              <span>
-                {deal.profit
-                  ? `$${parseFloat(deal.profit).toLocaleString()} (${deal.profit_percentage}%)`
-                  : '-'}
-              </span>
-            </div>
-            {deal.plot_info && (
-              <div className="info-item full-width">
-                <label>Plot Info</label>
-                <span>{deal.plot_info}</span>
+              <div className="info-item">
+                <label>CNIC</label>
+                <span>{deal.customer_cnic}</span>
               </div>
-            )}
-            {deal.house_address && (
-              <div className="info-item full-width">
-                <label>House Address</label>
-                <span>{deal.house_address}</span>
+              <div className="info-item">
+                <label>Salesperson</label>
+                <span>{deal.dealer_name}</span>
               </div>
-            )}
-            {deal.house_info && (
-              <div className="info-item full-width">
-                <label>House Info</label>
-                <span>{deal.house_info}</span>
+            </div>
+            <hr style={{ margin: '1.5rem 0', border: 'none', borderTop: '1px solid #f1f5f9' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              <FaMapMarkerAlt style={{ color: 'var(--primary)' }} />
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Asset Details</h2>
+            </div>
+            <div className="info-grid">
+              <div className="info-item">
+                <label>Address</label>
+                <span>{deal.inventory_address}</span>
               </div>
-            )}
-            {deal.plots && deal.plots.length > 0 && (
-              <div className="info-item full-width">
-                <label>Plots Used in Deal</label>
-                <div style={{ marginTop: '0.5rem' }}>
-                  {deal.plots.map((plot, index) => (
-                    <span
-                      key={plot.id}
-                      style={{
-                        display: 'inline-block',
-                        background: '#f8f9fa',
-                        padding: '0.25rem 0.75rem',
-                        borderRadius: '4px',
-                        marginRight: '0.5rem',
-                        marginBottom: '0.5rem',
-                        fontSize: '0.875rem',
-                      }}
-                    >
-                      {plot.plot_number} ({plot.status})
-                    </span>
-                  ))}
-                </div>
+              <div className="info-item">
+                <label>Plot Number</label>
+                <span style={{ color: 'var(--primary)', fontWeight: 800 }}>{deal.plot_number || 'N/A'}</span>
+              </div>
+              <div className="info-item">
+                <label>Category</label>
+                <span>{deal.inventory_category}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Financial Summary */}
+          <div className="glass-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              <FaFileInvoiceDollar style={{ color: 'var(--primary)' }} />
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Financial Status</h2>
+            </div>
+            <div className="payment-summary">
+              <div className="summary-item">
+                <label>Total Value</label>
+                <span className="amount">${parseFloat(deal.total_amount).toLocaleString()}</span>
+              </div>
+              <div className="summary-item">
+                <label>Paid Amount</label>
+                <span className="amount" style={{ color: 'var(--success)' }}>${totalPaid.toLocaleString()}</span>
+              </div>
+              <div className="summary-item">
+                <label>Remaining</label>
+                <span className="amount remaining">${remainingBalance.toLocaleString()}</span>
+              </div>
+            </div>
+            {deal.notes && (
+              <div className="info-item" style={{ marginTop: '1.5rem' }}>
+                <label>Special Notes</label>
+                <p style={{ margin: 0, fontSize: '0.9rem', fontStyle: 'italic', color: 'var(--text-muted)' }}>{deal.notes}</p>
               </div>
             )}
           </div>
         </div>
 
-        <div className="payments-section">
-          <div className="payments-header">
-            <h2>Payments</h2>
-            <button
-              className="btn-primary"
-              onClick={() => setShowPaymentModal(true)}
-            >
-              + Add Payment
-            </button>
+        {/* Payments Table Area */}
+        <div className="glass-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Ledger Entries / Payments</h2>
+            {(isAdmin || isAccountant) && (
+              <button className="premium-btn premium-btn-primary" onClick={() => setShowPaymentModal(true)}>
+                <FaPlus /> Post Payment
+              </button>
+            )}
           </div>
-
-          <div className="payment-summary">
-            <div className="summary-item">
-              <label>Total Paid</label>
-              <span className="amount">${totalPaid.toLocaleString()}</span>
-            </div>
-            <div className="summary-item">
-              <label>Remaining</label>
-              <span className="amount remaining">
-                ${remaining.toLocaleString()}
-              </span>
-            </div>
-          </div>
-
+          
           <div className="payments-list">
             {payments.length === 0 ? (
-              <div className="empty-state">No payments recorded</div>
+              <div className="empty-state">No payment records found for this deal.</div>
             ) : (
-              payments.map((payment) => (
-                <div key={payment.id} className="payment-item">
-                  <div className="payment-info">
-                    <div className="payment-type">
-                      {payment.payment_type.replace('_', ' ').toUpperCase()}
-                    </div>
-                    <div className="payment-amount">
-                      ${parseFloat(payment.amount).toLocaleString()}
-                    </div>
-                    <div className="payment-date">
-                      {new Date(payment.payment_date).toLocaleDateString()}
-                    </div>
-                    {payment.notes && (
-                      <div className="payment-notes">{payment.notes}</div>
-                    )}
+              payments.map((p) => (
+                <div key={p.id} className="payment-item">
+                  <div className="payment-main">
+                    <div className="payment-type">{p.payment_type.toUpperCase()}</div>
+                    <div className="payment-date">{new Date(p.payment_date).toLocaleDateString()}</div>
                   </div>
-                  <button
-                    className="btn-delete-small"
-                    onClick={() => handleDeletePayment(payment.id)}
-                  >
-                    Delete
-                  </button>
+                  <div className="payment-val" style={{ textAlign: 'right' }}>
+                    <div className="payment-amount">${parseFloat(p.amount).toLocaleString()}</div>
+                    {p.notes && <div className="payment-notes">{p.notes}</div>}
+                  </div>
+                  {(isAdmin || isAccountant) && (
+                    <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} onClick={() => handlePaymentDelete(p.id)}>
+                      <FaTrash />
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -283,214 +202,56 @@ const DealDetail = () => {
       </div>
 
       {showPaymentModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowPaymentModal(false)}
-        >
+        <div className="modal-overlay" onClick={() => setShowPaymentModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Add Payment</h2>
+            <h2>Record Transaction</h2>
             <form onSubmit={handlePaymentSubmit}>
               <div className="form-group">
-                <label>Payment Type *</label>
-                <select
-                  value={paymentForm.payment_type}
-                  onChange={(e) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      payment_type: e.target.value,
-                    })
-                  }
-                  required
-                >
-                  <option value="down_payment">Down Payment</option>
-                  <option value="installment">Installment</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Amount *</label>
+                <label>Payment Amount *</label>
                 <input
                   type="number"
                   step="0.01"
                   value={paymentForm.amount}
-                  onChange={(e) =>
-                    setPaymentForm({ ...paymentForm, amount: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...paymentForm, amount: e.target.value })}
                   required
                 />
               </div>
-              <div className="form-group">
-                <label>Payment Date *</label>
-                <input
-                  type="date"
-                  value={paymentForm.payment_date}
-                  onChange={(e) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      payment_date: e.target.value,
-                    })
-                  }
-                  required
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                <div className="form-group">
+                  <label>Type</label>
+                  <select
+                    value={paymentForm.payment_type}
+                    onChange={(e) => setFormData({ ...paymentForm, payment_type: e.target.value })}
+                  >
+                    <option value="installment">Installment</option>
+                    <option value="booking">Booking</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Date</label>
+                  <input
+                    type="date"
+                    value={paymentForm.payment_date}
+                    onChange={(e) => setFormData({ ...paymentForm, payment_date: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
               <div className="form-group">
-                <label>Notes</label>
+                <label>Transaction Notes</label>
                 <textarea
                   value={paymentForm.notes}
-                  onChange={(e) =>
-                    setPaymentForm({ ...paymentForm, notes: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...paymentForm, notes: e.target.value })}
                   rows="3"
                 />
               </div>
               <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowPaymentModal(false)}
-                >
+                <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowPaymentModal(false)}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
-                  Add Payment
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showEditModal && isAdmin && (
-        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-          <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-            <h2>Edit Deal</h2>
-            <form onSubmit={handleEditSubmit}>
-              <div className="form-group">
-                <label>Status *</label>
-                <select
-                  value={editForm.status}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, status: e.target.value })
-                  }
-                  required
-                >
-                  <option value="in_progress">In Progress</option>
-                  <option value="deal_done">Deal Done</option>
-                  <option value="deal_not_done">Deal Not Done</option>
-                </select>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Original Price</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editForm.original_price}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, original_price: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Sale Price</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editForm.sale_price}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, sale_price: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Demand Price</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editForm.demand_price}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, demand_price: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Difference Amount</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editForm.difference_amount}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        difference_amount: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Remaining Price</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editForm.remaining_price}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, remaining_price: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Remaining Price Time</label>
-                  <input
-                    type="date"
-                    value={editForm.remaining_price_time}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        remaining_price_time: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={editForm.is_build}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, is_build: e.target.checked })
-                      }
-                    />
-                    Is Build
-                  </label>
-                </div>
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={editForm.admin_cash}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, admin_cash: e.target.checked })
-                      }
-                    />
-                    Admin Cash
-                  </label>
-                </div>
-              </div>
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowEditModal(false)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  Update Deal
+                <button type="submit" className="premium-btn premium-btn-primary">
+                  Confirm Payment
                 </button>
               </div>
             </form>
@@ -502,4 +263,3 @@ const DealDetail = () => {
 };
 
 export default DealDetail;
-

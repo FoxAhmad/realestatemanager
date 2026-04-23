@@ -1,15 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 :root {
-  --brown-primary: #fd9c00;
-  --brown-light: #f4c2a1;
-  --brown-dark: #c97d1a;
-  --brown-lighter: #fae4d3;
-  --brown-darker: #b8731a;
-  --black: #1a1a1a;
-  --black-light: #2d2d2d;
+  --primary: #5469d4;
+  --primary-hover: #4355b9;
+  --bg-main: #f0f2f5;
+  --text-main: #1a1f36;
+  --text-muted: #697386;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  --sidebar-bg: #1a1f36;
   --white: #ffffff;
-  --gray-light: #faf8f5;
-  --gray: #e8e0d6;
-  --gray-dark: #999;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --info: #0ea5e9;
+  --border-radius: 12px;
+  --transition: all 0.3s ease;
 }
 
 * {
@@ -19,16 +26,168 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--gray-light);
-  color: var(--black);
+  background-color: var(--bg-main);
+  color: var(--text-main);
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* Premium Page Layout */
+.premium-page {
+  padding: 2.5rem;
+  min-height: calc(100vh - 120px);
+}
+
+.premium-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 2.5rem;
+}
+
+.premium-page-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  color: var(--text-main);
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.premium-page-header p {
+  margin: 0.5rem 0 0 0;
+  color: var(--primary);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* Glass Card */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 20px;
+  padding: 2rem;
+  transition: var(--transition);
+}
+
+.glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.1);
+}
+
+/* Premium Table */
+.premium-table-container {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 16px;
+  background: transparent;
+}
+
+.premium-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.premium-table th {
+  background: rgba(248, 250, 252, 0.8);
+  padding: 1rem 1.5rem;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+}
+
+.premium-table td {
+  padding: 1.25rem 1.5rem;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  transition: var(--transition);
+}
+
+.premium-table tr:last-child td {
+  border-bottom: none;
+}
+
+.premium-table tr:hover td {
+  background: rgba(248, 250, 252, 0.5);
+}
+
+/* Premium Buttons */
+.premium-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.premium-btn-primary {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(84, 105, 212, 0.2);
+}
+
+.premium-btn-primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.premium-btn-secondary {
+  background: #f8fafc;
+  color: var(--text-main);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.premium-btn-secondary:hover {
+  background: #f1f5f9;
+}
+
+.premium-btn-danger {
+  background: var(--danger);
+  color: white;
+}
+
+.premium-btn-danger:hover {
+  background: #dc2626;
+}
+
+/* Badges */
+.premium-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.premium-badge-success { background: #dcfce7; color: #166534; }
+.premium-badge-warning { background: #fef3c7; color: #92400e; }
+.premium-badge-danger { background: #fee2e2; color: #991b1b; }
+.premium-badge-info { background: #e0f2fe; color: #075985; }
+.premium-badge-neutral { background: #f1f5f9; color: #475569; }
+
+/* Global Loading State */
+.premium-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--primary);
 }

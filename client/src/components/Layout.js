@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { 
-  FaChevronLeft, 
-  FaChevronRight, 
-  FaHome, 
-  FaUserTie, 
-  FaUsers, 
-  FaHandshake, 
+import {
+  FaChevronLeft,
+  FaChevronRight,
+  FaHome,
+  FaUserTie,
+  FaUsers,
+  FaHandshake,
   FaChartLine,
   FaWarehouse,
   FaMoneyBillWave,
-  FaClipboardList,
   FaDollarSign,
-  FaUserPlus
+  FaUserPlus,
+  FaUserShield,
+  FaBook,
+  FaExchangeAlt
 } from 'react-icons/fa';
 import './Layout.css';
 
@@ -30,48 +32,34 @@ const Layout = () => {
       <nav className="top-navbar">
         <div className="top-navbar-content">
           <div className="navbar-brand">
-            <img src="/images/logod.png" alt="Universal Holdings" className="navbar-logo" />
+            <img src="./images/logoUm.png" alt="logo" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
+            <h1 className='text-white'>Universal Manager</h1>
           </div>
-          {/* <div className="top-nav-links">
-            <Link to="/dashboard" className={`top-nav-link ${isActive('/dashboard') ? 'active' : ''}`}>
-              Dashboard
-            </Link>
-            {user?.role === 'admin' && (
-              <Link to="/dealers" className={`top-nav-link ${isActive('/dealers') ? 'active' : ''}`}>
-                Salespersons
-              </Link>
-            )}
-            <Link to="/customers" className={`top-nav-link ${isActive('/customers') ? 'active' : ''}`}>
-              Customers
-            </Link>
-            <Link to="/deals" className={`top-nav-link ${isActive('/deals') ? 'active' : ''}`}>
-              Deals
-            </Link>
-            <Link to="/finance" className={`top-nav-link ${isActive('/finance') ? 'active' : ''}`}>
-              Finance
-            </Link>
-          </div> */}
           <div className="navbar-user-section">
-            <span className="user-name">{user?.name}</span>
-            <span className="user-role">{user?.role}</span>
+            <div className="user-info">
+              <span className="user-name">{user?.name}</span>
+              <span className="user-role">{user?.role}</span>
+            </div>
             <button onClick={logout} className="logout-btn">Logout</button>
           </div>
         </div>
       </nav>
 
       <div className="layout-body">
-        {/* Left Sidebar - Dark */}
+        {/* Left Sidebar - Premium Dark */}
         <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
+          <button
+            className="sidebar-toggle-btn"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label="Toggle sidebar"
+          >
+            {sidebarOpen ? <FaChevronLeft /> : <FaChevronRight />}
+          </button>
+
           <div className="sidebar-header">
-            {sidebarOpen && <span>Real Estate Management System</span>}
-            <button 
-              className="sidebar-toggle-btn" 
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              aria-label="Toggle sidebar"
-            >
-              {sidebarOpen ? <FaChevronLeft /> : <FaChevronRight />}
-            </button>
+            {sidebarOpen && <span>Command Center</span>}
           </div>
+
           <nav className="sidebar-nav">
             <div className="sidebar-section">
               <Link
@@ -83,18 +71,32 @@ const Layout = () => {
                 {sidebarOpen && <span>Dashboard</span>}
               </Link>
             </div>
+
             {user?.role === 'admin' && (
-              <div className="sidebar-section">
-                <Link
-                  to="/dealers"
-                  className={`sidebar-submenu-item ${isActive('/dealers') ? 'active' : ''}`}
-                  title="Salespersons"
-                >
-                  <FaUserTie className="sidebar-icon" />
-                  {sidebarOpen && <span>Salespersons</span>}
-                </Link>
-              </div>
+              <>
+                <div className="sidebar-section">
+                  <Link
+                    to="/dealers"
+                    className={`sidebar-submenu-item ${isActive('/dealers') ? 'active' : ''}`}
+                    title="Salespersons"
+                  >
+                    <FaUserTie className="sidebar-icon" />
+                    {sidebarOpen && <span>Salespersons</span>}
+                  </Link>
+                </div>
+                <div className="sidebar-section">
+                  <Link
+                    to="/employees"
+                    className={`sidebar-submenu-item ${isActive('/employees') ? 'active' : ''}`}
+                    title="Employees"
+                  >
+                    <FaUserShield className="sidebar-icon" />
+                    {sidebarOpen && <span>User Roles</span>}
+                  </Link>
+                </div>
+              </>
             )}
+
             <div className="sidebar-section">
               <Link
                 to="/leads"
@@ -105,6 +107,7 @@ const Layout = () => {
                 {sidebarOpen && <span>Leads</span>}
               </Link>
             </div>
+
             <div className="sidebar-section">
               <Link
                 to="/customers"
@@ -115,6 +118,7 @@ const Layout = () => {
                 {sidebarOpen && <span>Customers</span>}
               </Link>
             </div>
+
             <div className="sidebar-section">
               <Link
                 to="/deals"
@@ -125,6 +129,20 @@ const Layout = () => {
                 {sidebarOpen && <span>Deals</span>}
               </Link>
             </div>
+
+            {user?.role !== 'customer' && (
+              <div className="sidebar-section">
+                <Link
+                  to="/dealer-exchanges"
+                  className={`sidebar-submenu-item ${isActive('/dealer-exchanges') ? 'active' : ''}`}
+                  title="Dealer Mutuals"
+                >
+                  <FaExchangeAlt className="sidebar-icon" />
+                  {sidebarOpen && <span>Dealer Mutuals</span>}
+                </Link>
+              </div>
+            )}
+
             <div className="sidebar-section">
               <Link
                 to="/finance"
@@ -135,6 +153,18 @@ const Layout = () => {
                 {sidebarOpen && <span>Finance</span>}
               </Link>
             </div>
+
+            <div className="sidebar-section">
+              <Link
+                to="/ledger"
+                className={`sidebar-submenu-item ${isActive('/ledger') ? 'active' : ''}`}
+                title="Slip Record"
+              >
+                <FaBook className="sidebar-icon" />
+                {sidebarOpen && <span>Slip Record</span>}
+              </Link>
+            </div>
+
             <div className="sidebar-section">
               <Link
                 to="/inventory"
@@ -145,16 +175,7 @@ const Layout = () => {
                 {sidebarOpen && <span>Inventory</span>}
               </Link>
             </div>
-            <div className="sidebar-section">
-              <Link
-                to="/inventory-requests"
-                className={`sidebar-submenu-item ${isActive('/inventory-requests') ? 'active' : ''}`}
-                title="Inventory Requests"
-              >
-                <FaClipboardList className="sidebar-icon" />
-                {sidebarOpen && <span>Inventory Requests</span>}
-              </Link>
-            </div>
+
             <div className="sidebar-section">
               <Link
                 to="/payments"
@@ -165,6 +186,7 @@ const Layout = () => {
                 {sidebarOpen && <span>Payments</span>}
               </Link>
             </div>
+
             <div className="sidebar-section">
               <Link
                 to="/investors"
@@ -187,7 +209,8 @@ const Layout = () => {
       {/* Footer */}
       <footer className="app-footer">
         <div className="footer-logo-container">
-        <p>Powered by</p><img src="/images/logo.png" alt="Universal Holdings" className="footer-logo" />
+          <p>Powered by</p>
+          <img src="/images/logo.png" alt="Universal Holdings" className="footer-logo" />
         </div>
       </footer>
     </div>

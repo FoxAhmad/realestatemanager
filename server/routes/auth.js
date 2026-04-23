@@ -65,11 +65,11 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Only allow login for admin and dealer roles
+    // Only allow login for admin, accountant, and dealer roles
     // Salespersons can only login with accounts created by admin through /api/dealers
-    if (user.role !== 'admin' && user.role !== 'dealer') {
+    if (user.role !== 'admin' && user.role !== 'dealer' && user.role !== 'accountant') {
       return res.status(403).json({ 
-        message: 'Access denied. Only admin and salesperson accounts can login. Salespersons must be created by admin.' 
+        message: 'Access denied. Only admin, accountant, and salesperson accounts can login. Salespersons must be created by admin.' 
       });
     }
 

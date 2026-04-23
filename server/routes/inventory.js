@@ -1,53 +1,25 @@
 const express = require('express');
 const router = express.Router();
-const { auth, adminOnly } = require('../middleware/auth');
+const { auth, adminOnly, adminAndAccountantOnly } = require('../middleware/auth');
 const db = require('../config/database');
 
-// Get available inventory for requests (all users can see available inventory)
-// Shows inventory that has at least one available plot
-router.get('/available', auth, async (req, res) => {
-  try {
-    const result = await db.query(`
-      SELECT DISTINCT i.*
-      FROM inventory i
-      WHERE i.status = 'available' 
-        AND i.assigned_to IS NULL
-        AND EXISTS (
-          SELECT 1 FROM inventory_plots ip 
-          WHERE ip.inventory_id = i.id 
-          AND ip.status = 'available'
-          AND ip.assigned_to IS NULL
-        )
-      ORDER BY i.created_at DESC
-    `);
-    
-    // For each inventory item, fetch available plots
-    for (let item of result.rows) {
-      const availablePlotsResult = await db.query(`
-        SELECT ip.id, ip.plot_number, ip.status
-        FROM inventory_plots ip
-        WHERE ip.inventory_id = $1 
-          AND ip.status = 'available'
-          AND ip.assigned_to IS NULL
-        ORDER BY ip.plot_number ASC
-      `, [item.id]);
-      item.available_plots = availablePlotsResult.rows;
-    }
-    
-    res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
+// GET /available removed as part of removing inventory requests
 
-// Get all inventory (Admin sees all, Salespersons see only assigned to them)
+// Get all inventory (Admin, Accountant, and Employees see all)
 router.get('/', auth, async (req, res) => {
   try {
+    const userResult = await db.query('SELECT role, is_employee FROM users WHERE id = $1', [req.user.id]);
+    const userData = userResult.rows[0];
+    const seeAll = userData.role === 'admin' || userData.role === 'accountant' || userData.is_employee || userData.role === 'dealer';
+
     let result;
-    if (req.user.role === 'admin') {
+    if (seeAll) {
       result = await db.query(`
         SELECT i.*, u.name as assigned_to_name,
-               COALESCE(SUM(CASE WHEN d.status != 'deal_not_done' THEN d.inventory_quantity_used ELSE 0 END), 0) as used_quantity
+               COALESCE(SUM(CASE WHEN d.status != 'deal_not_done' THEN d.inventory_quantity_used ELSE 0 END), 0) as used_quantity,
+               (SELECT plot_type FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as plot_type,
+               (SELECT plot_category FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as plot_category,
+               (SELECT size FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as size
         FROM inventory i
         LEFT JOIN users u ON i.assigned_to = u.id
         LEFT JOIN deals d ON i.id = d.inventory_id
@@ -55,59 +27,25 @@ router.get('/', auth, async (req, res) => {
         ORDER BY i.created_at DESC
       `);
       
-      // Fetch all plot assignments with assignee details for each inventory item
+      // Fetch all plot assignments with details for each inventory item
       for (let item of result.rows) {
-        const plotsWithAssigneesResult = await db.query(`
+        const plotsResult = await db.query(`
           SELECT 
             ip.id as plot_id,
             ip.plot_number,
             ip.status as plot_status,
+            ip.size,
+            ip.plot_category,
+            ip.plot_type,
             u.id as assigned_to_id,
-            u.name as assigned_to_name,
-            u.email as assigned_to_email
+            u.name as assigned_to_name
           FROM inventory_plots ip
           LEFT JOIN users u ON ip.assigned_to = u.id
           WHERE ip.inventory_id = $1
           ORDER BY ip.plot_number ASC
         `, [item.id]);
         
-        // Group plots by assignee
-        const assigneesMap = new Map();
-        const unassignedPlots = [];
-        
-        plotsWithAssigneesResult.rows.forEach(plot => {
-          if (plot.assigned_to_id) {
-            if (!assigneesMap.has(plot.assigned_to_id)) {
-              assigneesMap.set(plot.assigned_to_id, {
-                id: plot.assigned_to_id,
-                name: plot.assigned_to_name,
-                email: plot.assigned_to_email,
-                plots: []
-              });
-            }
-            assigneesMap.get(plot.assigned_to_id).plots.push({
-              id: plot.plot_id,
-              plot_number: plot.plot_number,
-              status: plot.plot_status
-            });
-          } else {
-            unassignedPlots.push({
-              id: plot.plot_id,
-              plot_number: plot.plot_number,
-              status: plot.plot_status
-            });
-          }
-        });
-        
-        item.plot_assignments = Array.from(assigneesMap.values());
-        item.unassigned_plots = unassignedPlots;
-        
-        // Also keep the old all_assignees for backward compatibility
-        item.all_assignees = Array.from(assigneesMap.values()).map(a => ({
-          id: a.id,
-          name: a.name,
-          email: a.email
-        }));
+        item.plots = plotsResult.rows;
       }
     } else {
       // Salespersons see ALL assigned inventory (either via inventory.assigned_to OR via plot assignments)
@@ -117,6 +55,9 @@ router.get('/', auth, async (req, res) => {
       result = await db.query(`
         SELECT DISTINCT i.*, u.name as assigned_to_name,
                COALESCE(SUM(CASE WHEN d.status != 'deal_not_done' THEN d.inventory_quantity_used ELSE 0 END), 0) as used_quantity,
+               (SELECT plot_type FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as plot_type,
+               (SELECT plot_category FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as plot_category,
+               (SELECT size FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as size,
                CASE 
                  WHEN i.assigned_to = $1 THEN true
                  WHEN EXISTS (SELECT 1 FROM inventory_plots ip WHERE ip.inventory_id = i.id AND ip.assigned_to = $1) THEN true
@@ -275,10 +216,10 @@ const parsePlotNumbers = (plotNumbersInput) => {
     .filter(num => num.length > 0);
 };
 
-// Create inventory (Admin only)
-router.post('/', auth, adminOnly, async (req, res) => {
+// Create inventory (Admin and Accountant)
+router.post('/', auth, adminAndAccountantOnly, async (req, res) => {
   try {
-    const { category, address, price, quantity, plot_numbers } = req.body;
+    const { category, address, price, quantity, plot_numbers, plot_type, plot_category, size } = req.body;
 
     if (!category || !address || !price) {
       return res.status(400).json({ message: 'Category, address, and price are required' });
@@ -314,17 +255,17 @@ router.post('/', auth, adminOnly, async (req, res) => {
     if (parsedPlotNumbers.length > 0) {
       for (const plotNumber of parsedPlotNumbers) {
         await db.query(`
-          INSERT INTO inventory_plots (inventory_id, plot_number, status)
-          VALUES ($1, $2, 'available')
-        `, [inventoryId, plotNumber]);
+          INSERT INTO inventory_plots (inventory_id, plot_number, status, plot_type, plot_category, size)
+          VALUES ($1, $2, 'available', $3, $4, $5)
+        `, [inventoryId, plotNumber, plot_type || 'R', plot_category || 'standard', size || null]);
       }
     } else {
       // If no plot numbers provided, create placeholder plots based on quantity
       for (let i = 1; i <= qty; i++) {
         await db.query(`
-          INSERT INTO inventory_plots (inventory_id, plot_number, status)
-          VALUES ($1, $2, 'available')
-        `, [inventoryId, `${category}-${i}`]);
+          INSERT INTO inventory_plots (inventory_id, plot_number, status, plot_type, plot_category, size)
+          VALUES ($1, $2, 'available', $3, $4, $5)
+        `, [inventoryId, `${category}-${i}`, plot_type || 'R', plot_category || 'standard', size || null]);
       }
     }
 
@@ -346,11 +287,14 @@ router.post('/', auth, adminOnly, async (req, res) => {
   }
 });
 
-// Update inventory (Admin only)
-router.put('/:id', auth, adminOnly, async (req, res) => {
+// Update inventory (Admin and Accountant)
+router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
   try {
-    const { category, address, price, quantity, status, assigned_to } = req.body;
+    const { category, address, price, quantity, status, assigned_to, plot_numbers, merge_ids, plot_type, plot_category, size } = req.body;
 
+    await db.query('BEGIN');
+
+    // 1. Update the main record
     const result = await db.query(`
       UPDATE inventory 
       SET category = COALESCE($1, category),
@@ -364,129 +308,98 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     `, [category, address, price, quantity ? parseInt(quantity) : null, status, assigned_to || null, req.params.id]);
 
     if (result.rows.length === 0) {
+      await db.query('ROLLBACK');
       return res.status(404).json({ message: 'Inventory not found' });
     }
 
+    const inventoryId = req.params.id;
+    
+    // 1.5 Update global plot fields for all plots in this inventory item if provided
+    if (plot_type || plot_category || size) {
+      await db.query(`
+        UPDATE inventory_plots 
+        SET plot_type = COALESCE($1, plot_type),
+            plot_category = COALESCE($2, plot_category),
+            size = COALESCE($3, size)
+        WHERE inventory_id = $4
+      `, [plot_type, plot_category, size, inventoryId]);
+    }
+
+    // 2. Handle Mercury/Merge if merge_ids provided
+    if (merge_ids && Array.isArray(merge_ids)) {
+      const otherIds = merge_ids.filter(id => id.toString() !== inventoryId.toString());
+      if (otherIds.length > 0) {
+        // Move all plots from other records to this record
+        await db.query(`
+          UPDATE inventory_plots 
+          SET inventory_id = $1 
+          WHERE inventory_id = ANY($2::int[])
+        `, [inventoryId, otherIds]);
+
+        // Move all deals from other records to this record
+        await db.query(`
+          UPDATE deals 
+          SET inventory_id = $1 
+          WHERE inventory_id = ANY($2::int[])
+        `, [inventoryId, otherIds]);
+
+        // Delete the other inventory records
+        await db.query(`
+          DELETE FROM inventory 
+          WHERE id = ANY($1::int[])
+        `, [otherIds]);
+      }
+    }
+
+    // 3. Update plot numbers if provided
+    if (plot_numbers !== undefined) {
+      const parsePlotNumbers = (input) => {
+        if (!input) return [];
+        return input.split(/[,\n;]/).map(num => num.trim()).filter(num => num.length > 0);
+      };
+
+      const newPlotNumbers = parsePlotNumbers(plot_numbers);
+      
+      // Get current plots for this inventory
+      const currentPlotsResult = await db.query('SELECT plot_number FROM inventory_plots WHERE inventory_id = $1', [inventoryId]);
+      const currentPlotNumbers = currentPlotsResult.rows.map(r => r.plot_number);
+
+      // Plots to add
+      const toAdd = newPlotNumbers.filter(n => !currentPlotNumbers.includes(n));
+      // Plots to remove (only if safe - for now we allow it but usually we should check for deals)
+      const toRemove = currentPlotNumbers.filter(n => !newPlotNumbers.includes(n));
+
+      // Add new plots
+      for (const plotNumber of toAdd) {
+        await db.query(`
+          INSERT INTO inventory_plots (inventory_id, plot_number, status)
+          VALUES ($1, $2, 'available')
+          ON CONFLICT (inventory_id, plot_number) DO NOTHING
+        `, [inventoryId, plotNumber]);
+      }
+
+      // Remove deleted plots
+      if (toRemove.length > 0) {
+        await db.query(`
+          DELETE FROM inventory_plots 
+          WHERE inventory_id = $1 AND plot_number = ANY($2)
+        `, [inventoryId, toRemove]);
+      }
+    }
+
+    await db.query('COMMIT');
     res.json(result.rows[0]);
   } catch (error) {
+    await db.query('ROLLBACK');
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Assign inventory to salesperson (Admin only)
-router.post('/:id/assign', auth, adminOnly, async (req, res) => {
-  try {
-    const { salesperson_id, plot_ids, amount_paid, notes } = req.body;
-
-    if (!salesperson_id) {
-      return res.status(400).json({ message: 'Salesperson ID is required' });
-    }
-
-    // Check if salesperson exists and is a dealer
-    const userCheck = await db.query(
-      'SELECT id, role FROM users WHERE id = $1 AND role = $2',
-      [salesperson_id, 'dealer']
-    );
-
-    if (userCheck.rows.length === 0) {
-      return res.status(404).json({ message: 'Salesperson not found' });
-    }
-
-    // Get inventory details
-    const inventoryResult = await db.query(
-      'SELECT * FROM inventory WHERE id = $1',
-      [req.params.id]
-    );
-
-    if (inventoryResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Inventory not found' });
-    }
-
-    const inventory = inventoryResult.rows[0];
-    const pricePerPlot = parseFloat(inventory.price);
-
-    // If plot_ids are provided, assign specific plots
-    if (plot_ids && Array.isArray(plot_ids) && plot_ids.length > 0) {
-      // Validate all plots belong to this inventory and are available
-      const plotCheck = await db.query(`
-        SELECT id, status, plot_number
-        FROM inventory_plots
-        WHERE id = ANY($1::int[]) AND inventory_id = $2
-      `, [plot_ids, req.params.id]);
-
-      if (plotCheck.rows.length !== plot_ids.length) {
-        return res.status(400).json({ message: 'Some plot IDs are invalid or do not belong to this inventory' });
-      }
-
-      // Check if all plots are available
-      const unavailablePlots = plotCheck.rows.filter(p => p.status !== 'available');
-      if (unavailablePlots.length > 0) {
-        return res.status(400).json({ 
-          message: `Some plots are not available: ${unavailablePlots.map(p => p.plot_number).join(', ')}` 
-        });
-      }
-
-      const totalPlots = plot_ids.length;
-      const totalAmount = totalPlots * pricePerPlot;
-      const paidAmount = parseFloat(amount_paid || 0);
-
-      // Create assignment record
-      const assignmentResult = await db.query(`
-        INSERT INTO inventory_plot_assignments (
-          inventory_id, salesperson_id, assignment_date, 
-          total_plots_assigned, total_amount, amount_paid, notes
-        )
-        VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6)
-        RETURNING *
-      `, [req.params.id, salesperson_id, totalPlots, totalAmount, paidAmount, notes || null]);
-
-      // Update plots
-      await db.query(`
-        UPDATE inventory_plots
-        SET assigned_to = $1, status = 'assigned', assigned_at = CURRENT_TIMESTAMP
-        WHERE id = ANY($2::int[])
-      `, [salesperson_id, plot_ids]);
-
-      // Update inventory status if all plots are assigned
-      const remainingPlots = await db.query(`
-        SELECT COUNT(*) as count
-        FROM inventory_plots
-        WHERE inventory_id = $1 AND status = 'available'
-      `, [req.params.id]);
-
-      if (parseInt(remainingPlots.rows[0].count) === 0) {
-        await db.query(`
-          UPDATE inventory SET status = 'assigned'
-          WHERE id = $1
-        `, [req.params.id]);
-      }
-
-      res.json({
-        assignment: assignmentResult.rows[0],
-        plots_assigned: totalPlots,
-        total_amount: totalAmount,
-        amount_paid: paidAmount,
-        remaining_balance: totalAmount - paidAmount
-      });
-    } else {
-      // Legacy assignment - assign entire inventory (for backward compatibility)
-      const result = await db.query(`
-        UPDATE inventory 
-        SET assigned_to = $1, status = 'assigned'
-        WHERE id = $2
-        RETURNING *
-      `, [salesperson_id, req.params.id]);
-
-      res.json(result.rows[0]);
-    }
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
+// Assign inventory endpoint removed
 
 
-// Delete inventory (Admin only)
-router.delete('/:id', auth, adminOnly, async (req, res) => {
+// Delete inventory (Admin and Accountant)
+router.delete('/:id', auth, adminAndAccountantOnly, async (req, res) => {
   try {
     const result = await db.query(
       'DELETE FROM inventory WHERE id = $1 RETURNING id',
@@ -499,6 +412,39 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
 
     res.json({ message: 'Inventory deleted successfully' });
   } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Update specific plot (Admin and Accountant)
+router.put('/plots/:plotId', auth, adminAndAccountantOnly, async (req, res) => {
+  try {
+    const { plot_number, plot_category, plot_type, size } = req.body;
+    
+    // Add validation 
+    if (!plot_number) {
+      return res.status(400).json({ message: 'Plot number is required' });
+    }
+
+    const result = await db.query(`
+      UPDATE inventory_plots 
+      SET plot_number = COALESCE($1, plot_number),
+          plot_category = COALESCE($2, plot_category),
+          plot_type = COALESCE($3, plot_type),
+          size = COALESCE($4, size)
+      WHERE id = $5
+      RETURNING *
+    `, [plot_number, plot_category, plot_type, size, req.params.plotId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Plot not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    if (error.code === '23505') { // Unique constraint violation
+      return res.status(400).json({ message: 'Duplicate plot number found.' });
+    }
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

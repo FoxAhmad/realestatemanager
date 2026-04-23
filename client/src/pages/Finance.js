@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { FaChartBar, FaCalendarAlt, FaUserTie } from 'react-icons/fa';
 import './Finance.css';
 
 const Finance = () => {
-  const { isAdmin } = useAuth();
   const [summary, setSummary] = useState({
     total_revenue: 0,
     total_profit: 0,
-    monthly_revenue: 0,
-    monthly_profit: 0,
-    completed_deals: 0,
-    active_deals: 0,
+    monthly_stats: [],
+    dealer_stats: [],
   });
-  const [monthlyData, setMonthlyData] = useState([]);
-  const [dealerData, setDealerData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,18 +18,8 @@ const Finance = () => {
 
   const fetchFinanceData = async () => {
     try {
-      const [summaryRes, monthlyRes] = await Promise.all([
-        api.get('/finance/summary'),
-        api.get('/finance/monthly'),
-      ]);
-
-      setSummary(summaryRes.data);
-      setMonthlyData(monthlyRes.data);
-
-      if (isAdmin) {
-        const dealerRes = await api.get('/finance/by-dealer');
-        setDealerData(dealerRes.data);
-      }
+      const response = await api.get('/finance/summary');
+      setSummary(response.data);
     } catch (error) {
       console.error('Error fetching finance data:', error);
     } finally {
@@ -42,105 +27,97 @@ const Finance = () => {
     }
   };
 
-  if (loading) {
-    return <div className="finance-loading">Loading finance data...</div>;
-  }
+  if (loading) return <div className="finance-loading">Generating Financial Reports...</div>;
 
   return (
-    <div className="finance">
-      <h1 className="finance-title">Finance</h1>
-
-      <div className="finance-summary">
-        <div className="summary-card">
-          <h3>Total Revenue</h3>
-          <p className="amount revenue">${parseFloat(summary.total_revenue || 0).toLocaleString()}</p>
-        </div>
-        <div className="summary-card">
-          <h3>Total Profit</h3>
-          <p className="amount profit">${parseFloat(summary.total_profit || 0).toLocaleString()}</p>
-        </div>
-        <div className="summary-card">
-          <h3>Monthly Revenue</h3>
-          <p className="amount revenue">${parseFloat(summary.monthly_revenue || 0).toLocaleString()}</p>
-        </div>
-        <div className="summary-card">
-          <h3>Monthly Profit</h3>
-          <p className="amount profit">${parseFloat(summary.monthly_profit || 0).toLocaleString()}</p>
-        </div>
-        <div className="summary-card">
-          <h3>Completed Deals</h3>
-          <p className="amount">{summary.completed_deals || 0}</p>
-        </div>
-        <div className="summary-card">
-          <h3>Active Deals</h3>
-          <p className="amount">{summary.active_deals || 0}</p>
+    <div className="premium-page">
+      <div className="premium-page-header">
+        <div>
+          <h1>Financial Analytics</h1>
+          <p>Real-time performance tracking and revenue distribution across all sectors.</p>
         </div>
       </div>
 
-      <div className="finance-section">
-        <h2>Monthly Breakdown</h2>
-        <div className="monthly-table-container">
-          <table className="monthly-table">
-            <thead>
-              <tr>
-                <th>Month</th>
-                <th>Revenue</th>
-                <th>Profit</th>
-                <th>Deals</th>
-              </tr>
-            </thead>
-            <tbody>
-              {monthlyData.length === 0 ? (
-                <tr>
-                  <td colSpan="4" className="empty-state">No data available</td>
-                </tr>
-              ) : (
-                monthlyData.map((month, index) => (
-                  <tr key={index}>
-                    <td>{new Date(month.month).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</td>
-                    <td>${parseFloat(month.revenue || 0).toLocaleString()}</td>
-                    <td>${parseFloat(month.profit || 0).toLocaleString()}</td>
-                    <td>{month.deals_count || 0}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      <div className="finance-summary-grid">
+        <div className="summary-card glass-card">
+          <label>Gross Revenue</label>
+          <span className="amount revenue">${parseFloat(summary.total_revenue || 0).toLocaleString()}</span>
+        </div>
+        <div className="summary-card glass-card">
+          <label>Company Profit</label>
+          <span className="amount profit">${parseFloat(summary.total_profit || 0).toLocaleString()}</span>
+        </div>
+        <div className="summary-card glass-card">
+           <label>Active Accounts</label>
+           <span className="amount" style={{ fontSize: '2.25rem' }}>{summary.monthly_stats?.length || 0} Months</span>
         </div>
       </div>
 
-      {isAdmin && dealerData.length > 0 && (
-        <div className="finance-section">
-          <h2>Salesperson Performance</h2>
-          <div className="dealer-table-container">
-            <table className="dealer-table">
-              <thead>
-                <tr>
-                  <th>Salesperson Name</th>
-                  <th>Email</th>
-                  <th>Total Revenue</th>
-                  <th>Total Profit</th>
-                  <th>Completed Deals</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dealerData.map((dealer) => (
-                  <tr key={dealer.dealer_id}>
-                    <td>{dealer.dealer_name}</td>
-                    <td>{dealer.dealer_email}</td>
-                    <td>${parseFloat(dealer.total_revenue || 0).toLocaleString()}</td>
-                    <td>${parseFloat(dealer.total_profit || 0).toLocaleString()}</td>
-                    <td>{dealer.completed_deals || 0}</td>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+        {/* Monthly Performance */}
+        <section className="finance-section">
+          <h2><FaCalendarAlt style={{ color: 'var(--primary)' }} /> Monthly Breakdown</h2>
+          <div className="glass-card" style={{ padding: '0' }}>
+            <div className="premium-table-container">
+              <table className="premium-table">
+                <thead>
+                  <tr>
+                    <th>Period</th>
+                    <th>Gross Revenue</th>
+                    <th>Net Profit</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {(!summary.monthly_stats || summary.monthly_stats.length === 0) ? (
+                    <tr><td colSpan="3" className="empty-state">No monthly data available</td></tr>
+                  ) : (
+                    summary.monthly_stats.map((stat, i) => (
+                      <tr key={i}>
+                        <td style={{ fontWeight: '700' }}>{stat.month}</td>
+                        <td>${parseFloat(stat.revenue).toLocaleString()}</td>
+                        <td style={{ color: 'var(--success)', fontWeight: '700' }}>${parseFloat(stat.profit).toLocaleString()}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        </section>
+
+        {/* Salesperson Performance */}
+        <section className="finance-section">
+          <h2><FaUserTie style={{ color: 'var(--primary)' }} /> Sales Performance</h2>
+          <div className="glass-card" style={{ padding: '0' }}>
+            <div className="premium-table-container">
+              <table className="premium-table">
+                <thead>
+                  <tr>
+                    <th>Salesperson</th>
+                    <th>Volume</th>
+                    <th>Commission (40%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(!summary.dealer_stats || summary.dealer_stats.length === 0) ? (
+                    <tr><td colSpan="3" className="empty-state">No dealer stats available</td></tr>
+                  ) : (
+                    summary.dealer_stats.map((stat, i) => (
+                      <tr key={i}>
+                        <td style={{ fontWeight: '700' }}>{stat.dealer_name}</td>
+                        <td>${parseFloat(stat.total_volume).toLocaleString()}</td>
+                        <td>${parseFloat(stat.total_commission).toLocaleString()}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
 };
 
 export default Finance;
-

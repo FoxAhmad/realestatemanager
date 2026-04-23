@@ -5,87 +5,33 @@ import { useAuth } from '../context/AuthContext';
 import './Deals.css';
 
 const Deals = () => {
+  const navigate = useNavigate();
+  const { user, isAdmin, isAccountant } = useAuth();
   const [deals, setDeals] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [dealers, setDealers] = useState([]);
+  const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [inventory, setInventory] = useState([]);
   const [formData, setFormData] = useState({
     customer_id: '',
+    dealer_id: '',
     inventory_id: '',
-    plot_ids: [],
-    property_type: 'house',
-    original_price: '',
-    sale_price: '',
-    demand_price: '',
-    plot_info: '',
-    house_address: '',
-    house_info: '',
-    sale_price_location: '',
+    plot_id: '',
+    total_amount: '',
+    booking_amount: '',
+    installments: '',
+    notes: '',
   });
-  const [availablePlotsForDeal, setAvailablePlotsForDeal] = useState([]);
-  const { isAdmin, user } = useAuth();
-  const navigate = useNavigate();
+
+  const [availablePlots, setAvailablePlots] = useState([]);
 
   useEffect(() => {
     fetchDeals();
     fetchCustomers();
+    fetchDealers();
     fetchInventory();
   }, []);
-
-  const fetchInventory = async () => {
-    try {
-      const response = await api.get('/inventory');
-      let inventoryData;
-
-      if (isAdmin) {
-        // Admin can see all inventory (for plot selection)
-        inventoryData = response.data;
-      } else {
-        // Salespersons see only inventory with assigned plots that are available to sell (assigned or paid, not sold)
-        inventoryData = response.data.filter(i => {
-          // Must have assigned plots
-          const hasAssignedPlots = i.assigned_plots && i.assigned_plots.length > 0;
-          // Plots should be assigned or paid (not sold)
-          const hasAvailablePlots = hasAssignedPlots && i.assigned_plots.some(plot =>
-            plot.status === 'assigned' || plot.status === 'paid'
-          );
-          return hasAvailablePlots;
-        });
-      }
-
-      // Use available_quantity from API response
-      inventoryData = inventoryData.map(item => ({
-        ...item,
-        availableQuantity: item.available_quantity || item.quantity
-      }));
-
-      setInventory(inventoryData);
-    } catch (error) {
-      console.error('Error fetching inventory:', error);
-    }
-  };
-
-  const fetchPlotsForInventory = async (inventoryId) => {
-    if (!inventoryId) {
-      setAvailablePlotsForDeal([]);
-      return;
-    }
-    try {
-      const response = await api.get(`/inventory/${inventoryId}/plots`);
-      // Filter plots that are assigned to the salesperson (or available for admin)
-      let plots = response.data;
-      if (!isAdmin && user) {
-        plots = plots.filter(plot => plot.assigned_to === user.id && ['assigned', 'paid'].includes(plot.status));
-      } else {
-        plots = plots.filter(plot => ['assigned', 'paid'].includes(plot.status));
-      }
-      setAvailablePlotsForDeal(plots);
-    } catch (error) {
-      console.error('Error fetching plots:', error);
-      setAvailablePlotsForDeal([]);
-    }
-  };
 
   const fetchDeals = async () => {
     try {
@@ -107,421 +53,264 @@ const Deals = () => {
     }
   };
 
-  const handleInventoryChange = async (e) => {
-    const selectedInventoryId = e.target.value;
+  const fetchDealers = async () => {
+    try {
+      const response = await api.get('/dealers');
+      setDealers(response.data);
+    } catch (error) {
+      console.error('Error fetching dealers:', error);
+    }
+  };
 
-    if (selectedInventoryId) {
-      const inventoryIdInt = parseInt(selectedInventoryId);
-      const selectedInventory = inventory.find(item => item.id === inventoryIdInt);
+  const fetchInventory = async () => {
+    try {
+      const response = await api.get('/inventory');
+      setInventory(response.data);
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+    }
+  };
 
-      if (selectedInventory) {
-        // Fetch plots for this inventory
-        await fetchPlotsForInventory(inventoryIdInt);
+  const fetchPlots = async (inventoryId) => {
+    try {
+      const response = await api.get(`/inventory/${inventoryId}/plots?available_only=true`);
+      setAvailablePlots(response.data);
+    } catch (error) {
+      console.error('Error fetching plots:', error);
+    }
+  };
 
-        // Auto-fill fields based on selected inventory
-        setFormData(prev => ({
-          ...prev,
-          inventory_id: selectedInventoryId,
-          plot_ids: [],
-          property_type: selectedInventory.category || prev.property_type,
-          original_price: selectedInventory.price || prev.original_price,
-          plot_info: selectedInventory.category === 'plot' ? selectedInventory.address : prev.plot_info,
-          house_address: selectedInventory.category === 'house' ? selectedInventory.address : prev.house_address,
-          sale_price_location: selectedInventory.category === 'shop_office' ? selectedInventory.address : prev.sale_price_location,
-        }));
-      }
+  const handleInventoryChange = (e) => {
+    const inventoryId = e.target.value;
+    setFormData({ ...formData, inventory_id: inventoryId, plot_id: '' });
+    if (inventoryId) {
+      fetchPlots(inventoryId);
     } else {
-      // Clear inventory selection
-      setFormData(prev => ({
-        ...prev,
-        inventory_id: '',
-        plot_ids: [],
-        property_type: 'house',
-        original_price: '',
-        plot_info: '',
-        house_address: '',
-        sale_price_location: '',
-      }));
-      setAvailablePlotsForDeal([]);
+      setAvailablePlots([]);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validate required fields
-    if (!formData.customer_id) {
-      alert('Please select a customer');
-      return;
-    }
-
-    if (!formData.inventory_id) {
-      alert('Please select an inventory item');
-      return;
-    }
-
-    if (formData.plot_ids.length === 0) {
-      alert('Please select a plot');
-      return;
-    }
-
-    if (!formData.sale_price || formData.sale_price.trim() === '') {
-      alert('Please enter a sale price');
-      return;
-    }
-
     try {
-      // Create payload with only single inventory_id (no inventory_ids array)
-      const payload = {
-        customer_id: formData.customer_id || null,
-        inventory_id: formData.inventory_id || null,
-        plot_ids: formData.plot_ids,
-        property_type: formData.property_type,
-        original_price: formData.original_price || null,
-        sale_price: formData.sale_price || null,
-        demand_price: formData.demand_price || null,
-        plot_info: formData.plot_info || null,
-        house_address: formData.house_address || null,
-        house_info: formData.house_info || null,
-        sale_price_location: formData.sale_price_location || null,
-        inventory_quantity_used: 1 // Only one plot per deal
-      };
-
-      await api.post('/deals', payload);
+      await api.post('/deals', formData);
       fetchDeals();
       setShowModal(false);
       setFormData({
         customer_id: '',
+        dealer_id: '',
         inventory_id: '',
-        plot_ids: [],
-        property_type: 'house',
-        original_price: '',
-        sale_price: '',
-        demand_price: '',
-        plot_info: '',
-        house_address: '',
-        house_info: '',
-        sale_price_location: '',
+        plot_id: '',
+        total_amount: '',
+        booking_amount: '',
+        installments: '',
+        notes: '',
       });
-      setAvailablePlotsForDeal([]);
     } catch (error) {
       console.error('Error creating deal:', error);
       alert(error.response?.data?.message || 'Error creating deal');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!isAdmin) return;
-    if (window.confirm('Are you sure you want to delete this deal?')) {
-      try {
-        await api.delete(`/deals/${id}`);
-        fetchDeals();
-      } catch (error) {
-        console.error('Error deleting deal:', error);
-        alert('Error deleting deal');
-      }
-    }
-  };
-
   const getStatusBadge = (status) => {
-    const statusMap = {
-      in_progress: { label: 'In Progress', class: 'status-in-progress' },
-      deal_done: { label: 'Deal Done', class: 'status-done' },
-      deal_not_done: { label: 'Deal Not Done', class: 'status-not-done' },
+    const badges = {
+      'in_progress': <span className="premium-badge premium-badge-warning">In Progress</span>,
+      'done': <span className="premium-badge premium-badge-success">Completed</span>,
+      'not_done': <span className="premium-badge premium-badge-danger">Pending</span>,
     };
-    const statusInfo = statusMap[status] || statusMap.in_progress;
-    return <span className={`status-badge ${statusInfo.class}`}>{statusInfo.label}</span>;
-  };
-
-  const getPropertyTypeLabel = (type) => {
-    const typeMap = {
-      house: 'House',
-      plot: 'Plot',
-      shop_office: 'Shop/Office',
-    };
-    return typeMap[type] || type;
+    return badges[status] || <span className="premium-badge premium-badge-neutral">{status}</span>;
   };
 
   if (loading) {
-    return <div className="deals-loading">Loading deals...</div>;
+    return <div className="deals-loading">Accessing Deal Registry...</div>;
   }
 
   return (
-    <div className="deals">
-      <div className="deals-header">
-        <h1 className="deals-title">Deals</h1>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
-          + New Deal
-        </button>
+    <div className="premium-page">
+      <div className="premium-page-header">
+        <div>
+          <h1>Real Estate Deals</h1>
+          <p>Monitor your sales pipeline and manage property transactions.</p>
+        </div>
+        {(isAdmin || isAccountant) && (
+          <button
+            className="premium-btn premium-btn-primary"
+            onClick={() => setShowModal(true)}
+          >
+            + Create New Deal
+          </button>
+        )}
       </div>
 
-      <div className="deals-table-container">
-        <table className="deals-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Customer</th>
-              <th>Property Type</th>
-              <th>Inventory</th>
-              <th>Sale Price</th>
-              <th>Profit</th>
-              <th>Status</th>
-              <th>Salesperson</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {deals.length === 0 ? (
+      <div className="glass-card">
+        <div className="premium-table-container">
+          <table className="premium-table">
+            <thead>
               <tr>
-                <td colSpan="9" className="empty-state">
-                  No deals found
-                </td>
+                <th>Deal ID</th>
+                <th>Customer Name</th>
+                <th>Salesperson</th>
+                <th>Asset Details</th>
+                <th>Total Value</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
-            ) : (
-              deals.map((deal) => (
-                <tr key={deal.id}>
-                  <td>{deal.id}</td>
-                  <td>{deal.customer_name || '-'}</td>
-                  <td>{getPropertyTypeLabel(deal.property_type)}</td>
-                  <td>
-                    {deal.inventory_address
-                      ? `${deal.inventory_category || ''} - ${deal.inventory_address.substring(0, 30)}${deal.inventory_address.length > 30 ? '...' : ''}`
-                      : '-'}
-                  </td>
-                  <td>
-                    {deal.sale_price
-                      ? `$${parseFloat(deal.sale_price).toLocaleString()}`
-                      : '-'}
-                  </td>
-                  <td>
-                    {deal.profit
-                      ? `$${parseFloat(deal.profit).toLocaleString()}`
-                      : '-'}
-                  </td>
-                  <td>{getStatusBadge(deal.status)}</td>
-                  <td>{deal.dealer_name}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="btn-view"
-                        onClick={() => navigate(`/deals/${deal.id}`)}
-                      >
-                        View
-                      </button>
-                      {isAdmin && (
-                        <button
-                          className="btn-delete"
-                          onClick={() => handleDelete(deal.id)}
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
+            </thead>
+            <tbody>
+              {deals.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="empty-state">
+                    No active deals recorded in current pipeline
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                deals.map((deal) => (
+                  <tr key={deal.id}>
+                    <td>#{deal.id}</td>
+                    <td style={{ fontWeight: '700' }}>{deal.customer_name}</td>
+                    <td>{deal.dealer_name}</td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{deal.inventory_address}</span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          {deal.plot_number ? `Plot: ${deal.plot_number}` : 'N/A'}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: '700' }}>${parseFloat(deal.total_amount).toLocaleString()}</td>
+                    <td>{getStatusBadge(deal.status)}</td>
+                    <td>
+                      <button
+                        className="premium-btn premium-btn-secondary"
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                        onClick={() => navigate(`/deals/${deal.id}`)}
+                      >
+                        View Profile
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Create New Deal</h2>
+            <h2>Initiate New Property Deal</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Customer *</label>
+                <label>Select Customer *</label>
                 <select
                   value={formData.customer_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, customer_id: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
                   required
                 >
-                  <option value="">Select Customer</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
+                  <option value="">Choose a customer...</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} - {c.cnic}</option>
                   ))}
                 </select>
               </div>
+
               <div className="form-group">
-                <label>Select Inventory *</label>
+                <label>Assigned Salesperson *</label>
                 <select
-                  value={formData.inventory_id}
-                  onChange={handleInventoryChange}
+                  value={formData.dealer_id}
+                  onChange={(e) => setFormData({ ...formData, dealer_id: e.target.value })}
                   required
-                  multiple={false}
                 >
-                  <option value="">Select Inventory</option>
-                  {inventory.map((item) => {
-                    const availablePlots = item.assigned_plots?.filter(p =>
-                      (p.status === 'assigned' || p.status === 'paid')
-                    ) || [];
-                    return (
-                      <option key={item.id} value={item.id}>
-                        {getPropertyTypeLabel(item.category)} - {item.address}
-                        (${parseFloat(item.price || 0).toLocaleString()})
-                        - Available Plots: {availablePlots.length}
-                      </option>
-                    );
-                  })}
+                  <option value="">Choose a salesperson...</option>
+                  {dealers.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
                 </select>
               </div>
-              {formData.inventory_id && availablePlotsForDeal.length > 0 && (
+
+              <div className="form-row">
                 <div className="form-group">
-                  <label>Select Plot to Use *</label>
+                  <label>Inventory Asset *</label>
                   <select
-                    value={formData.plot_ids.length > 0 ? formData.plot_ids[0] : ''}
-                    onChange={(e) => {
-                      const plotId = e.target.value ? parseInt(e.target.value) : null;
-                      setFormData({
-                        ...formData,
-                        plot_ids: plotId ? [plotId] : []
-                      });
-                    }}
+                    value={formData.inventory_id}
+                    onChange={handleInventoryChange}
                     required
                   >
-                    <option value="">Select a Plot</option>
-                    {availablePlotsForDeal.map((plot) => (
-                      <option key={plot.id} value={plot.id}>
-                        {plot.plot_number} ({plot.status})
-                      </option>
+                    <option value="">Choose asset...</option>
+                    {inventory.map((i) => (
+                      <option key={i.id} value={i.id}>{i.category} - {i.address}</option>
                     ))}
                   </select>
                 </div>
-              )}
-              {formData.inventory_id && availablePlotsForDeal.length === 0 && (
+
                 <div className="form-group">
-                  <label>Quantity to Use</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max={
-                      inventory.find(i => i.id === parseInt(formData.inventory_id))?.availableQuantity || 1
-                    }
-                    value={formData.inventory_quantity_used}
-                    onChange={(e) =>
-                      setFormData({ ...formData, inventory_quantity_used: parseInt(e.target.value) || 1 })
-                    }
-                  />
-                  <small>
-                    Available: {inventory.find(i => i.id === parseInt(formData.inventory_id))?.availableQuantity || 0}
-                  </small>
-                  <small style={{ color: '#999', display: 'block', marginTop: '0.5rem' }}>
-                    No plots available. Using legacy quantity mode.
-                  </small>
+                  <label>Plot Number *</label>
+                  <select
+                    value={formData.plot_id}
+                    onChange={(e) => setFormData({ ...formData, plot_id: e.target.value })}
+                    required
+                  >
+                    <option value="">Choose plot...</option>
+                    {availablePlots.map((p) => (
+                      <option key={p.id} value={p.id}>{p.plot_number} ({p.plot_category})</option>
+                    ))}
+                  </select>
                 </div>
-              )}
-              <div className="form-group">
-                <label>Property Type *</label>
-                <select
-                  value={formData.property_type}
-                  onChange={(e) =>
-                    setFormData({ ...formData, property_type: e.target.value })
-                  }
-                  required
-                >
-                  <option value="house">House</option>
-                  <option value="plot">Plot</option>
-                  <option value="shop_office">Shop/Office</option>
-                </select>
               </div>
+
               <div className="form-row">
                 <div className="form-group">
-                  <label>Original Price</label>
+                  <label>Total Deal Amount *</label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.original_price}
-                    onChange={(e) =>
-                      setFormData({ ...formData, original_price: e.target.value })
-                    }
+                    value={formData.total_amount}
+                    onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
+                    required
                   />
                 </div>
+
                 <div className="form-group">
-                  <label>Sale Price *</label>
+                  <label>Booking Amount *</label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.sale_price}
-                    onChange={(e) =>
-                      setFormData({ ...formData, sale_price: e.target.value })
-                    }
+                    value={formData.booking_amount}
+                    onChange={(e) => setFormData({ ...formData, booking_amount: e.target.value })}
                     required
-                    min="0"
                   />
                 </div>
               </div>
+
               <div className="form-group">
-                <label>Demand Price</label>
+                <label>Number of Installments</label>
                 <input
                   type="number"
-                  step="0.01"
-                  value={formData.demand_price}
-                  onChange={(e) =>
-                    setFormData({ ...formData, demand_price: e.target.value })
-                  }
+                  value={formData.installments}
+                  onChange={(e) => setFormData({ ...formData, installments: e.target.value })}
                 />
               </div>
-              {formData.property_type === 'plot' && (
-                <div className="form-group">
-                  <label>Plot Info</label>
-                  <textarea
-                    value={formData.plot_info}
-                    onChange={(e) =>
-                      setFormData({ ...formData, plot_info: e.target.value })
-                    }
-                    rows="3"
-                  />
-                </div>
-              )}
-              {formData.property_type === 'house' && (
-                <>
-                  <div className="form-group">
-                    <label>House Address</label>
-                    <input
-                      type="text"
-                      value={formData.house_address}
-                      onChange={(e) =>
-                        setFormData({ ...formData, house_address: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>House Info</label>
-                    <textarea
-                      value={formData.house_info}
-                      onChange={(e) =>
-                        setFormData({ ...formData, house_info: e.target.value })
-                      }
-                      rows="3"
-                    />
-                  </div>
-                </>
-              )}
+
               <div className="form-group">
-                <label>Sale Price Location</label>
-                <input
-                  type="text"
-                  value={formData.sale_price_location}
-                  onChange={(e) =>
-                    setFormData({ ...formData, sale_price_location: e.target.value })
-                  }
+                <label>Special Notes</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows="3"
                 />
               </div>
+
               <div className="modal-actions">
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="premium-btn premium-btn-secondary"
                   onClick={() => setShowModal(false)}
                 >
-                  Cancel
+                  Discard
                 </button>
-                <button type="submit" className="btn-primary">
-                  Create Deal
+                <button type="submit" className="premium-btn premium-btn-primary">
+                  Finalize Deal
                 </button>
               </div>
             </form>
@@ -533,4 +322,3 @@ const Deals = () => {
 };
 
 export default Deals;
-

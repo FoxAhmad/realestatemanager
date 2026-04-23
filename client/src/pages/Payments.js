@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import './Payments.css';
 
 const Payments = () => {
-  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
 
   useEffect(() => {
@@ -18,7 +15,7 @@ const Payments = () => {
 
   const fetchPayments = async () => {
     try {
-      const response = await api.get('/payments');
+      const response = await api.get('/deals/payments/all');
       setPayments(response.data);
     } catch (error) {
       console.error('Error fetching payments:', error);
@@ -27,151 +24,120 @@ const Payments = () => {
     }
   };
 
-  const handleDelete = async (paymentId) => {
-    if (window.confirm('Are you sure you want to delete this payment?')) {
+  const handleDelete = async (id) => {
+    if (window.confirm('Delete this payment record permanently?')) {
       try {
-        await api.delete(`/payments/${paymentId}`);
+        await api.delete(`/deals/payments/${id}`);
         fetchPayments();
       } catch (error) {
         console.error('Error deleting payment:', error);
-        alert('Error deleting payment');
+        alert('Error deleting payment record');
       }
     }
   };
 
-  const getPaymentTypeLabel = (type) => {
-    const labels = {
-      down_payment: 'Down Payment',
-      installment: 'Installment',
-    };
-    return labels[type] || type;
-  };
+  const filteredPayments = filterType === 'all' 
+    ? payments 
+    : payments.filter(p => p.payment_type === filterType);
 
-  const filteredPayments = payments.filter((payment) => {
-    if (filterType !== 'all' && payment.payment_type !== filterType) {
-      return false;
-    }
-    return true;
-  });
+  const totalAmount = filteredPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
-  const totalReceived = filteredPayments.reduce(
-    (sum, p) => sum + parseFloat(p.amount || 0),
-    0
-  );
-
-  if (loading) {
-    return <div className="payments-loading">Loading payments...</div>;
-  }
+  if (loading) return <div className="payments-loading">Processing Sovereign Ledger...</div>;
 
   return (
-    <div className="payments">
-      <div className="payments-header">
-        <h1 className="payments-title">Payments</h1>
-        <div className="payments-summary">
-          <div className="summary-card">
-            <span className="summary-label">Total Payments</span>
-            <span className="summary-value">{filteredPayments.length}</span>
-          </div>
-          <div className="summary-card">
-            <span className="summary-label">Total Amount</span>
-            <span className="summary-value amount">
-              ${totalReceived.toLocaleString()}
-            </span>
-          </div>
+    <div className="premium-page">
+      <div className="premium-page-header">
+        <div>
+          <h1>Transaction History</h1>
+          <p>Global audit trail for all property-related financial inbound transactions.</p>
         </div>
       </div>
 
-      <div className="payments-filters">
+      <div className="payments-summary-container">
+        <div className="summary-card glass-card">
+          <span className="summary-label">Aggregate Inflow</span>
+          <span className="summary-value amount">
+            ${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </span>
+        </div>
+        <div className="summary-card glass-card">
+          <span className="summary-label">Record Count</span>
+          <span className="summary-value">{filteredPayments.length} Entries</span>
+        </div>
+      </div>
+
+      <div className="glass-card payments-filters">
         <div className="filter-group">
-          <label>Payment Type</label>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-          >
-            <option value="all">All Types</option>
-            <option value="down_payment">Down Payment</option>
-            <option value="installment">Installment</option>
+          <label>Filter by Classification</label>
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+            <option value="all">All Transactions</option>
+            <option value="booking">Booking / Down Payment</option>
+            <option value="installment">Instalment Plans</option>
+            <option value="other">General / Others</option>
           </select>
         </div>
       </div>
 
-      <div className="payments-table-container">
-        <table className="payments-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Deal ID</th>
-              <th>Payment Type</th>
-              <th>Amount</th>
-              <th>Payment Date</th>
-              <th>Notes</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredPayments.length === 0 ? (
+      <div className="glass-card">
+        <div className="premium-table-container">
+          <table className="premium-table">
+            <thead>
               <tr>
-                <td colSpan="7" className="empty-state">
-                  No payments found
-                </td>
+                <th>Date</th>
+                <th>Classification</th>
+                <th>Asset / Deal</th>
+                <th>Associate</th>
+                <th style={{ textAlign: 'right' }}>Voucher Amount</th>
+                <th>Actions</th>
               </tr>
-            ) : (
-              filteredPayments.map((payment) => (
-                <tr key={payment.id}>
-                  <td>{payment.id}</td>
-                  <td>
-                    <button
-                      className="link-button"
-                      onClick={() => navigate(`/deals/${payment.deal_id}`)}
-                    >
-                      Deal #{payment.deal_id}
-                    </button>
+            </thead>
+            <tbody>
+              {filteredPayments.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="empty-state">
+                    No financial records match the current criteria
                   </td>
-                  <td>
-                    <span className={`payment-type-badge payment-type-${payment.payment_type}`}>
-                      {getPaymentTypeLabel(payment.payment_type)}
-                    </span>
-                  </td>
-                  <td className="amount-cell">
-                    ${parseFloat(payment.amount || 0).toLocaleString()}
-                  </td>
-                  <td>
-                    {new Date(payment.payment_date).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </td>
-                  <td>
-                    {payment.notes ? (
-                      <span className="notes-text" title={payment.notes}>
-                        {payment.notes.length > 50
-                          ? `${payment.notes.substring(0, 50)}...`
-                          : payment.notes}
+                </tr>
+              ) : (
+                filteredPayments.map((p) => (
+                  <tr key={p.id}>
+                    <td style={{ fontWeight: 600 }}>{new Date(p.payment_date).toLocaleDateString()}</td>
+                    <td>
+                      <span className={`premium-badge ${
+                        p.payment_type === 'booking' ? 'premium-badge-primary' : 
+                        p.payment_type === 'installment' ? 'premium-badge-info' : 
+                        'premium-badge-neutral'
+                      }`}>
+                        {(p.payment_type || 'other').toUpperCase()}
                       </span>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td>
-                    <div className="action-buttons">
+                    </td>
+                    <td>
+                      <button className="link-button" onClick={() => navigate(`/deals/${p.deal_id}`)}>
+                        Deal Archive #{p.deal_id}
+                      </button>
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{p.customer_name}</td>
+                    <td className="amount-cell" style={{ textAlign: 'right' }}>
+                      ${parseFloat(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                    <td>
                       <button
-                        className="btn-delete"
-                        onClick={() => handleDelete(payment.id)}
+                        className="premium-btn premium-btn-danger"
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                        onClick={() => handleDelete(p.id)}
                       >
                         Delete
                       </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 };
 
 export default Payments;
-

@@ -8,8 +8,7 @@ const db = require('../config/database');
 router.get('/', auth, adminOnly, async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, name, email, role, created_at FROM users WHERE role = $1 ORDER BY created_at DESC',
-      ['dealer']
+      "SELECT id, name, email, role, created_at FROM users WHERE role IN ('dealer', 'admin') ORDER BY created_at DESC"
     );
     res.json(result.rows);
   } catch (error) {
