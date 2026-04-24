@@ -10,7 +10,11 @@ router.get('/', auth, async (req, res) => {
     if (req.user.role === 'admin' || req.user.role === 'accountant') {
       result = await db.query(`
         SELECT d.*, c.name as customer_name, c.phone_number as customer_phone, 
-               u.name as dealer_name, i.address as inventory_address, i.category as inventory_category
+               u.name as dealer_name, i.address as inventory_address, i.category as inventory_category,
+               (SELECT STRING_AGG(ip.plot_number, ', ') 
+                FROM deal_plots dp 
+                JOIN inventory_plots ip ON dp.plot_id = ip.id 
+                WHERE dp.deal_id = d.id) as plot_number
         FROM deals d 
         LEFT JOIN customers c ON d.customer_id = c.id 
         LEFT JOIN users u ON d.dealer_id = u.id 
@@ -21,12 +25,16 @@ router.get('/', auth, async (req, res) => {
       // Salespersons see only their own deals
       result = await db.query(`
         SELECT d.*, c.name as customer_name, c.phone_number as customer_phone, 
-               u.name as dealer_name, i.address as inventory_address, i.category as inventory_category
+               u.name as dealer_name, i.address as inventory_address, i.category as inventory_category,
+               (SELECT STRING_AGG(ip.plot_number, ', ') 
+                FROM deal_plots dp 
+                JOIN inventory_plots ip ON dp.plot_id = ip.id 
+                WHERE dp.deal_id = d.id) as plot_number
         FROM deals d 
         LEFT JOIN customers c ON d.customer_id = c.id 
         LEFT JOIN users u ON d.dealer_id = u.id 
         LEFT JOIN inventory i ON d.inventory_id = i.id
-        WHERE d.dealer_id = $1 
+        WHERE d.dealer_id = $1
         ORDER BY d.created_at DESC
       `, [req.user.id]);
     }
@@ -123,10 +131,11 @@ router.post('/', auth, async (req, res) => {
   try {
     const {
       customer_id,
-      inventory_id, // For backward compatibility
-      inventory_ids, // New: array of inventory IDs
+      inventory_id,
+      inventory_ids,
       inventory_quantity_used,
-      plot_ids,
+      plot_id, // Handle single plot_id
+      plot_ids, // Handle array of plot_ids
       property_type,
       original_price,
       sale_price,
@@ -145,11 +154,18 @@ router.post('/', auth, async (req, res) => {
     let selectedPlotIds = [];
     let inventoryIdsToProcess = [];
 
+    // Normalize plot_ids
+    let normalizedPlotIds = [];
+    if (plot_ids && Array.isArray(plot_ids) && plot_ids.length > 0) {
+      normalizedPlotIds = plot_ids;
+    } else if (plot_id) {
+      normalizedPlotIds = [parseInt(plot_id)];
+    }
+
     // Only support single inventory_id (multiple selection removed)
     if (inventory_id) {
       inventoryIdsToProcess = [inventory_id];
     } else if (inventory_ids && Array.isArray(inventory_ids) && inventory_ids.length > 0) {
-      // Legacy support: if inventory_ids is sent, use only the first one
       inventoryIdsToProcess = [inventory_ids[0]];
     }
 
@@ -169,15 +185,15 @@ router.post('/', auth, async (req, res) => {
       const primaryInventory = inventoryCheck.rows[0];
 
       // If plot_ids are provided, validate and use them
-      if (plot_ids && Array.isArray(plot_ids) && plot_ids.length > 0) {
+      if (normalizedPlotIds.length > 0) {
         // Validate all plots belong to one of the selected inventories
         const plotCheck = await db.query(`
           SELECT ip.*, ip.assigned_to as plot_assigned_to, ip.inventory_id
           FROM inventory_plots ip
           WHERE ip.id = ANY($1::int[]) AND ip.inventory_id = ANY($2::int[])
-        `, [plot_ids, inventoryIdsToProcess]);
+        `, [normalizedPlotIds, inventoryIdsToProcess]);
 
-        if (plotCheck.rows.length !== plot_ids.length) {
+        if (plotCheck.rows.length !== normalizedPlotIds.length) {
           return res.status(400).json({ message: 'Some plot IDs are invalid or do not belong to the selected inventories' });
         }
 
@@ -190,21 +206,18 @@ router.post('/', auth, async (req, res) => {
               message: 'You can only use plots assigned to you' 
             });
           }
-        } else {
-          // Admin can use unassigned plots or any plots
-          // No restriction for admin
         }
 
-        // Check plot status - should be assigned or paid
-        const unavailablePlots = plotCheck.rows.filter(p => !['assigned', 'paid'].includes(p.status));
+        // Check plot status - should be available, assigned or paid
+        const unavailablePlots = plotCheck.rows.filter(p => !['available', 'assigned', 'paid'].includes(p.status));
         if (unavailablePlots.length > 0) {
           return res.status(400).json({ 
             message: `Some plots are not available for use in deals: ${unavailablePlots.map(p => p.plot_number).join(', ')}` 
           });
         }
 
-        selectedPlotIds = plot_ids;
-        quantityToUse = plot_ids.length;
+        selectedPlotIds = normalizedPlotIds;
+        quantityToUse = normalizedPlotIds.length;
       } else {
         // Legacy mode: When no plot_ids provided, use first inventory only
         // Check assignment rules for primary inventory
