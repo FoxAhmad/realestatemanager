@@ -71,10 +71,12 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const result = await db.query(
        `SELECT d.*, c.name as customer_name, c.cnic, c.phone_number as customer_phone, 
-              c.address as customer_address, u.name as dealer_name, u.id as dealer_id 
+              c.address as customer_address, u.name as dealer_name, u.id as dealer_id,
+              i.address as inventory_address, i.category as inventory_category
        FROM deals d 
        LEFT JOIN customers c ON d.customer_id = c.id 
        LEFT JOIN users u ON d.dealer_id = u.id 
+       LEFT JOIN inventory i ON d.inventory_id = i.id
        WHERE d.id = $1`,
       [req.params.id]
     );

@@ -35,20 +35,27 @@ const upload = multer({
  */
 router.get('/:accountId', auth, adminAndAccountantOnly, async (req, res) => {
   try {
-    const { userId } = req.query;
+    const { userId, deal_id } = req.query;
     let query = `
-      SELECT t.*, tl.debit, tl.credit, u.name as user_name, tl.user_id, a.name as account_name
+      SELECT t.*, tl.debit, tl.credit, u.name as user_name, tl.user_id, a.name as account_name,
+             da.customer_price, da.cost_price, da.id as adjustment_id
       FROM transactions t
       JOIN transaction_lines tl ON t.id = tl.transaction_id
       JOIN accounts a ON tl.account_id = a.id
       LEFT JOIN users u ON tl.user_id = u.id
+      LEFT JOIN deal_adjustments da ON t.id = da.transaction_id
       WHERE tl.account_id = $1
     `;
     const params = [req.params.accountId];
 
     if (userId) {
-      query += ` AND tl.user_id = $2`;
+      query += ` AND tl.user_id = $${params.length + 1}`;
       params.push(userId);
+    }
+
+    if (deal_id) {
+      query += ` AND da.deal_id = $${params.length + 1}`;
+      params.push(deal_id);
     }
 
     query += ` ORDER BY t.transaction_date DESC, t.id DESC`;

@@ -33,8 +33,7 @@ const DealDetail = () => {
     try {
       const dealRes = await api.get(`/deals/${id}`);
       setDeal(dealRes.data);
-      const paymentsRes = await api.get(`/deals/${id}/payments`);
-      setPayments(paymentsRes.data);
+      setPayments(dealRes.data.payments || []);
       
       // Fetch adjustments
       const adjRes = await api.get(`/balance-transactions/8?deal_id=${id}`);
@@ -62,7 +61,7 @@ const DealDetail = () => {
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post(`/deals/${id}/payments`, paymentForm);
+      await api.post('/payments', { ...paymentForm, deal_id: id });
       fetchDealDetails();
       setShowPaymentModal(false);
       setPaymentForm({
@@ -74,6 +73,15 @@ const DealDetail = () => {
     } catch (error) {
       console.error('Error recording payment:', error);
       alert(error.response?.data?.message || 'Error recording payment');
+    }
+  };
+
+  const handleStatusUpdate = async (newStatus) => {
+    try {
+      await api.put(`/deals/${id}`, { status: newStatus });
+      fetchDealDetails();
+    } catch (error) {
+      alert('Error updating status');
     }
   };
 
@@ -100,7 +108,7 @@ const DealDetail = () => {
   const handlePaymentDelete = async (paymentId) => {
     if (window.confirm('Are you sure you want to delete this payment record?')) {
       try {
-        await api.delete(`/deals/payments/${paymentId}`);
+        await api.delete(`/payments/${paymentId}`);
         fetchDealDetails();
       } catch (error) {
         console.error('Error deleting payment:', error);
@@ -123,15 +131,24 @@ const DealDetail = () => {
           <button className="premium-btn premium-btn-secondary" onClick={() => navigate('/deals')}>
             <FaArrowLeft /> Back
           </button>
-          <div>
-            <h1>Deal Profile #{deal.id}</h1>
-            <p>Comprehensive overview of property assignment and payment status.</p>
+          <div className="profile-header-main">
+            <h1>Deal Profile #{id}</h1>
+            {(isAdmin || isAccountant) ? (
+              <select 
+                className={`status-select-premium ${deal.status}`}
+                value={deal.status}
+                onChange={(e) => handleStatusUpdate(e.target.value)}
+              >
+                <option value="in_progress">IN PROGRESS</option>
+                <option value="deal_done">DONE / CLOSED</option>
+                <option value="deal_not_done">CANCELLED</option>
+              </select>
+            ) : (
+              <div className={`status-badge-premium ${deal.status}`}>
+                {deal.status?.replace('_', ' ').toUpperCase()}
+              </div>
+            )}
           </div>
-        </div>
-        <div>
-          <span className={`premium-badge ${deal.status === 'done' ? 'premium-badge-success' : 'premium-badge-warning'}`}>
-            {(deal?.status || 'Active').replace('_', ' ')}
-          </span>
         </div>
       </div>
 
@@ -150,7 +167,7 @@ const DealDetail = () => {
               </div>
               <div className="info-item">
                 <label>CNIC</label>
-                <span>{deal.customer_cnic}</span>
+                <span>{deal.cnic || 'N/A'}</span>
               </div>
               <div className="info-item">
                 <label>Salesperson</label>
@@ -169,7 +186,11 @@ const DealDetail = () => {
               </div>
               <div className="info-item">
                 <label>Plot Number</label>
-                <span style={{ color: 'var(--primary)', fontWeight: 800 }}>{deal.plot_number || 'N/A'}</span>
+                <span style={{ color: 'var(--primary)', fontWeight: 800 }}>
+                  {deal.plots && deal.plots.length > 0 
+                    ? deal.plots.map(p => p.plot_number).join(', ') 
+                    : (deal.plot_info || 'N/A')}
+                </span>
               </div>
               <div className="info-item">
                 <label>Category</label>
@@ -298,7 +319,7 @@ const DealDetail = () => {
                     onChange={(e) => setPaymentForm({ ...paymentForm, payment_type: e.target.value })}
                   >
                     <option value="installment">Installment</option>
-                    <option value="booking">Booking</option>
+                    <option value="down_payment">Booking / Down Payment</option>
                     <option value="other">Other</option>
                   </select>
                 </div>

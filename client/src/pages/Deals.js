@@ -129,8 +129,8 @@ const Deals = () => {
   const getStatusBadge = (status) => {
     const badges = {
       'in_progress': <span className="premium-badge premium-badge-warning">In Progress</span>,
-      'done': <span className="premium-badge premium-badge-success">Completed</span>,
-      'not_done': <span className="premium-badge premium-badge-danger">Pending</span>,
+      'deal_done': <span className="premium-badge premium-badge-success">Completed</span>,
+      'deal_not_done': <span className="premium-badge premium-badge-danger">Cancelled</span>,
     };
     return badges[status] || <span className="premium-badge premium-badge-neutral">{status}</span>;
   };

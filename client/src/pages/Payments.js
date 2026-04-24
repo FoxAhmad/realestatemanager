@@ -71,7 +71,7 @@ const Payments = () => {
           <label>Filter by Classification</label>
           <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
             <option value="all">All Transactions</option>
-            <option value="booking">Booking / Down Payment</option>
+            <option value="down_payment">Booking / Down Payment</option>
             <option value="installment">Instalment Plans</option>
             <option value="other">General / Others</option>
           </select>
@@ -104,7 +104,7 @@ const Payments = () => {
                     <td style={{ fontWeight: 600 }}>{new Date(p.payment_date).toLocaleDateString()}</td>
                     <td>
                       <span className={`premium-badge ${
-                        p.payment_type === 'booking' ? 'premium-badge-primary' : 
+                        (p.payment_type === 'booking' || p.payment_type === 'down_payment') ? 'premium-badge-primary' : 
                         p.payment_type === 'installment' ? 'premium-badge-info' : 
                         'premium-badge-neutral'
                       }`}>

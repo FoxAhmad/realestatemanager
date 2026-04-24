@@ -164,7 +164,7 @@ const initDatabase = async () => {
       CREATE TABLE IF NOT EXISTS payments (
         id SERIAL PRIMARY KEY,
         deal_id INTEGER NOT NULL,
-        payment_type VARCHAR(20) NOT NULL CHECK (payment_type IN ('down_payment', 'installment')),
+        payment_type VARCHAR(20) NOT NULL CHECK (payment_type IN ('down_payment', 'installment', 'other')),
         amount DECIMAL(15, 2) NOT NULL,
         payment_date DATE NOT NULL,
         notes TEXT,
