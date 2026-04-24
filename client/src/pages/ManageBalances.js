@@ -184,8 +184,8 @@ const ManageBalances = () => {
                 <th>Voucher #</th>
                 <th>Narration & Proof</th>
                 <th>Dealer / Ref</th>
-                <th className="amount-col">Debit (Add)</th>
-                <th className="amount-col">Credit (Use)</th>
+                <th className="amount-col">Debit</th>
+                <th className="amount-col">Credit</th>
                 <th className="amount-col">Balance</th>
               </tr>
             </thead>
