@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { auth, adminOnly } = require('../middleware/auth');
+const { auth, adminOnly, adminAndAccountantOnly } = require('../middleware/auth');
 const db = require('../config/database');
 
 // Get all deals
 router.get('/', auth, async (req, res) => {
   try {
     let result;
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'admin' || req.user.role === 'accountant') {
       result = await db.query(`
         SELECT d.*, c.name as customer_name, c.phone_number as customer_phone, 
                u.name as dealer_name, i.address as inventory_address, i.category as inventory_category
@@ -41,7 +41,7 @@ router.get('/:id/plots', auth, async (req, res) => {
   try {
     // Check if user has access to this deal
     let dealCheck;
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'admin' || req.user.role === 'accountant') {
       dealCheck = await db.query('SELECT id FROM deals WHERE id = $1', [req.params.id]);
     } else {
       dealCheck = await db.query('SELECT id FROM deals WHERE id = $1 AND dealer_id = $2', [req.params.id, req.user.id]);
@@ -330,8 +330,8 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Update deal (Admin only for edit/delete permissions)
-router.put('/:id', auth, adminOnly, async (req, res) => {
+// Update deal (Admin and Accountant for edit permissions)
+router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
   try {
     // First, get the current deal to preserve existing values
     const currentDealResult = await db.query(
