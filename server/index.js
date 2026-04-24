@@ -26,7 +26,7 @@ app.use('/api/dealers', require('./routes/dealers'));
 app.use('/api/finance', require('./routes/finance'));
 app.use('/api/inventory', require('./routes/inventory'));
 app.use('/api/investors', require('./routes/investors'));
-// app.use('/api/inventory-requests', require('./routes/inventoryRequests')); // Retired
+app.use('/api/inventory-requests', require('./routes/inventoryRequests'));
 app.use('/api/inventory-payments', require('./routes/inventoryPayments'));
 app.use('/api/leads', require('./routes/leads'));
 app.use('/api/ledger', require('./routes/ledger'));
