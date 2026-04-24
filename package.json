@@ -13,7 +13,8 @@
     "migrate": "node migrate-to-dealers.js",
     "migrate-customers": "node migrate-customers-dealer.js",
     "migrate-inventory": "node migrate-inventory-deals.js",
-    "migrate-plots": "node migrate-inventory-to-plots.js"
+    "migrate-plots": "node migrate-inventory-to-plots.js",
+    "migrate:live": "node migrate-live.js"
   },
   "keywords": [
     "crm",
