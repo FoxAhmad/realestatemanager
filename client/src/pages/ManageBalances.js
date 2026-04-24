@@ -247,8 +247,8 @@ const ManageBalances = () => {
               <div className="form-group">
                 <label>Transaction Type</label>
                 <select name="type" className="form-control" value={formData.type} onChange={handleInputChange}>
-                  <option value="add">Debit Balance</option>
-                  <option value="deduct">Credit Balance</option>
+                  <option value="add">Credit Balance</option>
+                  <option value="deduct">Debit Balance</option>
                 </select>
               </div>
               <div className="form-group">
