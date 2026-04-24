@@ -18,8 +18,10 @@ const Deals = () => {
     dealer_id: '',
     inventory_id: '',
     plot_id: '',
-    total_amount: '',
-    booking_amount: '',
+    property_type: '',
+    original_price: '',
+    sale_price: '',
+    demand_price: '',
     installments: '',
     notes: '',
   });
@@ -82,7 +84,17 @@ const Deals = () => {
 
   const handleInventoryChange = (e) => {
     const inventoryId = e.target.value;
-    setFormData({ ...formData, inventory_id: inventoryId, plot_id: '' });
+    const selectedInventory = inventory.find(i => i.id === parseInt(inventoryId));
+    
+    setFormData({ 
+      ...formData, 
+      inventory_id: inventoryId, 
+      plot_id: '',
+      property_type: selectedInventory ? selectedInventory.category : '',
+      original_price: selectedInventory ? selectedInventory.price : '',
+      sale_price: selectedInventory ? selectedInventory.price : '', // Default sale price to base price
+    });
+    
     if (inventoryId) {
       fetchPlots(inventoryId);
     } else {
@@ -101,8 +113,10 @@ const Deals = () => {
         dealer_id: '',
         inventory_id: '',
         plot_id: '',
-        total_amount: '',
-        booking_amount: '',
+        property_type: '',
+        original_price: '',
+        sale_price: '',
+        demand_price: '',
         installments: '',
         notes: '',
       });
@@ -151,7 +165,8 @@ const Deals = () => {
                 <th>Customer Name</th>
                 <th>Salesperson</th>
                 <th>Asset Details</th>
-                <th>Total Value</th>
+                <th>Base Price</th>
+                <th>Sale Price</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -175,9 +190,13 @@ const Deals = () => {
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                           {deal.plot_number ? `Plot: ${deal.plot_number}` : 'N/A'}
                         </span>
+                        <span className="premium-badge premium-badge-neutral" style={{ fontSize: '0.7rem', marginTop: '0.2rem', alignSelf: 'flex-start' }}>
+                          {deal.property_type?.replace('_', ' ')}
+                        </span>
                       </div>
                     </td>
-                    <td style={{ fontWeight: '700' }}>${parseFloat(deal.total_amount).toLocaleString()}</td>
+                    <td style={{ color: 'var(--text-muted)' }}>${parseFloat(deal.original_price || 0).toLocaleString()}</td>
+                    <td style={{ fontWeight: '700' }}>${parseFloat(deal.sale_price || 0).toLocaleString()}</td>
                     <td>{getStatusBadge(deal.status)}</td>
                     <td>
                       <button
@@ -259,37 +278,63 @@ const Deals = () => {
                 </div>
               </div>
 
+              <div className="form-group">
+                <label>Property Type *</label>
+                <select
+                  value={formData.property_type}
+                  onChange={(e) => setFormData({ ...formData, property_type: e.target.value })}
+                  required
+                >
+                  <option value="">Select type...</option>
+                  <option value="plot">Plot</option>
+                  <option value="house">House</option>
+                  <option value="shop_office">Shop/Office</option>
+                </select>
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
-                  <label>Total Deal Amount *</label>
+                  <label>Base Price (Original) *</label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.total_amount}
-                    onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
+                    value={formData.original_price}
+                    onChange={(e) => setFormData({ ...formData, original_price: e.target.value })}
                     required
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Booking Amount *</label>
+                  <label>Sale Price *</label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.booking_amount}
-                    onChange={(e) => setFormData({ ...formData, booking_amount: e.target.value })}
+                    value={formData.sale_price}
+                    onChange={(e) => setFormData({ ...formData, sale_price: e.target.value })}
                     required
                   />
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Number of Installments</label>
-                <input
-                  type="number"
-                  value={formData.installments}
-                  onChange={(e) => setFormData({ ...formData, installments: e.target.value })}
-                />
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Demand Price (Target)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.demand_price}
+                    onChange={(e) => setFormData({ ...formData, demand_price: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Installments</label>
+                  <input
+                    type="number"
+                    value={formData.installments}
+                    onChange={(e) => setFormData({ ...formData, installments: e.target.value })}
+                  />
+                </div>
               </div>
 
               <div className="form-group">

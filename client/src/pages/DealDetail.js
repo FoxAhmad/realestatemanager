@@ -114,7 +114,7 @@ const DealDetail = () => {
 
   const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
   const totalAdjusted = adjustments.reduce((sum, a) => sum + parseFloat(a.customer_price || 0), 0);
-  const remainingBalance = parseFloat(deal.total_amount) - totalPaid - totalAdjusted;
+  const remainingBalance = parseFloat(deal.sale_price || 0) - totalPaid - totalAdjusted;
 
   return (
     <div className="premium-page">
@@ -186,8 +186,8 @@ const DealDetail = () => {
             </div>
             <div className="payment-summary">
               <div className="summary-item">
-                <label>Total Value</label>
-                <span className="amount">${parseFloat(deal.total_amount).toLocaleString()}</span>
+                <label>Sale Price</label>
+                <span className="amount">${parseFloat(deal.sale_price || 0).toLocaleString()}</span>
               </div>
               <div className="summary-item">
                 <label>Paid Amount</label>
