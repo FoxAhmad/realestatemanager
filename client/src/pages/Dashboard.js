@@ -130,21 +130,21 @@ const Dashboard = () => {
             <div className="card-icon"><FaWallet /></div>
             <div className="card-info">
               <span className="label">Dealer Advances</span>
-              <span className="value">${parseFloat(ledgerBalances.dealerAdvances || 0).toLocaleString()}</span>
+              <span className="value">Rs. {parseFloat(ledgerBalances.dealerAdvances || 0).toLocaleString()}</span>
             </div>
           </div>
           <div className="ledger-card glass-card blue-border">
             <div className="card-icon"><FaCoins /></div>
             <div className="card-info">
               <span className="label">Savings Deposits</span>
-              <span className="value">${parseFloat(ledgerBalances.savingsDeposits || 0).toLocaleString()}</span>
+              <span className="value">Rs. {parseFloat(ledgerBalances.savingsDeposits || 0).toLocaleString()}</span>
             </div>
           </div>
           <div className="ledger-card glass-card green-border">
             <div className="card-icon"><FaCertificate /></div>
             <div className="card-info">
               <span className="label">Advance for Certificate</span>
-              <span className="value">${parseFloat(ledgerBalances.advanceForCertificate || 0).toLocaleString()}</span>
+              <span className="value">Rs. {parseFloat(ledgerBalances.advanceForCertificate || 0).toLocaleString()}</span>
             </div>
           </div>
         </div>
@@ -160,11 +160,11 @@ const Dashboard = () => {
           <div className="finance-grid">
             <div className="stat-item">
               <span className="stat-label">Total Revenue</span>
-              <span className="stat-value revenue">${parseFloat(finance.total_revenue || 0).toLocaleString()}</span>
+              <span className="stat-value revenue">Rs. {parseFloat(finance.total_revenue || 0).toLocaleString()}</span>
             </div>
             <div className="stat-item">
               <span className="stat-label">Total Profit</span>
-              <span className="stat-value profit">${parseFloat(finance.total_profit || 0).toLocaleString()}</span>
+              <span className="stat-value profit">Rs. {parseFloat(finance.total_profit || 0).toLocaleString()}</span>
             </div>
           </div>
         </div>

@@ -133,7 +133,7 @@ router.get('/balances', auth, async (req, res) => {
       const getBalance = async (accName) => {
         const queryRes = await db.query(`
           SELECT
-            COALESCE(SUM(tl.credit) - SUM(tl.debit), 0) as acc_balance
+            COALESCE(SUM(tl.debit) - SUM(tl.credit), 0) as acc_balance
           FROM transaction_lines tl
           INNER JOIN accounts a ON tl.account_id = a.id
           WHERE a.name = $1

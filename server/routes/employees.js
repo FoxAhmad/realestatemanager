@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { auth, adminOnly } = require('../middleware/auth');
+const { auth, adminOnly, adminAndAccountantOnly } = require('../middleware/auth');
 const db = require('../config/database');
 
-// Get all users for employee management (Admin only)
-router.get('/', auth, adminOnly, async (req, res) => {
+// Get all users for employee management (Admin and Accountant)
+router.get('/', auth, adminAndAccountantOnly, async (req, res) => {
   try {
     const result = await db.query(
       'SELECT id, name, email, role, is_employee, created_at FROM users ORDER BY name ASC'
@@ -15,8 +15,8 @@ router.get('/', auth, adminOnly, async (req, res) => {
   }
 });
 
-// Update user role / employee status (Admin only)
-router.put('/:id', auth, adminOnly, async (req, res) => {
+// Update user role / employee status (Admin and Accountant)
+router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
   try {
     const { role, is_employee } = req.body;
     

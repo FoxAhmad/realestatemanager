@@ -15,7 +15,8 @@ import {
   FaUserPlus,
   FaUserShield,
   FaBook,
-  FaExchangeAlt
+  FaExchangeAlt,
+  FaWallet
 } from 'react-icons/fa';
 import './Layout.css';
 
@@ -72,7 +73,7 @@ const Layout = () => {
               </Link>
             </div>
 
-            {user?.role === 'admin' && (
+            {(user?.role === 'admin' || user?.role === 'accountant') && (
               <>
                 <div className="sidebar-section">
                   <Link
@@ -164,6 +165,19 @@ const Layout = () => {
                 {sidebarOpen && <span>Slip Record</span>}
               </Link>
             </div>
+            
+            {(user?.role === 'admin' || user?.role === 'accountant') && (
+              <div className="sidebar-section">
+                <Link
+                  to="/manage-balances"
+                  className={`sidebar-submenu-item ${isActive('/manage-balances') ? 'active' : ''}`}
+                  title="Manage Balances"
+                >
+                  <FaWallet className="sidebar-icon" />
+                  {sidebarOpen && <span>Manage Balances</span>}
+                </Link>
+              </div>
+            )}
 
             <div className="sidebar-section">
               <Link

@@ -441,12 +441,26 @@ const initDatabase = async () => {
         id SERIAL PRIMARY KEY,
         transaction_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         description TEXT,
-        reference_type VARCHAR(50) CHECK (reference_type IN ('DEAL', 'DEPOSIT', 'ADJUSTMENT', 'TRANSFER', 'COMMISSION')),
+        reference_type VARCHAR(50) CHECK (reference_type IN ('DEAL', 'DEPOSIT', 'ADJUSTMENT', 'TRANSFER', 'COMMISSION', 'BALANCE_UPDATE')),
         reference_id INTEGER,
+        voucher_no VARCHAR(100),
+        instrument VARCHAR(50),
+        instrument_number VARCHAR(100),
+        proof_file VARCHAR(500),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Add new columns if they don't exist
+    try {
+      await db.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS voucher_no VARCHAR(100)`);
+      await db.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS instrument VARCHAR(50)`);
+      await db.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS instrument_number VARCHAR(100)`);
+      await db.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS proof_file VARCHAR(500)`);
+      await db.query(`ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_reference_type_check`);
+      await db.query(`ALTER TABLE transactions ADD CONSTRAINT transactions_reference_type_check CHECK (reference_type IN ('DEAL', 'DEPOSIT', 'ADJUSTMENT', 'TRANSFER', 'COMMISSION', 'BALANCE_UPDATE'))`);
+    } catch (e) { /* ignore */ }
 
     await db.query(`
       CREATE TABLE IF NOT EXISTS transaction_lines (
@@ -462,6 +476,39 @@ const initDatabase = async () => {
         FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
       )
+    `);
+
+    // Create Deal Adjustments table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS deal_adjustments (
+        id SERIAL PRIMARY KEY,
+        deal_id INTEGER NOT NULL,
+        transaction_id INTEGER,
+        customer_price DECIMAL(15, 2) NOT NULL,
+        cost_price DECIMAL(15, 2) NOT NULL,
+        adjustment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (deal_id) REFERENCES deals(id) ON DELETE CASCADE,
+        FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
+      )
+    `);
+
+    // Create App Settings table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        setting_key VARCHAR(100) PRIMARY KEY,
+        setting_value TEXT NOT NULL,
+        description TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Seed default settings
+    await db.query(`
+      INSERT INTO app_settings (setting_key, setting_value, description)
+      VALUES ('ADJUSTMENT_FORM_DEFAULT_COST', '20000', 'Default cost price for adjustment forms (certificates)')
+      ON CONFLICT (setting_key) DO NOTHING
     `);
 
     // Add indexes for accounting tables
@@ -612,13 +659,13 @@ const initDatabase = async () => {
         VALUES 
           (1, 'Cash / Bank', 'Asset'),
           (2, 'Accounts Receivable', 'Asset'),
-          (3, 'Dealer Advances', 'Liability'),
-          (4, 'Savings Deposits', 'Liability'),
+          (3, 'Dealer Advances', 'Asset'),
+          (4, 'Savings Deposits', 'Asset'),
           (5, 'Commission Payable', 'Liability'),
           (6, 'Corporate Revenue', 'Revenue'),
           (7, 'Dealer Commission Expense', 'Expense'),
-          (8, 'Advance for Certificate', 'Liability')
-        ON CONFLICT (id) DO NOTHING
+          (8, 'Advance for Certificate', 'Asset')
+        ON CONFLICT (id) DO UPDATE SET type = EXCLUDED.type, name = EXCLUDED.name
       `);
       // Update sequence if hardcoded IDs are used
       await db.query(`SELECT setval('accounts_id_seq', (SELECT MAX(id) FROM accounts))`);

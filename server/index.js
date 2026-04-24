@@ -32,6 +32,8 @@ app.use('/api/leads', require('./routes/leads'));
 app.use('/api/ledger', require('./routes/ledger'));
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/dealer-exchanges', require('./routes/dealerExchanges'));
+app.use('/api/balance-transactions', require('./routes/balanceTransactions'));
+app.use('/api/settings', require('./routes/settings'));
 
 // Initialize database and start server
 const startServer = async () => {

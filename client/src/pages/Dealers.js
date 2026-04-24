@@ -11,6 +11,7 @@ const Dealers = () => {
     name: '',
     email: '',
     password: '',
+    role: 'dealer',
   });
 
   useEffect(() => {
@@ -42,7 +43,7 @@ const Dealers = () => {
       fetchDealers();
       setShowModal(false);
       setEditingDealer(null);
-      setFormData({ name: '', email: '', password: '' });
+      setFormData({ name: '', email: '', password: '', role: 'dealer' });
     } catch (error) {
       console.error('Error saving salesperson:', error);
       alert(error.response?.data?.message || 'Error saving salesperson');
@@ -55,6 +56,7 @@ const Dealers = () => {
       name: dealer.name || '',
       email: dealer.email || '',
       password: '',
+      role: dealer.role || 'dealer',
     });
     setShowModal(true);
   };
@@ -86,7 +88,7 @@ const Dealers = () => {
           className="premium-btn premium-btn-primary"
           onClick={() => {
             setEditingDealer(null);
-            setFormData({ name: '', email: '', password: '' });
+            setFormData({ name: '', email: '', password: '', role: 'dealer' });
             setShowModal(true);
           }}
         >
@@ -101,6 +103,7 @@ const Dealers = () => {
               <tr>
                 <th>Full Name</th>
                 <th>Access Email</th>
+                <th>Role</th>
                 <th>Onboarding Date</th>
                 <th>Actions</th>
               </tr>
@@ -117,6 +120,15 @@ const Dealers = () => {
                   <tr key={dealer.id}>
                     <td style={{ fontWeight: '700' }}>{dealer.name}</td>
                     <td>{dealer.email}</td>
+                    <td>
+                      <span className={`premium-badge ${
+                        dealer.role === 'admin' ? 'premium-badge-primary' : 
+                        dealer.role === 'accountant' ? 'premium-badge-success' : 
+                        'premium-badge-warning'
+                      }`}>
+                        {dealer.role.toUpperCase()}
+                      </span>
+                    </td>
                     <td>{new Date(dealer.created_at).toLocaleDateString()}</td>
                     <td>
                       <div className="action-buttons">
@@ -181,6 +193,20 @@ const Dealers = () => {
                   }
                   required={!editingDealer}
                 />
+              </div>
+              <div className="form-group">
+                <label>Operational Role *</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) =>
+                    setFormData({ ...formData, role: e.target.value })
+                  }
+                  required
+                >
+                  <option value="dealer">Salesperson (Dealer)</option>
+                  <option value="accountant">Accountant</option>
+                  <option value="admin">Administrator</option>
+                </select>
               </div>
               <div className="modal-actions">
                 <button
