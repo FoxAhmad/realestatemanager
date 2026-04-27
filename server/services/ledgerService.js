@@ -14,7 +14,8 @@ const ledgerService = {
       SAVINGS_DEPOSITS: 4,
       COMMISSION_PAYABLE: 5,
       CORPORATE_REVENUE: 6,
-      DEALER_COMMISSION_EXPENSE: 7
+      DEALER_COMMISSION_EXPENSE: 7,
+      DEALER_FINANCE: 9
     };
   },
 
@@ -59,8 +60,8 @@ const ledgerService = {
       { account_id: acc.CASH_BANK, debit: amountPaid },
       // 2. Credit corporate revenue for 40%
       { account_id: acc.CORPORATE_REVENUE, credit: corporateShare },
-      // 3. Credit dealer commission payload (tied to user_id) for 60%
-      { account_id: acc.COMMISSION_PAYABLE, user_id: dealerId, credit: dealerShare },
+      // 3. Credit dealer finance (wallet) for 60%
+      { account_id: acc.DEALER_FINANCE, user_id: dealerId, credit: dealerShare },
       
       // Optionally, recognize Commission Expense (Debit) and offset it
       { account_id: acc.DEALER_COMMISSION_EXPENSE, debit: dealerShare },
@@ -72,11 +73,11 @@ const ledgerService = {
     const simpleLines = [
         { account_id: acc.CASH_BANK, debit: amountPaid },
         { account_id: acc.CORPORATE_REVENUE, credit: corporateShare },
-        { account_id: acc.COMMISSION_PAYABLE, user_id: dealerId, credit: dealerShare }
+        { account_id: acc.DEALER_FINANCE, user_id: dealerId, credit: dealerShare }
     ];
 
     await ledgerService.createTransaction(client, {
-      description: `Payment Split for Deal ${dealId} (60% Dealer / 40% Corporate)`,
+      description: `Profit from Deal #${dealId}`,
       type: 'DEAL',
       refId: dealId,
       lines: simpleLines

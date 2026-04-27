@@ -64,18 +64,26 @@ const Ledger = () => {
                   return (
                     <tr key={line.id} className={isCredit ? 'tx-line-credit' : 'tx-line-debit'}>
                       <td>{new Date(line.transaction_date).toLocaleDateString()}</td>
-                      <td style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '0.8rem' }}>
-                        TX-{line.transaction_id.toString().padStart(5, '0')}
+                      <td>
+                        {line.voucher_no && <div className="voucher-badge">{line.voucher_no}</div>}
+                        <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '0.7rem' }}>
+                          TX-{line.transaction_id.toString().padStart(5, '0')}
+                        </div>
+                        {line.instrument && (
+                          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                            {line.instrument} {line.instrument_number}
+                          </div>
+                        )}
                       </td>
                       <td className={isCredit ? 'credit-account' : ''}>
                         <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{line.account_name}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{line.description}</div>
                       </td>
-                      <td className="amount-col">
-                        {!isCredit ? `$${parseFloat(line.debit).toLocaleString()}` : '-'}
+                      <td className="amount-col" style={{ color: '#dc3545', fontWeight: 600 }}>
+                        {!isCredit ? parseFloat(line.debit).toLocaleString() : '-'}
                       </td>
-                      <td className="amount-col">
-                        {isCredit ? `$${parseFloat(line.credit).toLocaleString()}` : '-'}
+                      <td className="amount-col" style={{ color: '#28a745', fontWeight: 600 }}>
+                        {isCredit ? parseFloat(line.credit).toLocaleString() : '-'}
                       </td>
                     </tr>
                   );

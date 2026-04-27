@@ -474,7 +474,8 @@ const initDatabase = async () => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
         FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+        linked_line_id INTEGER REFERENCES transaction_lines(id) ON DELETE SET NULL
       )
     `);
 
@@ -664,7 +665,8 @@ const initDatabase = async () => {
           (5, 'Commission Payable', 'Liability'),
           (6, 'Corporate Revenue', 'Revenue'),
           (7, 'Dealer Commission Expense', 'Expense'),
-          (8, 'Advance for Certificate', 'Asset')
+          (8, 'Advance for Certificate', 'Asset'),
+          (9, 'Dealer Finance', 'Liability')
         ON CONFLICT (id) DO UPDATE SET type = EXCLUDED.type, name = EXCLUDED.name
       `);
       // Update sequence if hardcoded IDs are used

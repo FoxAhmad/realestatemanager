@@ -38,7 +38,21 @@ router.get('/:accountId', auth, adminAndAccountantOnly, async (req, res) => {
     const { userId, deal_id } = req.query;
     let query = `
       SELECT t.*, tl.debit, tl.credit, u.name as user_name, tl.user_id, a.name as account_name,
-             da.customer_price, da.cost_price, da.id as adjustment_id
+             da.customer_price, da.cost_price, da.id as adjustment_id, tl.id as line_id,
+             (
+                SELECT JSON_AGG(JSON_BUILD_OBJECT(
+                    'id', f_t.id,
+                    'date', f_t.transaction_date,
+                    'description', f_t.description,
+                    'amount', f_tl.credit,
+                    'proof_file', f_t.proof_file,
+                    'user_name', f_u.name
+                ))
+                FROM transaction_lines f_tl
+                JOIN transactions f_t ON f_tl.transaction_id = f_t.id
+                LEFT JOIN users f_u ON f_tl.user_id = f_u.id
+                WHERE f_tl.linked_line_id = tl.id
+             ) as linked_entries
       FROM transactions t
       JOIN transaction_lines tl ON t.id = tl.transaction_id
       JOIN accounts a ON tl.account_id = a.id
@@ -69,18 +83,27 @@ router.get('/:accountId', auth, adminAndAccountantOnly, async (req, res) => {
 
 /**
  * Create a balance update transaction
- * Adding balance to Asset accounts (Advance, Savings, etc.)
  */
 router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
   const client = await db.connect();
   try {
     const { 
       account_id, user_id, amount, date, description, 
-      voucher_no, instrument, instrument_number, type 
+      voucher_no, instrument, instrument_number, type,
+      linked_finance_line_ids // Stringified array of IDs
     } = req.body;
 
     if (!account_id || !amount || !type) {
       return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    let financeLineIds = [];
+    if (linked_finance_line_ids) {
+        try {
+            financeLineIds = JSON.parse(linked_finance_line_ids);
+        } catch (e) {
+            financeLineIds = linked_finance_line_ids.split(',').map(id => parseInt(id));
+        }
     }
 
     const proofFile = req.file ? '/uploads/proofs/' + req.file.filename : null;
@@ -98,29 +121,64 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
     );
     const transId = transRes.rows[0].id;
 
-    // Determine Debit/Credit based on "type"
-    // Since these are ASSET accounts:
-    // "Deposit/Add" -> Debit Asset (Increase), Credit Cash/Bank (Decrease)
-    // "Withdraw/Deduct" -> Credit Asset (Decrease), Debit Cash/Bank (Increase)
-    
-    let assetLine, cashLine;
-    if (type === 'add' || type === 'deposit' || type === 'Received') {
-      assetLine = { account_id, user_id: user_id || null, debit: val, credit: 0 };
-      cashLine = { account_id: accMap.CASH_BANK, debit: 0, credit: val };
-    } else {
-      assetLine = { account_id, user_id: user_id || null, debit: 0, credit: val };
-      cashLine = { account_id: accMap.CASH_BANK, debit: val, credit: 0 };
-    }
+    let targetLineId;
+    if (financeLineIds.length > 0) {
+        // CASE: Moving funds from Finance to Balance
+        // We need a Debit in Dealer Finance and a Credit in the target Balance Account
+        
+        // 1. Credit Target Account (Advance/Savings)
+        const assetLineRes = await client.query(
+            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+            [transId, account_id, user_id, 0, val]
+        );
+        targetLineId = assetLineRes.rows[0].id;
 
-    // Insert Lines
-    await client.query(
-      'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
-      [transId, assetLine.account_id, assetLine.user_id, assetLine.debit, assetLine.credit]
-    );
-    await client.query(
-      'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
-      [transId, cashLine.account_id, null, cashLine.debit, cashLine.credit]
-    );
+        // 2. Debit Dealer Finance from EACH contributing user
+        // We query the linked lines to see who they belong to and what the amount was
+        const sourceLinesRes = await client.query(
+            'SELECT user_id, credit FROM transaction_lines WHERE id = ANY($1::int[])',
+            [financeLineIds]
+        );
+
+        // Group by user_id to handle multiple entries from the same user
+        const debitsByUser = {};
+        sourceLinesRes.rows.forEach(row => {
+            const uid = row.user_id;
+            debitsByUser[uid] = (debitsByUser[uid] || 0) + parseFloat(row.credit);
+        });
+
+        for (const [contribUserId, contribAmount] of Object.entries(debitsByUser)) {
+            await client.query(
+                'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
+                [transId, accMap.DEALER_FINANCE, contribUserId, contribAmount, 0]
+            );
+        }
+
+        // 3. Link original Finance Credits to this new Balance Credit
+        await client.query(
+            'UPDATE transaction_lines SET linked_line_id = $1 WHERE id = ANY($2::int[])',
+            [targetLineId, financeLineIds]
+        );
+    } else {
+        // CASE: Normal manual balance update (not linked to finance)
+        let assetLine, cashLine;
+        if (type === 'add' || type === 'deposit' || type === 'Received') {
+            assetLine = { account_id, user_id: user_id || null, debit: val, credit: 0 };
+            cashLine = { account_id: accMap.CASH_BANK, debit: 0, credit: val };
+        } else {
+            assetLine = { account_id, user_id: user_id || null, debit: 0, credit: val };
+            cashLine = { account_id: accMap.CASH_BANK, debit: val, credit: 0 };
+        }
+
+        await client.query(
+            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
+            [transId, assetLine.account_id, assetLine.user_id, assetLine.debit, assetLine.credit]
+        );
+        await client.query(
+            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
+            [transId, cashLine.account_id, null, cashLine.debit, cashLine.credit]
+        );
+    }
 
     await client.query('COMMIT');
     res.status(201).json({ message: 'Transaction created', transaction_id: transId });
@@ -132,128 +190,56 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
   }
 });
 
-/**
- * Create a Deal Adjustment (Certificate usage)
- */
+// ... rest of file (adjust-deal, delete)
 router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
-  const client = await db.connect();
-  try {
-    const { deal_id, customer_price, cost_price, date, notes } = req.body;
-    
-    if (!deal_id || !customer_price || !cost_price) {
-      return res.status(400).json({ message: 'Missing required fields' });
+    const client = await db.connect();
+    try {
+      const { deal_id, customer_price, cost_price, date, notes } = req.body;
+      if (!deal_id || !customer_price || !cost_price) {
+        return res.status(400).json({ message: 'Missing required fields' });
+      }
+      const accMap = await ledgerService.getAccountMap();
+      const certAccountId = 8; 
+      await client.query('BEGIN');
+      const transRes = await client.query(
+        `INSERT INTO transactions (transaction_date, description, reference_type, reference_id) 
+         VALUES ($1, $2, $3, $4) RETURNING id`,
+        [date || new Date(), notes || `Adjustment Form for Deal #${deal_id}`, 'ADJUSTMENT', deal_id]
+      );
+      const transId = transRes.rows[0].id;
+      const dealRes = await client.query('SELECT dealer_id FROM deals WHERE id = $1', [deal_id]);
+      const dealerId = dealRes.rows[0].dealer_id;
+      await client.query(
+        'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
+        [transId, certAccountId, null, 0, cost_price]
+      );
+      await client.query(
+        'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
+        [transId, accMap.ACCOUNTS_RECEIVABLE, dealerId, 0, customer_price] 
+      );
+      await client.query(
+        `INSERT INTO deal_adjustments (deal_id, transaction_id, customer_price, cost_price, adjustment_date, notes)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [deal_id, transId, customer_price, cost_price, date || new Date(), notes]
+      );
+      await client.query('COMMIT');
+      res.status(201).json({ message: 'Adjustment recorded' });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      res.status(500).json({ message: 'Server error', error: error.message });
+    } finally {
+      client.release();
     }
-
-    const accMap = await ledgerService.getAccountMap();
-    const certAccountId = 8; // Advance for Certificate
-
-    await client.query('BEGIN');
-
-    // 1. Create Ledger Transaction
-    // Credit Certificate Asset (Cost), Debit Accounts Receivable (Customer Price), Credit Revenue (Difference)
-    // Wait, the user said "deducted from certificate account".
-    // If it reduces the customer's debt, it should be a Credit to Accounts Receivable.
-    
-    const transRes = await client.query(
-      `INSERT INTO transactions (transaction_date, description, reference_type, reference_id) 
-       VALUES ($1, $2, $3, $4) RETURNING id`,
-      [date || new Date(), notes || `Adjustment Form for Deal #${deal_id}`, 'ADJUSTMENT', deal_id]
-    );
-    const transId = transRes.rows[0].id;
-
-    // Get deal info to find dealer_id for attribution
-    const dealRes = await client.query('SELECT dealer_id FROM deals WHERE id = $1', [deal_id]);
-    const dealerId = dealRes.rows[0].dealer_id;
-
-    // Lines:
-    // - Credit Advance for Certificate (Cost Price) -> Asset decrease
-    await client.query(
-      'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
-      [transId, certAccountId, null, 0, cost_price]
-    );
-    
-    // - Debit Accounts Receivable (Customer Price) -> This is actually tricky. 
-    // Usually, you Credit Accounts Receivable to reduce debt.
-    await client.query(
-      'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
-      [transId, accMap.ACCOUNTS_RECEIVABLE, dealerId, 0, customer_price] 
-    );
-    
-    // - Debit Revenue (to balance) or Loss? 
-    // Wait: Assets = Liability + Equity. 
-    // (AR - 40k) + (Cert - 20k) = -60k. Need +60k on Credit side?
-    // Double entry: 
-    // CR Certificate (Asset) 20k
-    // CR Accounts Receivable (Asset) 40k
-    // DB Revenue/Income 60k? No.
-    
-    // Correct entry for gaining profit from certificate:
-    // DB Accounts Receivable (Asset Decrease) - Wait, in ledger AR is Asset, Credit decreases it.
-    // So:
-    // Credit AR 40k (Customer debt reduced by 40k)
-    // Debit Certificate 20k? No, Certificate is Asset, Credit decreases it.
-    // Credit Certificate 20k (We used 20k worth of certificates)
-    // Debit Profit/Gain 20k? No.
-    
-    // Let's re-think:
-    // Customer pays 40k via Certificate.
-    // Value given to customer: 40k (Credit AR)
-    // Cost to us: 20k (Credit Certificate Asset)
-    // Total Credit: 60k.
-    // We need 60k Debit. 
-    // This doesn't seem right.
-    
-    // Actually:
-    // The "Profit" is the 20k difference.
-    // Credit Certificate 20k (Asset decrease)
-    // Debit Expense/COGS 20k (Cost of giving the certificate)
-    // AND
-    // Credit AR 40k (Debt decrease)
-    // Debit Payment/Income 40k (Customer "paid" 40k)
-    
-    // Simpler:
-    // Credit Certificate 20k (Our cost)
-    // Credit Corporate Revenue 20k (Our profit)
-    // Debit Accounts Receivable 40k? No, Credit AR 40k.
-    
-    // If we want to balance:
-    // Debit "Certificate Benefit" (Expense) 40k?
-    // Credit Certificate Asset 20k
-    // Credit Revenue 20k
-    
-    // Let's stick to user's simple "deduct from certificate account" for now.
-    // I'll just record the cost deduction and the adjustment record.
-    
-    // 2. Create Adjustment Record
-    await client.query(
-      `INSERT INTO deal_adjustments (deal_id, transaction_id, customer_price, cost_price, adjustment_date, notes)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [deal_id, transId, customer_price, cost_price, date || new Date(), notes]
-    );
-
-    await client.query('COMMIT');
-    res.status(201).json({ message: 'Adjustment recorded' });
-  } catch (error) {
-    await client.query('ROLLBACK');
-    res.status(500).json({ message: 'Server error', error: error.message });
-  } finally {
-    client.release();
-  }
-});
-
-/**
- * Delete a transaction
- */
-router.delete('/:id', auth, adminAndAccountantOnly, async (req, res) => {
-  try {
-    const result = await db.query('DELETE FROM transactions WHERE id = $1 RETURNING id', [req.params.id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Transaction not found' });
+  });
+  
+  router.delete('/:id', auth, adminAndAccountantOnly, async (req, res) => {
+    try {
+      const result = await db.query('DELETE FROM transactions WHERE id = $1 RETURNING id', [req.params.id]);
+      if (result.rows.length === 0) return res.status(404).json({ message: 'Transaction not found' });
+      res.json({ message: 'Transaction deleted' });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
-    res.json({ message: 'Transaction deleted' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
+  });
 
 module.exports = router;

@@ -133,18 +133,40 @@ router.get('/balances', auth, async (req, res) => {
       const getBalance = async (accName) => {
         const queryRes = await db.query(`
           SELECT
-            COALESCE(SUM(tl.debit) - SUM(tl.credit), 0) as acc_balance
-          FROM transaction_lines tl
-          INNER JOIN accounts a ON tl.account_id = a.id
+            a.type,
+            COALESCE(SUM(tl.debit), 0) as d,
+            COALESCE(SUM(tl.credit), 0) as c
+          FROM accounts a
+          LEFT JOIN transaction_lines tl ON tl.account_id = a.id
           WHERE a.name = $1
+          GROUP BY a.type
         `, [accName]);
-        return queryRes.rows[0].acc_balance;
+        
+        if (queryRes.rows.length === 0) return 0;
+        const { type, d, c } = queryRes.rows[0];
+        
+        if (type === 'Asset' || type === 'Expense') {
+          return parseFloat(d) - parseFloat(c);
+        } else {
+          return parseFloat(c) - parseFloat(d);
+        }
       };
 
       ledgerBalances = {
         dealerAdvances: await getBalance('Dealer Advances'),
         savingsDeposits: await getBalance('Savings Deposits'),
         advanceForCertificate: await getBalance('Advance for Certificate'),
+        dealerFinanceBreakdown: (await db.query(`
+          SELECT u.name, 
+                 COALESCE(SUM(tl.credit) - SUM(tl.debit), 0) as balance
+          FROM users u
+          JOIN transaction_lines tl ON tl.user_id = u.id
+          JOIN accounts a ON tl.account_id = a.id
+          WHERE a.name = 'Dealer Finance'
+          GROUP BY u.id, u.name
+          HAVING COALESCE(SUM(tl.credit) - SUM(tl.debit), 0) != 0
+          ORDER BY balance DESC
+        `)).rows
       };
     }
 

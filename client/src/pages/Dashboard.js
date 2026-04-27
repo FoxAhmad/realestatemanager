@@ -130,21 +130,21 @@ const Dashboard = () => {
             <div className="card-icon"><FaWallet /></div>
             <div className="card-info">
               <span className="label">Dealer Advances</span>
-              <span className="value">Rs. {parseFloat(ledgerBalances.dealerAdvances || 0).toLocaleString()}</span>
+              <span className="value">Rs. {Math.abs(parseFloat(ledgerBalances.dealerAdvances || 0)).toLocaleString()}</span>
             </div>
           </div>
           <div className="ledger-card glass-card blue-border">
             <div className="card-icon"><FaCoins /></div>
             <div className="card-info">
               <span className="label">Savings Deposits</span>
-              <span className="value">Rs. {parseFloat(ledgerBalances.savingsDeposits || 0).toLocaleString()}</span>
+              <span className="value">Rs. {Math.abs(parseFloat(ledgerBalances.savingsDeposits || 0)).toLocaleString()}</span>
             </div>
           </div>
           <div className="ledger-card glass-card green-border">
             <div className="card-icon"><FaCertificate /></div>
             <div className="card-info">
               <span className="label">Advance for Certificate</span>
-              <span className="value">Rs. {parseFloat(ledgerBalances.advanceForCertificate || 0).toLocaleString()}</span>
+              <span className="value">Rs. {Math.abs(parseFloat(ledgerBalances.advanceForCertificate || 0)).toLocaleString()}</span>
             </div>
           </div>
         </div>
@@ -159,14 +159,27 @@ const Dashboard = () => {
           </div>
           <div className="finance-grid">
             <div className="stat-item">
-              <span className="stat-label">Total Revenue</span>
+              <span className="stat-label">{isAccountant ? 'Network Revenue' : 'Total Revenue'}</span>
               <span className="stat-value revenue">Rs. {parseFloat(finance.total_revenue || 0).toLocaleString()}</span>
             </div>
             <div className="stat-item">
-              <span className="stat-label">Total Profit</span>
+              <span className="stat-label">{isAccountant ? 'System Profits' : 'Total Profit'}</span>
               <span className="stat-value profit">Rs. {parseFloat(finance.total_profit || 0).toLocaleString()}</span>
             </div>
           </div>
+          {isAccountant && ledgerBalances.dealerFinanceBreakdown?.length > 0 && (
+            <div className="dealer-finance-breakdown" style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1rem' }}>
+              <h4 style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dealer Wallet Breakdown</h4>
+              <div className="mini-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {ledgerBalances.dealerFinanceBreakdown.map((d, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                    <span style={{ fontWeight: 500 }}>{d.name}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--success)' }}>Rs. {parseFloat(d.balance).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Mutuals Overview & Breakdown */}

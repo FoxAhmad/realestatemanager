@@ -1,47 +1,30 @@
-/* Ledger-specific styles */
-
-.ledger-loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 300px;
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--primary);
-}
-
-.empty-state {
-  text-align: center;
-  padding: 3rem !important;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.amount-col {
-  text-align: right !important;
-  font-family: 'Inter', monospace;
-  font-weight: 700;
-}
-
-.credit-account {
-  padding-left: 3rem !important;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.tx-group-header td {
-  background-color: rgba(248, 250, 252, 0.8);
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 1px;
+.tx-line-credit {
+    background: rgba(40, 167, 69, 0.02);
 }
 
 .tx-line-debit {
-  border-left: 3px solid var(--primary);
+    background: rgba(220, 53, 69, 0.02);
 }
 
-.tx-line-credit {
-  border-left: 3px solid var(--success);
+.credit-account {
+    padding-left: 1.5rem !important;
+}
+
+.voucher-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    background: #f1f5f9;
+    border-radius: 4px;
+    color: var(--primary);
+    font-weight: 800;
+    margin-bottom: 0.25rem;
+    border: 1px solid rgba(84, 105, 212, 0.1);
+}
+
+.empty-state {
+    padding: 4rem !important;
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
 }
