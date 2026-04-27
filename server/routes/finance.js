@@ -33,7 +33,7 @@ const upload = multer({
 router.get('/summary', auth, async (req, res) => {
   try {
     let result;
-    const isAccountant = req.user.role === 'accountant';
+    const isManagement = req.user.role === 'admin' || req.user.role === 'accountant';
     
     const query = `
       SELECT 
@@ -42,14 +42,14 @@ router.get('/summary', auth, async (req, res) => {
         COUNT(CASE WHEN d.status = 'deal_done' THEN 1 END) as completed_deals,
         COUNT(CASE WHEN d.status = 'in_progress' THEN 1 END) as active_deals
       FROM deals d
-      ${isAccountant ? '' : 'WHERE d.dealer_id = $1'}
+      ${isManagement ? '' : 'WHERE d.dealer_id = $1'}
     `;
     
-    result = await db.query(query, isAccountant ? [] : [req.user.id]);
+    result = await db.query(query, isManagement ? [] : [req.user.id]);
     
     // Get current Dealer Finance balance
     const accMap = await ledgerService.getAccountMap();
-    const balance = await ledgerService.calculateBalance(accMap.DEALER_FINANCE, isAccountant ? null : req.user.id);
+    const balance = await ledgerService.calculateBalance(accMap.DEALER_FINANCE, isManagement ? null : req.user.id);
 
     res.json({
         ...result.rows[0],
@@ -65,10 +65,10 @@ router.get('/entries', auth, async (req, res) => {
     try {
         const { userId, unlinkedOnly } = req.query;
         const accMap = await ledgerService.getAccountMap();
-        const isAccountant = req.user.role === 'accountant';
+        const isManagement = req.user.role === 'admin' || req.user.role === 'accountant';
         
         let targetUserId = req.user.id;
-        if (isAccountant && userId) {
+        if (isManagement && userId) {
             targetUserId = userId;
         }
 
@@ -81,8 +81,8 @@ router.get('/entries', auth, async (req, res) => {
         `;
         const params = [accMap.DEALER_FINANCE];
 
-        if (isAccountant && !userId) {
-            // Accountant seeing all
+        if (isManagement && !userId) {
+            // Management seeing all
         } else {
             query += ` AND tl.user_id = $2`;
             params.push(targetUserId);
