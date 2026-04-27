@@ -479,6 +479,11 @@ const initDatabase = async () => {
       )
     `);
 
+    // Add linked_line_id to transaction_lines if it doesn't exist
+    try {
+      await db.query(`ALTER TABLE transaction_lines ADD COLUMN IF NOT EXISTS linked_line_id INTEGER REFERENCES transaction_lines(id) ON DELETE SET NULL`);
+    } catch (e) { /* ignore */ }
+
     // Create Deal Adjustments table
     await db.query(`
       CREATE TABLE IF NOT EXISTS deal_adjustments (
