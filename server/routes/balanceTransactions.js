@@ -38,7 +38,7 @@ router.get('/:accountId', auth, adminAndAccountantOnly, async (req, res) => {
     const { userId, deal_id } = req.query;
     let query = `
       SELECT t.*, tl.debit, tl.credit, u.name as user_name, tl.user_id, a.name as account_name,
-             da.customer_price, da.cost_price, da.id as adjustment_id, tl.id as line_id,
+             da.customer_price, da.cost_price, da.quantity, da.id as adjustment_id, tl.id as line_id,
              (
                 SELECT JSON_AGG(JSON_BUILD_OBJECT(
                     'id', f_t.id,
@@ -110,6 +110,10 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
     const accMap = await ledgerService.getAccountMap();
     const val = parseFloat(amount);
 
+    // Get account type to determine Debit/Credit logic
+    const accRes = await client.query('SELECT type FROM accounts WHERE id = $1', [account_id]);
+    const accType = accRes.rows[0]?.type || 'Asset';
+
     await client.query('BEGIN');
 
     // Create Transaction Record
@@ -162,12 +166,27 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
     } else {
         // CASE: Normal manual balance update (not linked to finance)
         let assetLine, cashLine;
-        if (type === 'add' || type === 'deposit' || type === 'Received') {
-            assetLine = { account_id, user_id: user_id || null, debit: val, credit: 0 };
-            cashLine = { account_id: accMap.CASH_BANK, debit: 0, credit: val };
+        const isDeposit = type === 'add' || type === 'deposit' || type === 'Received';
+        
+        if (accType === 'Asset') {
+            if (isDeposit) {
+                assetLine = { account_id, user_id: user_id || null, debit: val, credit: 0 };
+                cashLine = { account_id: accMap.CASH_BANK, debit: 0, credit: val };
+            } else {
+                assetLine = { account_id, user_id: user_id || null, debit: 0, credit: val };
+                cashLine = { account_id: accMap.CASH_BANK, debit: val, credit: 0 };
+            }
         } else {
-            assetLine = { account_id, user_id: user_id || null, debit: 0, credit: val };
-            cashLine = { account_id: accMap.CASH_BANK, debit: val, credit: 0 };
+            // Liability logic (e.g. Dealer Balance)
+            if (isDeposit) {
+                // Deposit increases liability (Credit)
+                assetLine = { account_id, user_id: user_id || null, debit: 0, credit: val };
+                cashLine = { account_id: accMap.CASH_BANK, debit: val, credit: 0 };
+            } else {
+                // Deduction decreases liability (Debit)
+                assetLine = { account_id, user_id: user_id || null, debit: val, credit: 0 };
+                cashLine = { account_id: accMap.CASH_BANK, debit: 0, credit: val };
+            }
         }
 
         await client.query(
@@ -194,7 +213,7 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
 router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
     const client = await db.connect();
     try {
-      const { deal_id, customer_price, cost_price, date, notes } = req.body;
+      const { deal_id, customer_price, cost_price, quantity, date, notes } = req.body;
       if (!deal_id || !customer_price || !cost_price) {
         return res.status(400).json({ message: 'Missing required fields' });
       }
@@ -209,18 +228,20 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
       const transId = transRes.rows[0].id;
       const dealRes = await client.query('SELECT dealer_id FROM deals WHERE id = $1', [deal_id]);
       const dealerId = dealRes.rows[0].dealer_id;
+      const userId = req.body.user_id || dealerId; // Allow overriding the dealer for the certificate deduction
+
       await client.query(
         'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
-        [transId, certAccountId, null, 0, cost_price]
+        [transId, certAccountId, userId, cost_price, 0] // DEBIT for deduction from Liability
       );
       await client.query(
         'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
-        [transId, accMap.ACCOUNTS_RECEIVABLE, dealerId, 0, customer_price] 
+        [transId, accMap.ACCOUNTS_RECEIVABLE, dealerId, 0, customer_price] // CREDIT for reduction of Asset
       );
       await client.query(
-        `INSERT INTO deal_adjustments (deal_id, transaction_id, customer_price, cost_price, adjustment_date, notes)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [deal_id, transId, customer_price, cost_price, date || new Date(), notes]
+        `INSERT INTO deal_adjustments (deal_id, transaction_id, customer_price, cost_price, quantity, adjustment_date, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [deal_id, transId, customer_price, cost_price, quantity || 1, date || new Date(), notes]
       );
       await client.query('COMMIT');
       res.status(201).json({ message: 'Adjustment recorded' });

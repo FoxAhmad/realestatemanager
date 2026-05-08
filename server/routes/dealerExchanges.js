@@ -23,7 +23,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
@@ -46,7 +46,7 @@ router.get('/', auth, async (req, res) => {
       const targetUserId = (req.user.role === 'accountant' && req.query.target_user_id)
         ? parseInt(req.query.target_user_id)
         : req.user.id;
-        
+
       // Admin, Dealers, or Accountant masquerading see only target's exchanges
       result = await db.query(`
         SELECT de.*, 
@@ -68,8 +68,8 @@ router.get('/', auth, async (req, res) => {
 // Get selectable peers (other dealers and admins)
 router.get('/peers', auth, async (req, res) => {
   try {
-    const targetUserId = (req.user.role === 'accountant' && req.query.target_user_id) 
-      ? parseInt(req.query.target_user_id) 
+    const targetUserId = (req.user.role === 'accountant' && req.query.target_user_id)
+      ? parseInt(req.query.target_user_id)
       : req.user.id;
 
     const result = await db.query(`
@@ -87,29 +87,33 @@ router.get('/peers', auth, async (req, res) => {
 // Get balances and ledger account balances
 router.get('/balances', auth, async (req, res) => {
   try {
-    const targetUserId = (req.user.role === 'accountant' && req.query.target_user_id) 
-      ? parseInt(req.query.target_user_id) 
+    const targetUserId = (req.user.role === 'accountant' && req.query.target_user_id)
+      ? parseInt(req.query.target_user_id)
       : req.user.id;
 
     // Balances with other dealers
     let peerBalancesResult;
     if ((req.user.role === 'accountant' || req.user.role === 'admin') && !req.query.target_user_id) {
-       // Return net balance for ALL dealers - SUBJECT CENTRIC (Sent = Sent BY dealer)
+       // Return net balance for all unique PAIRS of dealers/admins
        peerBalancesResult = await db.query(`
-         SELECT u.id as peer_id, u.name as peer_name, u.role as peer_role,
-           COALESCE((SELECT SUM(amount) FROM dealer_exchanges WHERE sender_id = u.id), 0) as sent_amount,
-           COALESCE((SELECT SUM(amount) FROM dealer_exchanges WHERE receiver_id = u.id), 0) as received_amount,
+         SELECT 
+           u1.id as party1_id, u1.name as party1_name, u1.role as party1_role,
+           u2.id as party2_id, u2.name as party2_name, u2.role as party2_role,
+           SUM(CASE WHEN de.sender_id = u1.id THEN de.amount ELSE 0 END) as sent_amount,
+           SUM(CASE WHEN de.receiver_id = u1.id THEN de.amount ELSE 0 END) as received_amount,
            (
-             COALESCE((SELECT SUM(amount) FROM dealer_exchanges WHERE sender_id = u.id), 0) -
-             COALESCE((SELECT SUM(amount) FROM dealer_exchanges WHERE receiver_id = u.id), 0)
+             SUM(CASE WHEN de.sender_id = u1.id THEN de.amount ELSE 0 END) -
+             SUM(CASE WHEN de.receiver_id = u1.id THEN de.amount ELSE 0 END)
            ) as net_balance
-         FROM users u
-         WHERE u.role IN ('dealer', 'admin')
-         ORDER BY u.name
+         FROM dealer_exchanges de
+         JOIN users u1 ON LEAST(de.sender_id, de.receiver_id) = u1.id
+         JOIN users u2 ON GREATEST(de.sender_id, de.receiver_id) = u2.id
+         GROUP BY party1_id, party1_name, party1_role, party2_id, party2_name, party2_role
+         ORDER BY u1.name, u2.name
        `);
     } else {
-       // Calculate peer balances for target user - SUBJECT CENTRIC (Sent = Sent BY target)
-       peerBalancesResult = await db.query(`
+      // Calculate peer balances for target user - SUBJECT CENTRIC (Sent = Sent BY target)
+      peerBalancesResult = await db.query(`
          SELECT u.id as peer_id, u.name as peer_name, u.role as peer_role,
            COALESCE(
              (SELECT SUM(amount) FROM dealer_exchanges WHERE sender_id = $1 AND receiver_id = u.id)
@@ -141,10 +145,10 @@ router.get('/balances', auth, async (req, res) => {
           WHERE a.name = $1
           GROUP BY a.type
         `, [accName]);
-        
+
         if (queryRes.rows.length === 0) return 0;
         const { type, d, c } = queryRes.rows[0];
-        
+
         if (type === 'Asset' || type === 'Expense') {
           return parseFloat(d) - parseFloat(c);
         } else {
@@ -184,15 +188,15 @@ router.get('/balances', auth, async (req, res) => {
 router.post('/', auth, upload.single('proof_file'), async (req, res) => {
   try {
     let { receiver_id, amount, exchange_date, detail, direction, override_sender_id } = req.body;
-    
+
     // For direction logic: 'send' means primary is sender. 'receive' means primary is receiver.
-    let baseUserId = (req.user.role === 'accountant' && override_sender_id) 
-      ? parseInt(override_sender_id) 
+    let baseUserId = (req.user.role === 'accountant' && override_sender_id)
+      ? parseInt(override_sender_id)
       : req.user.id;
 
     let senderId = baseUserId;
     let recipientId = receiver_id;
-    
+
     if (direction === 'receive') {
       senderId = receiver_id;
       recipientId = baseUserId;

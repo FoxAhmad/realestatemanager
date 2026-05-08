@@ -345,3 +345,19 @@
     color: var(--danger);
     transform: rotate(90deg);
 }
+
+.instrument-tag {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+
+.qty-badge {
+    background: rgba(255, 193, 7, 0.1);
+    color: #856404;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+    border: 1px solid rgba(255, 193, 7, 0.2);
+}

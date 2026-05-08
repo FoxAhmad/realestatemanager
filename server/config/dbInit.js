@@ -492,6 +492,7 @@ const initDatabase = async () => {
         transaction_id INTEGER,
         customer_price DECIMAL(15, 2) NOT NULL,
         cost_price DECIMAL(15, 2) NOT NULL,
+        quantity INTEGER DEFAULT 1,
         adjustment_date DATE NOT NULL DEFAULT CURRENT_DATE,
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -499,6 +500,11 @@ const initDatabase = async () => {
         FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
       )
     `);
+
+    // Add quantity column if it doesn't exist
+    try {
+      await db.query(`ALTER TABLE deal_adjustments ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1`);
+    } catch (e) { /* ignore */ }
 
     // Create App Settings table
     await db.query(`
@@ -513,7 +519,9 @@ const initDatabase = async () => {
     // Seed default settings
     await db.query(`
       INSERT INTO app_settings (setting_key, setting_value, description)
-      VALUES ('ADJUSTMENT_FORM_DEFAULT_COST', '20000', 'Default cost price for adjustment forms (certificates)')
+      VALUES 
+        ('ADJUSTMENT_FORM_DEFAULT_COST', '20000', 'Default cost price for adjustment forms (certificates)'),
+        ('ADJUSTMENT_FORM_CUSTOMER_VALUE', '40000', 'Default value credited toward deal for adjustment forms')
       ON CONFLICT (setting_key) DO NOTHING
     `);
 
@@ -665,12 +673,12 @@ const initDatabase = async () => {
         VALUES 
           (1, 'Cash / Bank', 'Asset'),
           (2, 'Accounts Receivable', 'Asset'),
-          (3, 'Dealer Advances', 'Asset'),
-          (4, 'Savings Deposits', 'Asset'),
+          (3, 'Dealer Advances', 'Liability'),
+          (4, 'Savings Deposits', 'Liability'),
           (5, 'Commission Payable', 'Liability'),
           (6, 'Corporate Revenue', 'Revenue'),
           (7, 'Dealer Commission Expense', 'Expense'),
-          (8, 'Advance for Certificate', 'Asset'),
+          (8, 'Advance for Certificate', 'Liability'),
           (9, 'Dealer Finance', 'Liability')
         ON CONFLICT (id) DO UPDATE SET type = EXCLUDED.type, name = EXCLUDED.name
       `);

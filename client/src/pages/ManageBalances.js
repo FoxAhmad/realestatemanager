@@ -165,7 +165,8 @@ const ManageBalances = () => {
   };
 
   const totalBalance = transactions.reduce((sum, t) => {
-    return sum + (parseFloat(t.debit) - parseFloat(t.credit));
+    // For Liability accounts: Credit increases, Debit decreases
+    return sum + (parseFloat(t.credit) - parseFloat(t.debit));
   }, 0);
 
   return (
@@ -241,7 +242,7 @@ const ManageBalances = () => {
               ) : (
                 transactions.map((t, idx) => {
                   const runningBalance = transactions.slice(idx).reduce((sum, item) => {
-                    return sum + (parseFloat(item.debit) - parseFloat(item.credit));
+                    return sum + (parseFloat(item.credit) - parseFloat(item.debit));
                   }, 0);
                   const isExpanded = expandedRows[t.id];
                   const hasLinked = t.linked_entries && t.linked_entries.length > 0;
@@ -262,7 +263,10 @@ const ManageBalances = () => {
                                 <div className="instrument-tag">{t.instrument} {t.instrument_number}</div>
                             </td>
                             <td>
-                                <div style={{ fontWeight: 600 }}>{t.description}</div>
+                                <div style={{ fontWeight: 600 }}>
+                                    {t.description}
+                                    {t.quantity && t.quantity > 1 && <span className="qty-badge"> (Qty: {t.quantity})</span>}
+                                </div>
                                 {t.proof_file && (
                                 <a href={(process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + t.proof_file} target="_blank" rel="noopener noreferrer" className="proof-link">
                                     <FaExternalLinkAlt size={10} /> View Proof

@@ -153,6 +153,7 @@
   border-bottom: 1px solid #f8fafc;
   color: #334155;
   font-weight: 500;
+  vertical-align: middle;
 }
 
 .dealer-cell {

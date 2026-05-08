@@ -11,33 +11,41 @@ import './MutualNetReport.css';
 const MutualNetReport = ({ balances = [], isAdmin, isAccountant, mode = 'card' }) => {
   const isManagement = isAdmin || isAccountant;
 
-  // Aggregate summary: Management sees only dealer balances; Dealers see everything (including Admin)
-  const summaryBalances = isManagement
-    ? balances.filter(b => b.peer_role !== 'admin')
-    : balances;
+  // For management, "Owe" vs "Owed" is based on who represents the company (Admin/Accountant)
+  // party1 is always the lower ID. If party1 is management and party2 is dealer:
+  // net_balance > 0 means party1 sent more -> party2 (dealer) owes party1 (company) -> Owed to Me
+  // net_balance < 0 means party2 sent more -> party1 (company) owes party2 (dealer) -> I Owe
+  let owe = 0;
+  let owed = 0;
+  let card1Peers = [];
+  let card2Peers = [];
 
-  // Positive balance means I sent more than I received (Asset)
-  // Negative balance means I received more than I sent (Liability)
-  const totalPositive = summaryBalances.filter(b => parseFloat(b.net_balance) > 0)
-    .reduce((sum, b) => sum + parseFloat(b.net_balance), 0);
+  if (isManagement) {
+    balances.forEach(b => {
+      const p1Mgmt = b.party1_role === 'admin' || b.party1_role === 'accountant';
+      const p2Mgmt = b.party2_role === 'admin' || b.party2_role === 'accountant';
+      const net = parseFloat(b.net_balance);
 
-  const totalNegative = summaryBalances.filter(b => parseFloat(b.net_balance) < 0)
-    .reduce((sum, b) => sum + Math.abs(parseFloat(b.net_balance)), 0);
-
-  // Peers contributing to each category
-  const card1Peers = isManagement
-    ? summaryBalances.filter(b => parseFloat(b.net_balance) > 0)
-    : summaryBalances.filter(b => parseFloat(b.net_balance) < 0);
-
-  const card2Peers = isManagement
-    ? summaryBalances.filter(b => parseFloat(b.net_balance) < 0)
-    : summaryBalances.filter(b => parseFloat(b.net_balance) > 0);
-
-  // Card 1 (Left): Admin Asset OR Dealer Liability
-  const owe = isManagement ? totalPositive : totalNegative;
-
-  // Card 2 (Right): Admin Liability OR Dealer Asset
-  const owed = isManagement ? totalNegative : totalPositive;
+      if (p1Mgmt && !p2Mgmt) {
+        if (net > 0) { owed += net; card2Peers.push({ peer_name: b.party2_name, net_balance: net }); }
+        else { owe += Math.abs(net); card1Peers.push({ peer_name: b.party2_name, net_balance: net }); }
+      } else if (!p1Mgmt && p2Mgmt) {
+        if (net > 0) { owe += net; card1Peers.push({ peer_name: b.party1_name, net_balance: net }); }
+        else { owed += Math.abs(net); card2Peers.push({ peer_name: b.party1_name, net_balance: net }); }
+      }
+    });
+  } else {
+    // Original dealer-centric logic
+    const totalPositive = balances.filter(b => parseFloat(b.net_balance) > 0)
+      .reduce((sum, b) => sum + parseFloat(b.net_balance), 0);
+    const totalNegative = balances.filter(b => parseFloat(b.net_balance) < 0)
+      .reduce((sum, b) => sum + Math.abs(parseFloat(b.net_balance)), 0);
+    
+    owe = totalNegative;
+    owed = totalPositive;
+    card1Peers = balances.filter(b => parseFloat(b.net_balance) < 0);
+    card2Peers = balances.filter(b => parseFloat(b.net_balance) > 0);
+  }
 
   return (
     <div className={`mutual-net-report ${mode}`}>
@@ -54,8 +62,8 @@ const MutualNetReport = ({ balances = [], isAdmin, isAccountant, mode = 'card' }
 
             {card1Peers.length > 0 && (
               <div className="card-breakdown">
-                {card1Peers.slice(0, 3).map(p => (
-                  <div key={p.peer_id} className="breakdown-item">
+                {card1Peers.slice(0, 3).map((p, i) => (
+                  <div key={i} className="breakdown-item">
                     <span className="peer-name">{p.peer_name}</span>
                     <span className="peer-amount">${Math.abs(parseFloat(p.net_balance)).toLocaleString()}</span>
                   </div>
@@ -78,8 +86,8 @@ const MutualNetReport = ({ balances = [], isAdmin, isAccountant, mode = 'card' }
 
             {card2Peers.length > 0 && (
               <div className="card-breakdown">
-                {card2Peers.slice(0, 3).map(p => (
-                  <div key={p.peer_id} className="breakdown-item">
+                {card2Peers.slice(0, 3).map((p, i) => (
+                  <div key={i} className="breakdown-item">
                     <span className="peer-name">{p.peer_name}</span>
                     <span className="peer-amount">${Math.abs(parseFloat(p.net_balance)).toLocaleString()}</span>
                   </div>
@@ -100,20 +108,31 @@ const MutualNetReport = ({ balances = [], isAdmin, isAccountant, mode = 'card' }
             <table className="dealer-net-table">
               <thead>
                 <tr>
-                  <th>Dealer</th>
+                  <th>{isManagement ? 'Party 1' : 'Dealer'}</th>
+                  {isManagement && <th>Party 2</th>}
                   <th>Sent</th>
                   <th>Received</th>
                   <th>Net</th>
                 </tr>
               </thead>
               <tbody>
-                {balances.length > 0 ? (
-                  balances.map(db => (
-                    <tr key={db.peer_id}>
-                      <td className="dealer-cell">
-                        <span className="name">{db.peer_name}</span>
-                        <span className="id">#{db.peer_id}</span>
+                 {balances.length > 0 ? (
+                  balances.map((db, idx) => (
+                    <tr key={idx}>
+                      <td>
+                        <div className="dealer-cell">
+                          <span className="name">{isManagement ? db.party1_name : db.peer_name}</span>
+                          <span className="id">#{isManagement ? db.party1_id : db.peer_id} — {isManagement ? db.party1_role : db.peer_role}</span>
+                        </div>
                       </td>
+                      {isManagement && (
+                        <td>
+                          <div className="dealer-cell">
+                            <span className="name">{db.party2_name}</span>
+                            <span className="id">#{db.party2_id} — {db.party2_role}</span>
+                          </div>
+                        </td>
+                      )}
                       <td>${parseFloat(db.sent_amount || 0).toLocaleString()}</td>
                       <td>${parseFloat(db.received_amount || 0).toLocaleString()}</td>
                       <td className={`net-cell ${parseFloat(db.net_balance) >= 0 ? 'good' : 'bad'}`}>
@@ -123,7 +142,7 @@ const MutualNetReport = ({ balances = [], isAdmin, isAccountant, mode = 'card' }
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="4" className="no-data-v2">No active balances.</td>
+                    <td colSpan={isManagement ? "5" : "4"} className="no-data-v2">No active balances.</td>
                   </tr>
                 )}
               </tbody>

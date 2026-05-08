@@ -15,7 +15,9 @@ const DealDetail = () => {
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [dealers, setDealers] = useState([]);
   const [defaultCost, setDefaultCost] = useState(20000);
+  const [defaultCustomerValue, setDefaultCustomerValue] = useState(40000);
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
     payment_type: 'installment',
@@ -23,7 +25,9 @@ const DealDetail = () => {
     notes: '',
   });
   const [adjustmentForm, setAdjustmentForm] = useState({
-    customer_price: '',
+    user_id: '',
+    quantity: 1,
+    customer_price: 40000,
     cost_price: 20000,
     adjustment_date: new Date().toISOString().split('T')[0],
     notes: '',
@@ -34,19 +38,39 @@ const DealDetail = () => {
       const dealRes = await api.get(`/deals/${id}`);
       setDeal(dealRes.data);
       setPayments(dealRes.data.payments || []);
-      
+
       // Fetch adjustments
       const adjRes = await api.get(`/balance-transactions/8?deal_id=${id}`);
       // Filtering for this deal if not already filtered by backend
       setAdjustments(adjRes.data.filter(a => a.reference_id === parseInt(id)));
 
-      // Fetch default cost
+      // Fetch settings
       const settingsRes = await api.get('/settings');
       const costSetting = settingsRes.data.find(s => s.setting_key === 'ADJUSTMENT_FORM_DEFAULT_COST');
+      const valueSetting = settingsRes.data.find(s => s.setting_key === 'ADJUSTMENT_FORM_CUSTOMER_VALUE');
+
+      let cost = 20000;
+      let val = 40000;
+
       if (costSetting) {
-        setDefaultCost(costSetting.setting_value);
-        setAdjustmentForm(prev => ({ ...prev, cost_price: costSetting.setting_value }));
+        cost = parseFloat(costSetting.setting_value);
+        setDefaultCost(cost);
       }
+      if (valueSetting) {
+        val = parseFloat(valueSetting.setting_value);
+        setDefaultCustomerValue(val);
+      }
+
+      setAdjustmentForm(prev => ({
+        ...prev,
+        user_id: dealRes.data.dealer_id, // Default to deal's dealer
+        cost_price: cost * (prev.quantity || 1),
+        customer_price: val * (prev.quantity || 1)
+      }));
+
+      // Fetch dealers
+      const dealersRes = await api.get('/dealers');
+      setDealers(dealersRes.data);
     } catch (error) {
       console.error('Error fetching deal details:', error);
     } finally {
@@ -95,7 +119,9 @@ const DealDetail = () => {
       fetchDealDetails();
       setShowAdjustmentModal(false);
       setAdjustmentForm({
-        customer_price: '',
+        user_id: deal.dealer_id,
+        quantity: 1,
+        customer_price: defaultCustomerValue,
         cost_price: defaultCost,
         adjustment_date: new Date().toISOString().split('T')[0],
         notes: '',
@@ -134,7 +160,7 @@ const DealDetail = () => {
           <div className="profile-header-main">
             <h1>Deal Profile #{id}</h1>
             {(isAdmin || isAccountant) ? (
-              <select 
+              <select
                 className={`status-select-premium ${deal.status}`}
                 value={deal.status}
                 onChange={(e) => handleStatusUpdate(e.target.value)}
@@ -187,8 +213,8 @@ const DealDetail = () => {
               <div className="info-item">
                 <label>Plot Number</label>
                 <span style={{ color: 'var(--primary)', fontWeight: 800 }}>
-                  {deal.plots && deal.plots.length > 0 
-                    ? deal.plots.map(p => p.plot_number).join(', ') 
+                  {deal.plots && deal.plots.length > 0
+                    ? deal.plots.map(p => p.plot_number).join(', ')
                     : (deal.plot_info || 'N/A')}
                 </span>
               </div>
@@ -249,7 +275,7 @@ const DealDetail = () => {
               )}
             </div>
           </div>
-          
+
           <div className="payments-list">
             {payments.length === 0 && adjustments.length === 0 ? (
               <div className="empty-state">No financial records found for this deal.</div>
@@ -258,12 +284,17 @@ const DealDetail = () => {
                 {adjustments.map((a) => (
                   <div key={`adj-${a.id}`} className="payment-item" style={{ borderLeft: '4px solid #ffc107' }}>
                     <div className="payment-main">
-                      <div className="payment-type" style={{ background: '#ffc107', color: '#000' }}>ADJUSTMENT</div>
+                      <div className="payment-type" style={{ background: '#ffc107', color: '#000' }}>
+                        ADJUSTMENT {a.quantity > 1 ? `(${a.quantity} Forms)` : ''}
+                      </div>
                       <div className="payment-date">{new Date(a.transaction_date).toLocaleDateString()}</div>
                     </div>
                     <div className="payment-val" style={{ textAlign: 'right' }}>
                       <div className="payment-amount">${parseFloat(a.customer_price).toLocaleString()}</div>
-                      <div className="payment-notes" style={{ fontSize: '0.7rem' }}>Cost: ${parseFloat(a.cost_price).toLocaleString()}</div>
+                      <div className="payment-notes" style={{ fontSize: '0.7rem' }}>
+                        Deduction: ${parseFloat(a.cost_price).toLocaleString()}
+                        {a.quantity > 1 && ` (Qty: ${a.quantity})`}
+                      </div>
                       {a.description && <div className="payment-notes">{a.description}</div>}
                     </div>
                     {(isAdmin || isAccountant) && (
@@ -359,23 +390,58 @@ const DealDetail = () => {
             <h2>Add Adjustment Form</h2>
             <form onSubmit={handleAdjustmentSubmit}>
               <div className="form-group">
-                <label>Customer Price (Credit toward deal) *</label>
-                <input
-                  type="number"
-                  value={adjustmentForm.customer_price}
-                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, customer_price: e.target.value })}
+                <label>Select Dealer *</label>
+                <select
+                  value={adjustmentForm.user_id}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, user_id: e.target.value })}
                   required
-                  placeholder="e.g. 40000"
-                />
+                  className="form-control"
+                >
+                  <option value="">Select Dealer</option>
+                  {dealers.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="form-group">
-                <label>Cost Price (Deducted from Cert. Balance) *</label>
+                <label>Quantity (Number of Forms) *</label>
                 <input
                   type="number"
-                  value={adjustmentForm.cost_price}
-                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, cost_price: e.target.value })}
+                  min="1"
+                  value={adjustmentForm.quantity}
+                  onChange={(e) => {
+                    const qty = parseInt(e.target.value) || 1;
+                    setAdjustmentForm({
+                      ...adjustmentForm,
+                      quantity: qty,
+                      customer_price: qty * defaultCustomerValue,
+                      cost_price: qty * defaultCost
+                    });
+                  }}
                   required
                 />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                <div className="form-group">
+                  <label>Price (Total Credit) *</label>
+                  <input
+                    type="number"
+                    value={adjustmentForm.customer_price}
+                    onChange={(e) => setAdjustmentForm({ ...adjustmentForm, customer_price: e.target.value })}
+                    required
+                  />
+                  <small style={{ color: 'var(--text-muted)' }}>Unit: ${defaultCustomerValue.toLocaleString()}</small>
+                </div>
+                {/* <div className="form-group">
+                    <label>Cost Price (Total Deduction) *</label>
+                    <input
+                    type="number"
+                    value={adjustmentForm.cost_price}
+                    onChange={(e) => setAdjustmentForm({ ...adjustmentForm, cost_price: e.target.value })}
+                    required
+                    />
+                    <small style={{ color: 'var(--text-muted)' }}>Unit: ${defaultCost.toLocaleString()}</small>
+                </div> */}
               </div>
               <div className="form-group">
                 <label>Date</label>
