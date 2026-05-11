@@ -112,10 +112,16 @@ const DealDetail = () => {
   const handleAdjustmentSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/balance-transactions/adjust-deal', {
-        ...adjustmentForm,
-        deal_id: id
-      });
+      const payload = { ...adjustmentForm, deal_id: id };
+      // If date is today, add current time for proper sorting
+      if (payload.adjustment_date === new Date().toISOString().split('T')[0]) {
+        const now = new Date();
+        payload.date = `${payload.adjustment_date}T${now.toTimeString().split(' ')[0]}`;
+      } else {
+        payload.date = payload.adjustment_date;
+      }
+
+      await api.post('/balance-transactions/adjust-deal', payload);
       fetchDealDetails();
       setShowAdjustmentModal(false);
       setAdjustmentForm({
@@ -290,12 +296,20 @@ const DealDetail = () => {
                       <div className="payment-date">{new Date(a.transaction_date).toLocaleDateString()}</div>
                     </div>
                     <div className="payment-val" style={{ textAlign: 'right' }}>
-                      <div className="payment-amount">${parseFloat(a.customer_price).toLocaleString()}</div>
-                      <div className="payment-notes" style={{ fontSize: '0.7rem' }}>
-                        Deduction: ${parseFloat(a.cost_price).toLocaleString()}
-                        {a.quantity > 1 && ` (Qty: ${a.quantity})`}
+                      <div className="payment-amount">
+                        Rs. {parseFloat(a.customer_price).toLocaleString()}
+                        {a.quantity && <span className="qty-badge"> (Qty: {a.quantity})</span>}
+                      </div>
+                      <div className="payment-notes" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        Cost: Rs. {parseFloat(a.cost_price).toLocaleString()}
                       </div>
                       {a.description && <div className="payment-notes">{a.description}</div>}
+                      {(a.plot_info || a.customer_info) && (
+                        <div className="payment-notes" style={{ fontSize: '0.65rem', opacity: 0.8 }}>
+                          {a.customer_info && <span><FaUser size={8} /> {a.customer_info} </span>}
+                          {a.plot_info && <span><FaMapMarkerAlt size={8} /> {a.plot_info}</span>}
+                        </div>
+                      )}
                     </div>
                     {(isAdmin || isAccountant) && (
                       <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} onClick={() => handlePaymentDelete(a.id)}>

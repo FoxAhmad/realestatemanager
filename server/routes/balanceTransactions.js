@@ -37,8 +37,8 @@ router.get('/:accountId', auth, adminAndAccountantOnly, async (req, res) => {
   try {
     const { userId, deal_id } = req.query;
     let query = `
-      SELECT t.*, tl.debit, tl.credit, u.name as user_name, tl.user_id, a.name as account_name,
-             da.customer_price, da.cost_price, da.quantity, da.id as adjustment_id, tl.id as line_id,
+      SELECT t.*, tl.debit, tl.credit, tl.quantity, tl.plot_info, tl.customer_info, u.name as user_name, tl.user_id, a.name as account_name,
+             da.customer_price, da.cost_price, da.id as adjustment_id, tl.id as line_id,
              (
                 SELECT JSON_AGG(JSON_BUILD_OBJECT(
                     'id', f_t.id,
@@ -90,7 +90,8 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
     const { 
       account_id, user_id, amount, date, description, 
       voucher_no, instrument, instrument_number, type,
-      linked_finance_line_ids // Stringified array of IDs
+      linked_finance_line_ids, // Stringified array of IDs
+      quantity, plot_info, customer_info
     } = req.body;
 
     if (!account_id || !amount || !type) {
@@ -121,7 +122,7 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
       `INSERT INTO transactions 
         (transaction_date, description, reference_type, voucher_no, instrument, instrument_number, proof_file) 
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      [date || new Date(), description || 'Balance Update', 'BALANCE_UPDATE', voucher_no, instrument, instrument_number, proofFile]
+      [date ? new Date(date) : new Date(), description || 'Balance Update', 'BALANCE_UPDATE', voucher_no, instrument, instrument_number, proofFile]
     );
     const transId = transRes.rows[0].id;
 
@@ -132,8 +133,8 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
         
         // 1. Credit Target Account (Advance/Savings)
         const assetLineRes = await client.query(
-            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-            [transId, account_id, user_id, 0, val]
+            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit, quantity, plot_info, customer_info) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+            [transId, account_id, user_id, 0, val, quantity || 1, plot_info || null, customer_info || null]
         );
         targetLineId = assetLineRes.rows[0].id;
 
@@ -190,8 +191,8 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
         }
 
         await client.query(
-            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
-            [transId, assetLine.account_id, assetLine.user_id, assetLine.debit, assetLine.credit]
+            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit, quantity, plot_info, customer_info) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+            [transId, assetLine.account_id, assetLine.user_id, assetLine.debit, assetLine.credit, quantity || 1, plot_info || null, customer_info || null]
         );
         await client.query(
             'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
@@ -226,13 +227,29 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
         [date || new Date(), notes || `Adjustment Form for Deal #${deal_id}`, 'ADJUSTMENT', deal_id]
       );
       const transId = transRes.rows[0].id;
-      const dealRes = await client.query('SELECT dealer_id FROM deals WHERE id = $1', [deal_id]);
-      const dealerId = dealRes.rows[0].dealer_id;
+      
+      // Fetch deal details for the ledger
+      const dealDetailsRes = await client.query(`
+        SELECT d.dealer_id, d.plot_info, c.name as customer_name,
+               ARRAY_AGG(p.plot_number) as plot_numbers
+        FROM deals d
+        LEFT JOIN customers c ON d.customer_id = c.id
+        LEFT JOIN deal_plots dp ON d.id = dp.deal_id
+        LEFT JOIN inventory_plots p ON dp.plot_id = p.id
+        WHERE d.id = $1
+        GROUP BY d.id, c.id
+      `, [deal_id]);
+      
+      const dealInfo = dealDetailsRes.rows[0];
+      const dealerId = dealInfo?.dealer_id;
+      const plotNumbers = dealInfo?.plot_numbers?.filter(n => n)?.join(', ') || dealInfo?.plot_info;
+      const customerName = dealInfo?.customer_name;
+      
       const userId = req.body.user_id || dealerId; // Allow overriding the dealer for the certificate deduction
 
       await client.query(
-        'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
-        [transId, certAccountId, userId, cost_price, 0] // DEBIT for deduction from Liability
+        'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit, quantity, plot_info, customer_info) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        [transId, certAccountId, userId, cost_price, 0, quantity || 1, plotNumbers, customerName] // DEBIT for deduction from Liability
       );
       await client.query(
         'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',

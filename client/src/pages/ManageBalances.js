@@ -3,7 +3,7 @@ import api from '../services/api';
 import {
   FaPlus, FaSearch, FaHistory, FaCog, FaFileUpload,
   FaWallet, FaCertificate, FaPiggyBank, FaTimes, FaExternalLinkAlt,
-  FaChevronDown, FaChevronUp, FaCheckCircle
+  FaChevronDown, FaChevronUp, FaCheckCircle, FaUser, FaMapMarkerAlt
 } from 'react-icons/fa';
 import './ManageBalances.css';
 
@@ -31,7 +31,11 @@ const ManageBalances = () => {
     instrument: 'Cash',
     instrument_number: '',
     user_id: '',
-    proof_file: null
+    proof_file: null,
+    quantity: 1,
+    plot_info: '',
+    customer_info: '',
+    is_random: false
   });
 
   const accounts = [
@@ -125,7 +129,16 @@ const ManageBalances = () => {
     try {
       const data = new FormData();
       Object.keys(formData).forEach(key => {
-        if (formData[key] !== null) data.append(key, formData[key]);
+        if (formData[key] !== null) {
+          // If the date is today, append the current time to ensure proper sorting
+          if (key === 'date' && formData[key] === new Date().toISOString().split('T')[0]) {
+             const now = new Date();
+             const timeStr = now.toTimeString().split(' ')[0];
+             data.append(key, `${formData[key]}T${timeStr}`);
+          } else {
+             data.append(key, formData[key]);
+          }
+        }
       });
       data.append('account_id', activeTab);
       
@@ -147,15 +160,14 @@ const ManageBalances = () => {
 
   const resetForm = () => {
     setFormData({
-        amount: '',
-        type: 'add',
-        date: new Date().toISOString().split('T')[0],
-        description: '',
-        voucher_no: '',
         instrument: 'Cash',
         instrument_number: '',
         user_id: '',
-        proof_file: null
+        proof_file: null,
+        quantity: 1,
+        plot_info: '',
+        customer_info: '',
+        is_random: false
       });
       setSelectedFinanceEntries([]);
   }
@@ -165,9 +177,30 @@ const ManageBalances = () => {
   };
 
   const totalBalance = transactions.reduce((sum, t) => {
-    // For Liability accounts: Credit increases, Debit decreases
     return sum + (parseFloat(t.credit) - parseFloat(t.debit));
   }, 0);
+
+  const totalQuantity = activeTab === 8 ? transactions.reduce((sum, t) => {
+    // If it's a credit to certificate account, quantity is positive
+    // If it's a debit (use), quantity is negative
+    const q = parseInt(t.quantity) || 0;
+    if (parseFloat(t.credit) > 0) return sum + q;
+    if (parseFloat(t.debit) > 0) return sum - q;
+    return sum;
+  }, 0) : null;
+
+  // Calculate dealer-wise balances for Account 8
+  const dealerBalances = activeTab === 8 ? dealers.map(d => {
+    const dealerTransactions = transactions.filter(t => t.user_id === d.id);
+    const balance = dealerTransactions.reduce((sum, t) => sum + (parseFloat(t.credit) - parseFloat(t.debit)), 0);
+    const quantity = dealerTransactions.reduce((sum, t) => {
+        const q = parseInt(t.quantity) || 0;
+        if (parseFloat(t.credit) > 0) return sum + q;
+        if (parseFloat(t.debit) > 0) return sum - q;
+        return sum;
+    }, 0);
+    return { ...d, balance, quantity };
+  }).filter(d => d.balance !== 0 || d.quantity !== 0) : [];
 
   return (
     <div className="premium-page manage-balances-container">
@@ -205,7 +238,9 @@ const ManageBalances = () => {
           </div>
           <div className="card-info">
             <h3>Current Total Balance</h3>
-            <div className="amount">Rs. {Math.abs(totalBalance).toLocaleString()}</div>
+            <div className={`amount ${totalBalance >= 0 ? 'text-success' : 'text-danger'}`}>
+                Rs. {totalBalance.toLocaleString()}
+            </div>
           </div>
         </div>
         <div className="balance-card">
@@ -213,11 +248,31 @@ const ManageBalances = () => {
             <FaHistory />
           </div>
           <div className="card-info">
-            <h3>Recent Transactions</h3>
-            <div className="amount">{transactions.length} Records</div>
+            <h3>{activeTab === 8 ? 'Total Forms' : 'Recent Transactions'}</h3>
+            <div className="amount">{activeTab === 8 ? `${totalQuantity} Certificates` : `${transactions.length} Records`}</div>
           </div>
         </div>
       </div>
+
+      {activeTab === 8 && dealerBalances.length > 0 && (
+          <div className="dealer-cards-grid animate-fade-in">
+              {dealerBalances.map(db => (
+                  <div key={db.id} className="dealer-balance-card glass-card">
+                      <div className="dealer-name">{db.name}</div>
+                      <div className="dealer-stats">
+                          <div className="stat">
+                              <label>Forms</label>
+                              <span className="val">{db.quantity}</span>
+                          </div>
+                          <div className="stat">
+                              <label>Value</label>
+                              <span className="val">Rs. {db.balance.toLocaleString()}</span>
+                          </div>
+                      </div>
+                  </div>
+              ))}
+          </div>
+      )}
 
       <div className="glass-card">
         <div className="premium-table-container">
@@ -227,7 +282,7 @@ const ManageBalances = () => {
                 <th style={{ width: '40px' }}></th>
                 <th>Date</th>
                 <th>Voucher #</th>
-                <th>Narration & Proof</th>
+                <th>{activeTab === 8 ? 'Details & Narration' : 'Narration & Proof'}</th>
                 <th>Dealer / Ref</th>
                 <th className="amount-col">Debit</th>
                 <th className="amount-col">Credit</th>
@@ -244,6 +299,7 @@ const ManageBalances = () => {
                   const runningBalance = transactions.slice(idx).reduce((sum, item) => {
                     return sum + (parseFloat(item.credit) - parseFloat(item.debit));
                   }, 0);
+                  const balanceChange = parseFloat(t.credit) - parseFloat(t.debit);
                   const isExpanded = expandedRows[t.id];
                   const hasLinked = t.linked_entries && t.linked_entries.length > 0;
 
@@ -265,8 +321,14 @@ const ManageBalances = () => {
                             <td>
                                 <div style={{ fontWeight: 600 }}>
                                     {t.description}
-                                    {t.quantity && t.quantity > 1 && <span className="qty-badge"> (Qty: {t.quantity})</span>}
+                                    {t.quantity && <span className="qty-badge"> (Qty: {t.quantity})</span>}
                                 </div>
+                                {(t.plot_info || t.customer_info) && (
+                                    <div className="entry-details-sub">
+                                        {t.customer_info && <span><FaUser size={10} /> {t.customer_info}</span>}
+                                        {t.plot_info && <span><FaMapMarkerAlt size={10} /> {t.plot_info}</span>}
+                                    </div>
+                                )}
                                 {t.proof_file && (
                                 <a href={(process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + t.proof_file} target="_blank" rel="noopener noreferrer" className="proof-link">
                                     <FaExternalLinkAlt size={10} /> View Proof
@@ -291,8 +353,20 @@ const ManageBalances = () => {
                             <td className="amount-col" style={{ color: '#28a745', fontWeight: 600 }}>
                                 {parseFloat(t.credit) > 0 ? parseFloat(t.credit).toLocaleString() : '-'}
                             </td>
-                            <td className="amount-col" style={{ fontWeight: 800 }}>
-                                {Math.abs(runningBalance).toLocaleString()}
+                            <td className="amount-col">
+                                <div style={{ 
+                                    fontWeight: 800, 
+                                    color: runningBalance >= 0 ? '#28a745' : '#dc3545' 
+                                }}>
+                                    {runningBalance.toLocaleString()}
+                                </div>
+                                <div style={{ 
+                                    fontSize: '0.7rem', 
+                                    color: balanceChange >= 0 ? '#28a745' : '#dc3545',
+                                    fontWeight: 600
+                                }}>
+                                    {balanceChange >= 0 ? '+' : ''}{balanceChange.toLocaleString()}
+                                </div>
                             </td>
                         </tr>
                         {isExpanded && hasLinked && (
@@ -351,15 +425,97 @@ const ManageBalances = () => {
                 </div>
                 <div className="form-group">
                     <label>Transaction Type</label>
-                    <select name="type" className="form-control" value={formData.type} onChange={handleInputChange}>
-                    <option value="add">Credit (Increase Balance)</option>
-                    <option value="deduct">Debit (Decrease Balance)</option>
+                    <select 
+                        name="type" 
+                        className="form-control" 
+                        value={formData.type} 
+                        onChange={handleInputChange}
+                        disabled={formData.is_random}
+                    >
+                        <option value="add">Credit (Increase Balance)</option>
+                        <option value="deduct">Debit (Decrease Balance)</option>
                     </select>
                 </div>
+                {activeTab === 8 && (
+                    <div className="form-group">
+                        <label className="checkbox-label">
+                            <input 
+                                type="checkbox" 
+                                name="is_random" 
+                                checked={formData.is_random} 
+                                onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setFormData(prev => ({ 
+                                        ...prev, 
+                                        is_random: checked,
+                                        type: checked ? 'deduct' : prev.type,
+                                        description: checked ? 'Random Certificate Use' : prev.description
+                                    }));
+                                }} 
+                            />
+                            Random Entry (External Plot/Customer)
+                        </label>
+                    </div>
+                )}
+                {activeTab === 8 && (
+                    <div className="form-group">
+                        <label>Quantity (Number of Forms)</label>
+                        <input 
+                            type="number" 
+                            name="quantity" 
+                            className="form-control" 
+                            min="1"
+                            value={formData.quantity} 
+                            onChange={(e) => {
+                                const qty = parseInt(e.target.value) || 1;
+                                setFormData(prev => ({ 
+                                    ...prev, 
+                                    quantity: qty,
+                                    amount: (qty * adjustmentCost).toString()
+                                }));
+                            }} 
+                        />
+                    </div>
+                )}
                 <div className="form-group">
                     <label>Amount (Rs.)</label>
-                    <input type="number" name="amount" className="form-control" required value={formData.amount} onChange={handleInputChange} />
+                    <input 
+                        type="number" 
+                        name="amount" 
+                        className="form-control" 
+                        required 
+                        value={formData.amount} 
+                        onChange={handleInputChange} 
+                        readOnly={activeTab === 8}
+                    />
+                    {activeTab === 8 && <small>Calculated based on quantity</small>}
                 </div>
+                {formData.is_random && (
+                    <div className="form-row-2">
+                        <div className="form-group">
+                            <label>Customer Name</label>
+                            <input 
+                                type="text" 
+                                name="customer_info" 
+                                className="form-control" 
+                                required={formData.is_random}
+                                value={formData.customer_info} 
+                                onChange={handleInputChange} 
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Plot Details</label>
+                            <input 
+                                type="text" 
+                                name="plot_info" 
+                                className="form-control" 
+                                required={formData.is_random}
+                                value={formData.plot_info} 
+                                onChange={handleInputChange} 
+                            />
+                        </div>
+                    </div>
+                )}
                 <div className="form-group">
                     <label>Voucher Number</label>
                     <input type="text" name="voucher_no" className="form-control" value={formData.voucher_no} onChange={handleInputChange} />
