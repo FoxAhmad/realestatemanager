@@ -407,7 +407,7 @@
 
 .dealer-stats {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
     gap: 1rem;
 }
 
@@ -456,4 +456,31 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
+}
+
+/* Dealer Contributions inside Balance Cards */
+.dealer-contributions-list {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.dealer-contrib-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    gap: 1.5rem;
+}
+
+.dealer-contrib-item .dealer-name {
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.dealer-contrib-item .dealer-amount {
+    font-weight: 700;
 }

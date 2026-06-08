@@ -59,6 +59,18 @@ const ManageBalances = () => {
     }
   }, [formData.user_id, showModal]);
 
+  useEffect(() => {
+    if (formData.type === 'deduct' && selectedFinanceEntries.length > 0) {
+      setSelectedFinanceEntries([]);
+      setFormData(prev => ({
+        ...prev,
+        amount: '',
+        quantity: 1,
+        description: prev.is_random ? 'Random Certificate Use' : ''
+      }));
+    }
+  }, [formData.type, selectedFinanceEntries.length]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -109,6 +121,7 @@ const ManageBalances = () => {
   };
 
   const toggleFinanceEntry = (entry) => {
+      if (formData.type === 'deduct') return;
       let newSelected;
       if (selectedFinanceEntries.find(e => e.line_id === entry.line_id)) {
           newSelected = selectedFinanceEntries.filter(e => e.line_id !== entry.line_id);
@@ -117,10 +130,25 @@ const ManageBalances = () => {
       }
       setSelectedFinanceEntries(newSelected);
       
-      // Auto-update amount
+      // Auto-update amount and quantity
       const total = newSelected.reduce((sum, e) => sum + parseFloat(e.credit), 0);
       if (total > 0) {
-        setFormData(prev => ({ ...prev, amount: total.toString(), description: `Transfer from Finance: ${newSelected.map(e => e.description).join(', ')}` }));
+        setFormData(prev => {
+          const qty = activeTab === 8 ? (Math.round(total / adjustmentCost) || 1) : 1;
+          return {
+            ...prev,
+            amount: total.toString(),
+            quantity: qty,
+            description: `Transfer from Finance: ${newSelected.map(e => e.description).join(', ')}`
+          };
+        });
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          amount: '',
+          quantity: 1,
+          description: ''
+        }));
       }
   };
 
@@ -172,6 +200,17 @@ const ManageBalances = () => {
       setSelectedFinanceEntries([]);
   }
 
+  const updateAdjustmentCost = async () => {
+    try {
+      await api.put('/settings/ADJUSTMENT_FORM_DEFAULT_COST', { value: adjustmentCost });
+      setShowSettings(false);
+      alert('Setting updated successfully');
+    } catch (err) {
+      console.error('Error updating settings:', err);
+      alert('Failed to update setting: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   const toggleRow = (id) => {
       setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -189,8 +228,8 @@ const ManageBalances = () => {
     return sum;
   }, 0) : null;
 
-  // Calculate dealer-wise balances for Account 8
-  const dealerBalances = activeTab === 8 ? dealers.map(d => {
+  // Calculate dealer-wise balances
+  const dealerBalances = dealers.map(d => {
     const dealerTransactions = transactions.filter(t => t.user_id === d.id);
     const balance = dealerTransactions.reduce((sum, t) => sum + (parseFloat(t.credit) - parseFloat(t.debit)), 0);
     const quantity = dealerTransactions.reduce((sum, t) => {
@@ -200,7 +239,7 @@ const ManageBalances = () => {
         return sum;
     }, 0);
     return { ...d, balance, quantity };
-  }).filter(d => d.balance !== 0 || d.quantity !== 0) : [];
+  }).filter(d => d.balance !== 0 || (activeTab === 8 && d.quantity !== 0));
 
   return (
     <div className="premium-page manage-balances-container">
@@ -232,15 +271,27 @@ const ManageBalances = () => {
       </div>
 
       <div className="balance-summary-cards">
-        <div className="balance-card">
+        <div className="balance-card" style={{ alignItems: 'flex-start' }}>
           <div className="card-icon" style={{ background: 'rgba(0,123,255,0.1)', color: '#007bff' }}>
             <FaWallet />
           </div>
-          <div className="card-info">
+          <div className="card-info" style={{ flex: 1 }}>
             <h3>Current Total Balance</h3>
             <div className={`amount ${totalBalance >= 0 ? 'text-success' : 'text-danger'}`}>
                 Rs. {totalBalance.toLocaleString()}
             </div>
+            {dealerBalances.length > 0 && (
+              <div className="dealer-contributions-list">
+                {dealerBalances.map(db => (
+                  <div key={db.id} className="dealer-contrib-item">
+                    <span className="dealer-name">{db.name}</span>
+                    <span className={`dealer-amount ${db.balance >= 0 ? 'text-success' : 'text-danger'}`}>
+                      Rs. {db.balance.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="balance-card">
@@ -254,19 +305,23 @@ const ManageBalances = () => {
         </div>
       </div>
 
-      {activeTab === 8 && dealerBalances.length > 0 && (
+      {dealerBalances.length > 0 && (
           <div className="dealer-cards-grid animate-fade-in">
               {dealerBalances.map(db => (
                   <div key={db.id} className="dealer-balance-card glass-card">
                       <div className="dealer-name">{db.name}</div>
                       <div className="dealer-stats">
+                          {activeTab === 8 && (
+                              <div className="stat">
+                                  <label>Forms</label>
+                                  <span className="val">{db.quantity}</span>
+                              </div>
+                          )}
                           <div className="stat">
-                              <label>Forms</label>
-                              <span className="val">{db.quantity}</span>
-                          </div>
-                          <div className="stat">
-                              <label>Value</label>
-                              <span className="val">Rs. {db.balance.toLocaleString()}</span>
+                              <label>{activeTab === 8 ? 'Value' : 'Balance'}</label>
+                              <span className={`val ${db.balance >= 0 ? 'text-success' : 'text-danger'}`}>
+                                  Rs. {db.balance.toLocaleString()}
+                              </span>
                           </div>
                       </div>
                   </div>
@@ -547,7 +602,9 @@ const ManageBalances = () => {
                       <h3>Available Finance Entries</h3>
                       <p className="subtext">Select entries to transfer from dealer's wallet</p>
                       
-                      {!formData.user_id ? (
+                      {formData.type === 'deduct' ? (
+                          <div className="empty-selection">Finance entries can only be linked to Credit transactions</div>
+                      ) : !formData.user_id ? (
                           <div className="empty-selection">Select a dealer to see available profits</div>
                       ) : availableFinanceEntries.length === 0 ? (
                           <div className="empty-selection">No unlinked finance entries for this dealer</div>
@@ -595,7 +652,33 @@ const ManageBalances = () => {
         </div>
       )}
 
-      {/* Settings Modal ... same as before */}
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Global Settings</h2>
+              <button onClick={() => setShowSettings(false)} className="close-modal-btn"><FaTimes /></button>
+            </div>
+            <div className="form-group">
+              <label>Adjustment Form Default Cost (Rs.)</label>
+              <input
+                type="number"
+                className="form-control"
+                value={adjustmentCost}
+                onChange={(e) => setAdjustmentCost(e.target.value)}
+              />
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                This is the amount deducted from your Certificate balance when an adjustment is added to a deal.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowSettings(false)}>Cancel</button>
+              <button type="button" className="premium-btn premium-btn-primary" onClick={updateAdjustmentCost}>Update Setting</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
