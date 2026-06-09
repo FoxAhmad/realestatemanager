@@ -479,9 +479,12 @@ const initDatabase = async () => {
       )
     `);
 
-    // Add linked_line_id to transaction_lines if it doesn't exist
+    // Add missing columns to transaction_lines if they don't exist
     try {
       await db.query(`ALTER TABLE transaction_lines ADD COLUMN IF NOT EXISTS linked_line_id INTEGER REFERENCES transaction_lines(id) ON DELETE SET NULL`);
+      await db.query(`ALTER TABLE transaction_lines ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1`);
+      await db.query(`ALTER TABLE transaction_lines ADD COLUMN IF NOT EXISTS plot_info TEXT`);
+      await db.query(`ALTER TABLE transaction_lines ADD COLUMN IF NOT EXISTS customer_info TEXT`);
     } catch (e) { /* ignore */ }
 
     // Create Deal Adjustments table
