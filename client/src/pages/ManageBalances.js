@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   FaPlus, FaSearch, FaHistory, FaCog, FaFileUpload,
   FaWallet, FaCertificate, FaPiggyBank, FaTimes, FaExternalLinkAlt,
@@ -226,6 +228,74 @@ const ManageBalances = () => {
       setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const exportToPDF = () => {
+    const doc = new jsPDF('landscape');
+    const accountName = accounts.find(a => a.id === activeTab)?.name || 'Account';
+    
+    doc.setFontSize(18);
+    doc.text(`Balance Report: ${accountName}`, 14, 22);
+    doc.setFontSize(11);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+
+    const tableColumn = ["Date", "Voucher #", "Dealer / Ref", "Debit", "Credit", "Balance"];
+    const tableRows = [];
+    
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    transactions.forEach((t, idx) => {
+      const runningBalance = transactions.slice(idx).reduce((sum, item) => {
+        return sum + (parseFloat(item.credit) - parseFloat(item.debit));
+      }, 0);
+
+      const debitVal = parseFloat(t.debit) || 0;
+      const creditVal = parseFloat(t.credit) || 0;
+      
+      totalDebit += debitVal;
+      totalCredit += creditVal;
+
+      const names = new Set();
+      if (t.customer_name) names.add(t.customer_name + ' (Client)');
+      else if (t.user_name) names.add(t.user_name);
+      if (t.linked_entries) {
+          t.linked_entries.forEach(e => {
+              if (e.customer_name) names.add(e.customer_name + ' (Client)');
+              else if (e.user_name) names.add(e.user_name);
+          });
+      }
+      const dealerRef = Array.from(names).join(', ') || 'System / Admin';
+
+      tableRows.push([
+        new Date(t.transaction_date).toLocaleDateString(),
+        t.voucher_no || '-',
+        dealerRef,
+        debitVal > 0 ? debitVal.toLocaleString() : '-',
+        creditVal > 0 ? creditVal.toLocaleString() : '-',
+        runningBalance.toLocaleString()
+      ]);
+    });
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      foot: [
+        [
+          { content: 'Totals', colSpan: 3, styles: { halign: 'right' } },
+          totalDebit.toLocaleString(),
+          totalCredit.toLocaleString(),
+          (totalCredit - totalDebit).toLocaleString()
+        ]
+      ],
+      startY: 40,
+      theme: 'grid',
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [41, 128, 185] },
+      footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }
+    });
+
+    doc.save(`Balances_${accountName}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   const totalBalance = transactions.reduce((sum, t) => {
     return sum + (parseFloat(t.credit) - parseFloat(t.debit));
   }, 0);
@@ -265,6 +335,9 @@ const ManageBalances = () => {
           <p>Manage Asset accounts with Union Town and track transaction proofs.</p>
         </div>
         <div className="header-actions">
+          <button className="premium-btn premium-btn-secondary" onClick={exportToPDF}>
+            <FaFileUpload /> Export PDF
+          </button>
           <button className="premium-btn premium-btn-secondary" onClick={() => setShowSettings(true)}>
             <FaCog /> Settings
           </button>
