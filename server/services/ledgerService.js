@@ -15,6 +15,7 @@ const ledgerService = {
       COMMISSION_PAYABLE: 5,
       CORPORATE_REVENUE: 6,
       DEALER_COMMISSION_EXPENSE: 7,
+      ADVANCE_FOR_CERTIFICATE: 8,
       DEALER_FINANCE: 9
     };
   },
@@ -35,8 +36,8 @@ const ledgerService = {
       if (line.credit) totalCredit += Number(line.credit);
 
       await client.query(
-        'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
-        [transId, line.account_id, line.user_id || null, line.debit || 0, line.credit || 0]
+        'INSERT INTO transaction_lines (transaction_id, account_id, user_id, agency_id, customer_id, debit, credit) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [transId, line.account_id, line.user_id || null, line.agency_id || null, line.customer_id || null, line.debit || 0, line.credit || 0]
       );
     }
 
@@ -84,7 +85,7 @@ const ledgerService = {
     });
   },
 
-  calculateBalance: async (accountId, userId = null) => {
+  calculateBalance: async (accountId, userId = null, agencyId = null, customerId = null) => {
     // For Assets and Expenses: Debit increases, Credit decreases
     // For Liabilities, Equity, Revenue: Credit increases, Debit decreases
     
@@ -96,8 +97,16 @@ const ledgerService = {
     let query = 'SELECT SUM(debit) as d, SUM(credit) as c FROM transaction_lines WHERE account_id = $1';
     const params = [accountId];
     if (userId) {
-      query += ' AND user_id = $2';
       params.push(userId);
+      query += ` AND user_id = $${params.length}`;
+    }
+    if (agencyId) {
+      params.push(agencyId);
+      query += ` AND agency_id = $${params.length}`;
+    }
+    if (customerId) {
+      params.push(customerId);
+      query += ` AND customer_id = $${params.length}`;
     }
 
     const { rows } = await db.query(query, params);

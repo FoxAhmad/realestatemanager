@@ -83,6 +83,20 @@ async function createTransaction(client, { date, description, type, refId, lines
   return transId;
 }
 
+async function getDealerIds(client, rawDealerString) {
+  if (!rawDealerString) return [await getOrCreateDealer(client, 'Unknown Dealer')];
+  
+  // Split by '+' or '/'
+  const names = rawDealerString.split(/[+/]/).map(n => n.trim()).filter(n => n.length > 0);
+  if (names.length === 0) return [await getOrCreateDealer(client, 'Unknown Dealer')];
+
+  const dealerIds = [];
+  for (const name of names) {
+    dealerIds.push(await getOrCreateDealer(client, name));
+  }
+  return dealerIds;
+}
+
 async function processAdvances(client) {
   console.log('\n--- Processing Advances for New deal ---');
   const filePath = path.join(__dirname, 'For Software (Advances for New deal).xlsx');
@@ -101,14 +115,24 @@ async function processAdvances(client) {
     if (isNaN(amount) || amount <= 0) continue;
 
     const dateSerial = row[0];
-    const dealerName = cleanString(row[1]);
+    const dealerNameRaw = cleanString(row[1]);
     const receipt = cleanString(row[2]);
     const mode = cleanString(row[3]);
-    const desc = cleanString(row[6]) || `Advance deposit from ${dealerName || 'dealer'}`;
+    const desc = cleanString(row[6]) || `Advance deposit from ${dealerNameRaw || 'dealer'}`;
     
     const transDate = typeof dateSerial === 'number' ? excelDateToJSDate(dateSerial) : new Date();
     
-    const dealerId = await getOrCreateDealer(client, dealerName);
+    const dealerIds = await getDealerIds(client, dealerNameRaw);
+    const splitAmount = amount / dealerIds.length;
+    
+    // Create lines for multiple dealers
+    const depositLines = [ { account_id: ACCOUNTS.CASH_BANK, debit: amount } ];
+    const transferLines = [ { account_id: ACCOUNTS.DEALER_ADVANCES, credit: amount } ];
+    
+    for (const dId of dealerIds) {
+        depositLines.push({ account_id: ACCOUNTS.DEALER_FINANCE, user_id: dId, credit: splitAmount });
+        transferLines.push({ account_id: ACCOUNTS.DEALER_FINANCE, user_id: dId, debit: splitAmount });
+    }
     
     // Step 1: Cash/Bank -> Dealer Finance
     await createTransaction(client, {
@@ -117,10 +141,7 @@ async function processAdvances(client) {
       type: 'DEPOSIT',
       instrument: mode,
       instrument_number: receipt,
-      lines: [
-        { account_id: ACCOUNTS.CASH_BANK, debit: amount },
-        { account_id: ACCOUNTS.DEALER_FINANCE, user_id: dealerId, credit: amount }
-      ]
+      lines: depositLines
     });
     
     // Step 2: Dealer Finance -> Dealer Advances
@@ -128,29 +149,12 @@ async function processAdvances(client) {
       date: transDate,
       description: `[Advances] Transfer to Advances: ${desc}`,
       type: 'TRANSFER',
-      lines: [
-        { account_id: ACCOUNTS.DEALER_FINANCE, user_id: dealerId, debit: amount },
-        { account_id: ACCOUNTS.DEALER_ADVANCES, credit: amount }
-      ]
+      lines: transferLines
     });
     
     processedCount++;
   }
   console.log(`Processed ${processedCount} advance transactions.`);
-}
-
-function extractDealerFromDesc(desc) {
-  if (!desc) return null;
-  // Match "Online By Azam", "Cash Umar Khan", etc.
-  const regex = /(?:by\s+|from\s+|cash\s+|online\s+|^)([A-Za-z]+(?:\s+[A-Za-z]+)*)/i;
-  const match = desc.match(regex);
-  if (match && match[1]) {
-    // Basic filter against generic words
-    const lower = match[1].toLowerCase().trim();
-    if (['cash', 'online', 'cheque'].includes(lower)) return null;
-    return match[1].trim();
-  }
-  return null;
 }
 
 async function processCertificates(client) {
@@ -162,24 +166,38 @@ async function processCertificates(client) {
   
   let processedCount = 0;
   
-  // Header is row 4, data starts row 6
-  for (let i = 5; i < data.length; i++) {
+  // In Certificates, Header is actually row 17 (index 16), data starts row 18 (index 17)
+  for (let i = 16; i < data.length; i++) {
     const row = data[i];
-    const amount = parseFloat(row[4]);
+    const amount = parseFloat(row[8]); // Investment Value
     
     if (isNaN(amount) || amount <= 0) continue;
     
-    const dateSerial = row[0];
-    const qty = parseFloat(row[1]) || 0;
-    const receipt = cleanString(row[3]);
-    const balanceDesc = cleanString(row[5]); // "Online By Azam", "Cash Umar Khan"
+    const dateSerial = row[1];
+    const qty = parseFloat(row[9]) || 0; // Form Qty
+    const receipt = cleanString(row[5]);
+    const dealerNameRaw = cleanString(row[10]); // Slip Own
     
     const transDate = typeof dateSerial === 'number' ? excelDateToJSDate(dateSerial) : new Date();
     
-    const extractedName = extractDealerFromDesc(balanceDesc) || 'Unknown Certificate Dealer';
-    const dealerId = await getOrCreateDealer(client, extractedName);
+    const dealerIds = await getDealerIds(client, dealerNameRaw || 'Unknown Certificate Dealer');
     
-    const desc = `[Certificates] Qty: ${qty}. ${balanceDesc ? balanceDesc : ''}`;
+    // Add Plot, Block, Size details into description
+    const plotInfo = [cleanString(row[2]), cleanString(row[3]), cleanString(row[4])].filter(Boolean).join(' - ');
+    const desc = `[Certificates] Qty: ${qty}. Plot: ${plotInfo}. Dealer: ${dealerNameRaw || ''}`;
+    
+    const splitAmount = amount / dealerIds.length;
+    // Note: since our quantity is tracked at the transaction_line level, we don't have a quantity field in transaction_lines by default 
+    // Wait, we added it via ALTER TABLE! But the insert schema in createTransaction doesn't use it!
+    // We will just do a simple transaction split.
+    
+    const depositLines = [ { account_id: ACCOUNTS.CASH_BANK, debit: amount } ];
+    const transferLines = [ { account_id: ACCOUNTS.ADVANCE_FOR_CERTIFICATE, credit: amount } ];
+    
+    for (const dId of dealerIds) {
+        depositLines.push({ account_id: ACCOUNTS.DEALER_FINANCE, user_id: dId, credit: splitAmount });
+        transferLines.push({ account_id: ACCOUNTS.DEALER_FINANCE, user_id: dId, debit: splitAmount });
+    }
     
     // Step 1: Cash/Bank -> Dealer Finance
     await createTransaction(client, {
@@ -187,22 +205,22 @@ async function processCertificates(client) {
       description: `[Certificates] Fund receipt: ${desc}`,
       type: 'DEPOSIT',
       instrument_number: receipt,
-      lines: [
-        { account_id: ACCOUNTS.CASH_BANK, debit: amount },
-        { account_id: ACCOUNTS.DEALER_FINANCE, user_id: dealerId, credit: amount }
-      ]
+      lines: depositLines
     });
     
     // Step 2: Dealer Finance -> Advance for Certificate
-    await createTransaction(client, {
+    const transId2 = await createTransaction(client, {
       date: transDate,
       description: `[Certificates] Allocate to certificates: ${desc}`,
       type: 'TRANSFER',
-      lines: [
-        { account_id: ACCOUNTS.DEALER_FINANCE, user_id: dealerId, debit: amount },
-        { account_id: ACCOUNTS.ADVANCE_FOR_CERTIFICATE, credit: amount }
-      ]
+      lines: transferLines
     });
+    
+    // Inject quantity directly into the Advance for Certificate credit line
+    await client.query(
+        'UPDATE transaction_lines SET quantity = $1, plot_info = $2 WHERE transaction_id = $3 AND account_id = $4',
+        [qty, plotInfo, transId2, ACCOUNTS.ADVANCE_FOR_CERTIFICATE]
+    );
     
     processedCount++;
   }

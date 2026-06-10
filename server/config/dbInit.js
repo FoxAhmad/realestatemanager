@@ -28,6 +28,18 @@ const initDatabase = async () => {
       console.log('Note: users role check updates error:', e.message);
     }
 
+    // Create Agencies table (for external dealers, estates, offices)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS agencies (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(50),
+        address TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Create Customers table
     await db.query(`
       CREATE TABLE IF NOT EXISTS customers (
@@ -111,6 +123,7 @@ const initDatabase = async () => {
         id SERIAL PRIMARY KEY,
         customer_id INTEGER,
         dealer_id INTEGER NOT NULL,
+        agency_id INTEGER,
         inventory_id INTEGER,
         inventory_quantity_used INTEGER DEFAULT 1,
         property_type VARCHAR(20) NOT NULL CHECK (property_type IN ('house', 'plot', 'shop_office')),
@@ -133,9 +146,15 @@ const initDatabase = async () => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
         FOREIGN KEY (dealer_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE SET NULL,
         FOREIGN KEY (inventory_id) REFERENCES inventory(id) ON DELETE SET NULL
       )
     `);
+
+    // Add agency_id to deals if it doesn't exist
+    try {
+      await db.query(`ALTER TABLE deals ADD COLUMN IF NOT EXISTS agency_id INTEGER REFERENCES agencies(id) ON DELETE SET NULL`);
+    } catch (e) { /* ignore */ }
 
     // Create indexes
     await db.query(`
@@ -468,6 +487,8 @@ const initDatabase = async () => {
         transaction_id INTEGER NOT NULL,
         account_id INTEGER NOT NULL,
         user_id INTEGER,
+        agency_id INTEGER,
+        customer_id INTEGER,
         debit DECIMAL(15, 2) DEFAULT 0,
         credit DECIMAL(15, 2) DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -475,6 +496,8 @@ const initDatabase = async () => {
         FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
         FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE SET NULL,
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
         linked_line_id INTEGER REFERENCES transaction_lines(id) ON DELETE SET NULL
       )
     `);
@@ -485,6 +508,8 @@ const initDatabase = async () => {
       await db.query(`ALTER TABLE transaction_lines ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1`);
       await db.query(`ALTER TABLE transaction_lines ADD COLUMN IF NOT EXISTS plot_info TEXT`);
       await db.query(`ALTER TABLE transaction_lines ADD COLUMN IF NOT EXISTS customer_info TEXT`);
+      await db.query(`ALTER TABLE transaction_lines ADD COLUMN IF NOT EXISTS agency_id INTEGER REFERENCES agencies(id) ON DELETE SET NULL`);
+      await db.query(`ALTER TABLE transaction_lines ADD COLUMN IF NOT EXISTS customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL`);
     } catch (e) { /* ignore */ }
 
     // Create Deal Adjustments table
@@ -560,6 +585,14 @@ const initDatabase = async () => {
       DROP TRIGGER IF EXISTS update_customers_updated_at ON customers;
       CREATE TRIGGER update_customers_updated_at
         BEFORE UPDATE ON customers
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `);
+
+    await db.query(`
+      DROP TRIGGER IF EXISTS update_agencies_updated_at ON agencies;
+      CREATE TRIGGER update_agencies_updated_at
+        BEFORE UPDATE ON agencies
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
     `);

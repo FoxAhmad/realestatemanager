@@ -11,6 +11,7 @@ const ManageBalances = () => {
   const [activeTab, setActiveTab] = useState(3); // Default to Dealer Advances (ID 3)
   const [transactions, setTransactions] = useState([]);
   const [dealers, setDealers] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -47,6 +48,7 @@ const ManageBalances = () => {
   useEffect(() => {
     fetchData();
     fetchDealers();
+    fetchCustomers();
     fetchSettings();
   }, [activeTab]);
 
@@ -89,6 +91,15 @@ const ManageBalances = () => {
       setDealers(res.data);
     } catch (err) {
       console.error('Error fetching dealers:', err);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await api.get('/customers');
+      setCustomers(res.data);
+    } catch (err) {
+      console.error('Error fetching customers:', err);
     }
   };
 
@@ -228,9 +239,14 @@ const ManageBalances = () => {
     return sum;
   }, 0) : null;
 
-  // Calculate dealer-wise balances
-  const dealerBalances = dealers.map(d => {
-    const dealerTransactions = transactions.filter(t => t.user_id === d.id);
+  // Combine dealers and customers to calculate balances for everyone
+  const entities = activeTab === 8 ? [...dealers, ...customers] : dealers;
+
+  // Calculate entity-wise balances
+  const dealerBalances = entities.map(d => {
+    const dealerTransactions = transactions.filter(t => 
+      t.user_id === d.id || (t.customer_id === d.id)
+    );
     const balance = dealerTransactions.reduce((sum, t) => sum + (parseFloat(t.credit) - parseFloat(t.debit)), 0);
     const quantity = dealerTransactions.reduce((sum, t) => {
         const q = parseInt(t.quantity) || 0;
@@ -238,7 +254,7 @@ const ManageBalances = () => {
         if (parseFloat(t.debit) > 0) return sum - q;
         return sum;
     }, 0);
-    return { ...d, balance, quantity };
+    return { ...d, balance, quantity, isCustomer: !d.role }; // d.role is present on users, not customers
   }).filter(d => d.balance !== 0 || (activeTab === 8 && d.quantity !== 0));
 
   return (
@@ -393,10 +409,12 @@ const ManageBalances = () => {
                             <td>
                                 {(() => {
                                     const names = new Set();
-                                    if (t.user_name) names.add(t.user_name);
+                                    if (t.customer_name) names.add(t.customer_name + ' (Client)');
+                                    else if (t.user_name) names.add(t.user_name);
                                     if (t.linked_entries) {
                                         t.linked_entries.forEach(e => {
-                                            if (e.user_name) names.add(e.user_name);
+                                            if (e.customer_name) names.add(e.customer_name + ' (Client)');
+                                            else if (e.user_name) names.add(e.user_name);
                                         });
                                     }
                                     return Array.from(names).join(', ') || 'System / Admin';

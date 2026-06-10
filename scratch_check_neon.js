@@ -11,21 +11,24 @@ async function run() {
 
   try {
     await client.connect();
+    console.log("Connected to Neon DB.");
+
     const query = `
-      SELECT t.*, tl.debit, tl.credit, tl.quantity, tl.plot_info, tl.customer_info, u.name as user_name, tl.user_id, a.name as account_name,
-             da.customer_price, da.cost_price, da.id as adjustment_id, tl.id as line_id
+      SELECT t.id, t.transaction_date, t.description, t.reference_type, tl.debit, tl.credit, tl.quantity, u.name as user_name
       FROM transactions t
       JOIN transaction_lines tl ON t.id = tl.transaction_id
-      JOIN accounts a ON tl.account_id = a.id
       LEFT JOIN users u ON tl.user_id = u.id
-      LEFT JOIN deal_adjustments da ON t.id = da.transaction_id
-      WHERE tl.account_id = $1
+      WHERE tl.account_id = 8
+      ORDER BY tl.id DESC
+      LIMIT 20
     `;
-    const lines = await client.query(query, [3]);
-    console.log(`API Query Rows: ${lines.rows.length}`);
-    if (lines.rows.length > 0) {
-      console.log('Sample Line:', lines.rows[0]);
-    }
+    const lines = await client.query(query);
+    console.log(`Account 8 recent transactions:`, lines.rows);
+    
+    const sumQuery = \`SELECT SUM(credit - debit) as bal, SUM(quantity) as qty FROM transaction_lines WHERE account_id = 8\`;
+    const sumRes = await client.query(sumQuery);
+    console.log('Total balance raw sum:', sumRes.rows[0]);
+    
   } catch (err) {
     console.error("Error connecting or querying:", err);
   } finally {

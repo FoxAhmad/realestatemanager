@@ -37,7 +37,7 @@ router.get('/:accountId', auth, adminAndAccountantOnly, async (req, res) => {
   try {
     const { userId, deal_id } = req.query;
     let query = `
-      SELECT t.*, tl.debit, tl.credit, tl.quantity, tl.plot_info, tl.customer_info, u.name as user_name, tl.user_id, a.name as account_name,
+      SELECT t.*, tl.debit, tl.credit, tl.quantity, tl.plot_info, tl.customer_info, u.name as user_name, tl.user_id, c.name as customer_name, tl.customer_id, a.name as account_name,
              da.customer_price, da.cost_price, da.id as adjustment_id, tl.id as line_id,
              (
                 SELECT JSON_AGG(JSON_BUILD_OBJECT(
@@ -46,17 +46,20 @@ router.get('/:accountId', auth, adminAndAccountantOnly, async (req, res) => {
                     'description', f_t.description,
                     'amount', f_tl.credit,
                     'proof_file', f_t.proof_file,
-                    'user_name', f_u.name
+                    'user_name', f_u.name,
+                    'customer_name', f_c.name
                 ))
                 FROM transaction_lines f_tl
                 JOIN transactions f_t ON f_tl.transaction_id = f_t.id
                 LEFT JOIN users f_u ON f_tl.user_id = f_u.id
+                LEFT JOIN customers f_c ON f_tl.customer_id = f_c.id
                 WHERE f_tl.linked_line_id = tl.id
              ) as linked_entries
       FROM transactions t
       JOIN transaction_lines tl ON t.id = tl.transaction_id
       JOIN accounts a ON tl.account_id = a.id
       LEFT JOIN users u ON tl.user_id = u.id
+      LEFT JOIN customers c ON tl.customer_id = c.id
       LEFT JOIN deal_adjustments da ON t.id = da.transaction_id
       WHERE tl.account_id = $1
     `;

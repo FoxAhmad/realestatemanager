@@ -10,7 +10,7 @@ router.get('/', auth, async (req, res) => {
     if (req.user.role === 'admin' || req.user.role === 'accountant') {
       result = await db.query(`
         SELECT d.*, c.name as customer_name, c.phone_number as customer_phone, 
-               u.name as dealer_name, i.address as inventory_address, i.category as inventory_category,
+               u.name as dealer_name, a.name as agency_name, i.address as inventory_address, i.category as inventory_category,
                (SELECT STRING_AGG(ip.plot_number, ', ') 
                 FROM deal_plots dp 
                 JOIN inventory_plots ip ON dp.plot_id = ip.id 
@@ -18,6 +18,7 @@ router.get('/', auth, async (req, res) => {
         FROM deals d 
         LEFT JOIN customers c ON d.customer_id = c.id 
         LEFT JOIN users u ON d.dealer_id = u.id 
+        LEFT JOIN agencies a ON d.agency_id = a.id
         LEFT JOIN inventory i ON d.inventory_id = i.id
         ORDER BY d.created_at DESC
       `);
@@ -25,7 +26,7 @@ router.get('/', auth, async (req, res) => {
       // Salespersons see only their own deals
       result = await db.query(`
         SELECT d.*, c.name as customer_name, c.phone_number as customer_phone, 
-               u.name as dealer_name, i.address as inventory_address, i.category as inventory_category,
+               u.name as dealer_name, a.name as agency_name, i.address as inventory_address, i.category as inventory_category,
                (SELECT STRING_AGG(ip.plot_number, ', ') 
                 FROM deal_plots dp 
                 JOIN inventory_plots ip ON dp.plot_id = ip.id 
@@ -33,6 +34,7 @@ router.get('/', auth, async (req, res) => {
         FROM deals d 
         LEFT JOIN customers c ON d.customer_id = c.id 
         LEFT JOIN users u ON d.dealer_id = u.id 
+        LEFT JOIN agencies a ON d.agency_id = a.id
         LEFT JOIN inventory i ON d.inventory_id = i.id
         WHERE d.dealer_id = $1
         ORDER BY d.created_at DESC
@@ -80,10 +82,12 @@ router.get('/:id', auth, async (req, res) => {
     const result = await db.query(
        `SELECT d.*, c.name as customer_name, c.cnic, c.phone_number as customer_phone, 
               c.address as customer_address, u.name as dealer_name, u.id as dealer_id,
+              a.name as agency_name,
               i.address as inventory_address, i.category as inventory_category
        FROM deals d 
        LEFT JOIN customers c ON d.customer_id = c.id 
        LEFT JOIN users u ON d.dealer_id = u.id 
+       LEFT JOIN agencies a ON d.agency_id = a.id
        LEFT JOIN inventory i ON d.inventory_id = i.id
        WHERE d.id = $1`,
       [req.params.id]
@@ -131,6 +135,7 @@ router.post('/', auth, async (req, res) => {
   try {
     const {
       customer_id,
+      agency_id,
       inventory_id,
       inventory_ids,
       inventory_quantity_used,
@@ -286,14 +291,15 @@ router.post('/', auth, async (req, res) => {
 
     const result = await db.query(
       `INSERT INTO deals (
-        customer_id, dealer_id, inventory_id, inventory_quantity_used, property_type, original_price, sale_price, 
+        customer_id, dealer_id, agency_id, inventory_id, inventory_quantity_used, property_type, original_price, sale_price, 
         profit, profit_percentage, demand_price, plot_info, house_address, 
         house_info, sale_price_location, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'in_progress')
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'in_progress')
       RETURNING id`,
       [
         customer_id || null,
         req.user.role === 'dealer' ? req.user.id : (req.body.dealer_id || req.user.id),
+        agency_id || null,
         dealInventoryId,
         dealInventoryId ? quantityToUse : null,
         property_type,
@@ -329,11 +335,12 @@ router.post('/', auth, async (req, res) => {
     }
 
     const dealResult = await db.query(
-      `SELECT d.*, c.name as customer_name, u.name as dealer_name, 
+      `SELECT d.*, c.name as customer_name, u.name as dealer_name, a.name as agency_name,
               i.address as inventory_address, i.category as inventory_category
        FROM deals d 
        LEFT JOIN customers c ON d.customer_id = c.id 
        LEFT JOIN users u ON d.dealer_id = u.id 
+       LEFT JOIN agencies a ON d.agency_id = a.id
        LEFT JOIN inventory i ON d.inventory_id = i.id
        WHERE d.id = $1`,
       [dealId]
@@ -362,6 +369,7 @@ router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
 
     const {
       customer_id,
+      agency_id,
       inventory_id,
       property_type,
       status,
@@ -414,8 +422,8 @@ router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
         sale_price = $6, profit = $7, profit_percentage = $8, demand_price = $9, 
         difference_amount = $10, remaining_price = $11, remaining_price_time = $12, 
         plot_info = $13, house_address = $14, house_info = $15, sale_price_location = $16, 
-        is_build = $17, admin_cash = $18
-       WHERE id = $19`,
+        is_build = $17, admin_cash = $18, agency_id = $19
+       WHERE id = $20`,
       [
         customer_id !== undefined ? (customer_id || null) : currentDeal.customer_id,
         inventory_id !== undefined ? (inventory_id || null) : currentDeal.inventory_id,
@@ -435,16 +443,18 @@ router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
         sale_price_location !== undefined ? (sale_price_location || null) : currentDeal.sale_price_location,
         is_build !== undefined ? is_build : currentDeal.is_build,
         admin_cash !== undefined ? admin_cash : currentDeal.admin_cash,
+        agency_id !== undefined ? (agency_id || null) : currentDeal.agency_id,
         req.params.id
       ]
     );
 
     const dealResult = await db.query(
-      `SELECT d.*, c.name as customer_name, u.name as dealer_name, 
+      `SELECT d.*, c.name as customer_name, u.name as dealer_name, a.name as agency_name,
               i.address as inventory_address, i.category as inventory_category
        FROM deals d 
        LEFT JOIN customers c ON d.customer_id = c.id 
        LEFT JOIN users u ON d.dealer_id = u.id 
+       LEFT JOIN agencies a ON d.agency_id = a.id
        LEFT JOIN inventory i ON d.inventory_id = i.id
        WHERE d.id = $1`,
       [req.params.id]

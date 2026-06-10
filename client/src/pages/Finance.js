@@ -199,48 +199,137 @@ const Finance = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.length === 0 ? (
-                    <tr><td colSpan={isAccountant ? 7 : 6} className="empty-state">No financial transactions found.</td></tr>
-                  ) : (
-                    entries.map((entry, idx) => {
-                      // Calculate running balance for display (simplified)
-                      const runningBal = entries.slice(idx).reduce((sum, item) => {
-                        return sum + (parseFloat(item.credit) - parseFloat(item.debit));
-                      }, 0);
+                  {(() => {
+                    if (entries.length === 0) {
+                      return <tr><td colSpan={isAccountant ? 7 : 6} className="empty-state">No financial transactions found.</td></tr>;
+                    }
 
-                      return (
-                        <tr key={entry.id}>
-                          <td>{new Date(entry.transaction_date).toLocaleDateString()}</td>
-                          {isAccountant && (
-                            <td style={{ fontWeight: 700, color: 'var(--primary)' }}>
-                              {entry.user_name || 'System'}
-                            </td>
+                    const processedEntries = [];
+                    const usedIndices = new Set();
+
+                    entries.forEach((entry, idx) => {
+                      if (usedIndices.has(idx)) return;
+
+                      const isCredit = parseFloat(entry.credit) > 0;
+                      const isDebit = parseFloat(entry.debit) > 0;
+                      const amount = isCredit ? parseFloat(entry.credit) : parseFloat(entry.debit);
+                      
+                      let matchIdx = -1;
+                      if (amount > 0) {
+                        for (let j = idx + 1; j < entries.length; j++) {
+                          if (usedIndices.has(j)) continue;
+                          const other = entries[j];
+                          const otherDealer = other.user_name || 'System';
+                          const thisDealer = entry.user_name || 'System';
+                          
+                          if (otherDealer === thisDealer) {
+                            const otherCredit = parseFloat(other.credit) || 0;
+                            const otherDebit = parseFloat(other.debit) || 0;
+                            
+                            if (isCredit && otherDebit === amount) {
+                              matchIdx = j;
+                              break;
+                            }
+                            if (isDebit && otherCredit === amount) {
+                              matchIdx = j;
+                              break;
+                            }
+                          }
+                        }
+                      }
+
+                      if (matchIdx !== -1) {
+                        usedIndices.add(idx);
+                        usedIndices.add(matchIdx);
+                        const matchEntry = entries[matchIdx];
+                        
+                        processedEntries.push({
+                          ...entry,
+                          credit: amount,
+                          debit: amount,
+                          descriptions: new Set([entry.description, matchEntry.description].filter(Boolean)),
+                          proof_files: [entry.proof_file, matchEntry.proof_file].filter(Boolean),
+                          instruments: new Set([
+                            `${entry.instrument || ''} ${entry.instrument_number || ''}`.trim(),
+                            `${matchEntry.instrument || ''} ${matchEntry.instrument_number || ''}`.trim()
+                          ].filter(Boolean)),
+                          vouchers: new Set([entry.voucher_no, matchEntry.voucher_no].filter(Boolean)),
+                          transaction_date: entry.transaction_date,
+                          other_date: new Date(matchEntry.transaction_date).toLocaleDateString() !== new Date(entry.transaction_date).toLocaleDateString() 
+                            ? matchEntry.transaction_date 
+                            : null
+                        });
+                      } else {
+                        usedIndices.add(idx);
+                        processedEntries.push({
+                          ...entry,
+                          credit: parseFloat(entry.credit) || 0,
+                          debit: parseFloat(entry.debit) || 0,
+                          descriptions: new Set(entry.description ? [entry.description] : []),
+                          proof_files: entry.proof_file ? [entry.proof_file] : [],
+                          instruments: new Set([`${entry.instrument || ''} ${entry.instrument_number || ''}`.trim()].filter(Boolean)),
+                          vouchers: new Set(entry.voucher_no ? [entry.voucher_no] : [])
+                        });
+                      }
+                    });
+
+                    let currentBalance = 0;
+                    for (let i = processedEntries.length - 1; i >= 0; i--) {
+                      currentBalance += (processedEntries[i].credit - processedEntries[i].debit);
+                      processedEntries[i].runningBal = currentBalance;
+                    }
+
+                    return processedEntries.map((entry, idx) => (
+                      <tr key={`${entry.id}_${idx}`}>
+                        <td>
+                          {new Date(entry.transaction_date).toLocaleDateString()}
+                          {entry.other_date && (
+                            <div style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>
+                              & {new Date(entry.other_date).toLocaleDateString()}
+                            </div>
                           )}
-                          <td>
-                            {entry.voucher_no && <span className="voucher-badge">{entry.voucher_no}</span>}
-                            <div className="instrument-tag">{entry.instrument} {entry.instrument_number}</div>
+                        </td>
+                        {isAccountant && (
+                          <td style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                            {entry.user_name || 'System'}
                           </td>
-                          <td>
-                            <div style={{ fontWeight: 600 }}>{entry.description}</div>
-                            {entry.proof_file && (
-                              <a href={(process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + entry.proof_file} target="_blank" rel="noopener noreferrer" className="proof-link">
-                                <FaExternalLinkAlt size={10} /> View Proof
+                        )}
+                        <td>
+                          {Array.from(entry.vouchers).filter(Boolean).map((v, i) => (
+                            <span key={i} className="voucher-badge" style={{ marginRight: '4px' }}>{v}</span>
+                          ))}
+                          {Array.from(entry.instruments).filter(Boolean).map((inst, i) => (
+                            <div key={`inst_${i}`} className="instrument-tag" style={{ marginTop: '4px' }}>{inst}</div>
+                          ))}
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>
+                            {Array.from(entry.descriptions).map((desc, i) => (
+                              <div key={`desc_${i}`} style={{ marginBottom: entry.descriptions.size > 1 ? '4px' : '0' }}>
+                                {entry.descriptions.size > 1 ? `• ${desc}` : desc}
+                              </div>
+                            ))}
+                          </div>
+                          {entry.proof_files.map((file, i) => (
+                            <div key={`proof_${i}`} style={{ marginTop: '4px' }}>
+                              <a href={(process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + file} target="_blank" rel="noopener noreferrer" className="proof-link">
+                                <FaExternalLinkAlt size={10} /> View Proof {entry.proof_files.length > 1 ? i + 1 : ''}
                               </a>
-                            )}
-                          </td>
-                          <td className="amount-col" style={{ color: '#28a745', fontWeight: 600 }}>
-                            {parseFloat(entry.credit) > 0 ? parseFloat(entry.credit).toLocaleString() : '-'}
-                          </td>
-                          <td className="amount-col" style={{ color: '#dc3545', fontWeight: 600 }}>
-                            {parseFloat(entry.debit) > 0 ? parseFloat(entry.debit).toLocaleString() : '-'}
-                          </td>
-                          <td className="amount-col" style={{ fontWeight: 800 }}>
-                            {runningBal.toLocaleString()}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="amount-col" style={{ color: '#28a745', fontWeight: 600 }}>
+                          {entry.credit > 0 ? entry.credit.toLocaleString() : '-'}
+                        </td>
+                        <td className="amount-col" style={{ color: '#dc3545', fontWeight: 600 }}>
+                          {entry.debit > 0 ? entry.debit.toLocaleString() : '-'}
+                        </td>
+                        <td className="amount-col" style={{ fontWeight: 800 }}>
+                          {entry.runningBal.toLocaleString()}
+                        </td>
+                      </tr>
+                    ));
+                  })()}
                 </tbody>
               </table>
             </div>

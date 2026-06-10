@@ -63,29 +63,52 @@ router.get('/summary', auth, async (req, res) => {
 // Get Finance Entries (Ledger)
 router.get('/entries', auth, async (req, res) => {
     try {
-        const { userId, unlinkedOnly } = req.query;
+        const { userId, agencyId, customerId, unlinkedOnly } = req.query;
         const accMap = await ledgerService.getAccountMap();
         const isManagement = req.user.role === 'admin' || req.user.role === 'accountant';
         
-        let targetUserId = req.user.id;
-        if (isManagement && userId) {
-            targetUserId = userId;
-        }
+        let query;
+        let params = [];
 
-        let query = `
-            SELECT t.*, tl.debit, tl.credit, u.name as user_name, tl.user_id, tl.id as line_id
-            FROM transactions t
-            JOIN transaction_lines tl ON t.id = tl.transaction_id
-            LEFT JOIN users u ON tl.user_id = u.id
-            WHERE tl.account_id = $1 
-        `;
-        const params = [accMap.DEALER_FINANCE];
-
-        if (isManagement && !userId) {
-            // Management seeing all
+        if (customerId) {
+            query = `
+                SELECT t.*, tl.debit, tl.credit, c.name as user_name, tl.customer_id as user_id, tl.id as line_id
+                FROM transactions t
+                JOIN transaction_lines tl ON t.id = tl.transaction_id
+                LEFT JOIN customers c ON tl.customer_id = c.id
+                WHERE tl.account_id = $1 AND tl.customer_id = $2
+            `;
+            params = [accMap.ADVANCE_FOR_CERTIFICATE, customerId];
+        } else if (agencyId) {
+            query = `
+                SELECT t.*, tl.debit, tl.credit, a.name as user_name, tl.agency_id as user_id, tl.id as line_id
+                FROM transactions t
+                JOIN transaction_lines tl ON t.id = tl.transaction_id
+                LEFT JOIN agencies a ON tl.agency_id = a.id
+                WHERE tl.account_id = $1 AND tl.agency_id = $2
+            `;
+            params = [accMap.ADVANCE_FOR_CERTIFICATE, agencyId];
         } else {
-            query += ` AND tl.user_id = $2`;
-            params.push(targetUserId);
+            let targetUserId = req.user.id;
+            if (isManagement && userId) {
+                targetUserId = userId;
+            }
+
+            query = `
+                SELECT t.*, tl.debit, tl.credit, u.name as user_name, tl.user_id, tl.id as line_id
+                FROM transactions t
+                JOIN transaction_lines tl ON t.id = tl.transaction_id
+                LEFT JOIN users u ON tl.user_id = u.id
+                WHERE tl.account_id = $1 
+            `;
+            params = [accMap.DEALER_FINANCE];
+
+            if (isManagement && !userId) {
+                // Management seeing all
+            } else {
+                query += ` AND tl.user_id = $2`;
+                params.push(targetUserId);
+            }
         }
 
         if (unlinkedOnly === 'true') {
@@ -105,7 +128,7 @@ router.get('/entries', auth, async (req, res) => {
 router.post('/entries', auth, upload.single('proof_file'), async (req, res) => {
     const client = await db.connect();
     try {
-        const { amount, type, description, date, voucher_no, instrument, instrument_number } = req.body;
+        const { amount, type, description, date, voucher_no, instrument, instrument_number, target_type, agency_id, customer_id } = req.body;
         const userId = req.body.user_id || req.user.id;
         
         if (!amount || !type) {
@@ -127,27 +150,42 @@ router.post('/entries', auth, upload.single('proof_file'), async (req, res) => {
         );
         const transId = transRes.rows[0].id;
 
-        // Determine Debit/Credit for DEALER_FINANCE (Liability Account)
+        // Determine Debit/Credit for DEALER_FINANCE or ADVANCE_FOR_CERTIFICATE (Liability Accounts)
         // Add (Credit) -> Increase Liability, Debit Cash
         // Use (Debit) -> Decrease Liability, Credit Cash
         
+        let targetAccount = accMap.DEALER_FINANCE;
+        let lineUserId = userId;
+        let lineAgencyId = null;
+        let lineCustomerId = null;
+
+        if (target_type === 'agency' && agency_id) {
+            targetAccount = accMap.ADVANCE_FOR_CERTIFICATE;
+            lineUserId = null;
+            lineAgencyId = agency_id;
+        } else if (target_type === 'customer' && customer_id) {
+            targetAccount = accMap.ADVANCE_FOR_CERTIFICATE;
+            lineUserId = null;
+            lineCustomerId = customer_id;
+        }
+
         let financeLine, cashLine;
         if (type === 'add' || type === 'credit') {
-            financeLine = { account_id: accMap.DEALER_FINANCE, user_id: userId, debit: 0, credit: val };
-            cashLine = { account_id: accMap.CASH_BANK, user_id: null, debit: val, credit: 0 };
+            financeLine = { account_id: targetAccount, user_id: lineUserId, agency_id: lineAgencyId, customer_id: lineCustomerId, debit: 0, credit: val };
+            cashLine = { account_id: accMap.CASH_BANK, user_id: null, agency_id: null, customer_id: null, debit: val, credit: 0 };
         } else {
-            financeLine = { account_id: accMap.DEALER_FINANCE, user_id: userId, debit: val, credit: 0 };
-            cashLine = { account_id: accMap.CASH_BANK, user_id: null, debit: 0, credit: val };
+            financeLine = { account_id: targetAccount, user_id: lineUserId, agency_id: lineAgencyId, customer_id: lineCustomerId, debit: val, credit: 0 };
+            cashLine = { account_id: accMap.CASH_BANK, user_id: null, agency_id: null, customer_id: null, debit: 0, credit: val };
         }
 
         // Insert Lines
         await client.query(
-            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
-            [transId, financeLine.account_id, financeLine.user_id, financeLine.debit, financeLine.credit]
+            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, agency_id, customer_id, debit, credit) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+            [transId, financeLine.account_id, financeLine.user_id, financeLine.agency_id, financeLine.customer_id, financeLine.debit, financeLine.credit]
         );
         await client.query(
-            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
-            [transId, cashLine.account_id, null, cashLine.debit, cashLine.credit]
+            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, agency_id, customer_id, debit, credit) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+            [transId, cashLine.account_id, cashLine.user_id, cashLine.agency_id, cashLine.customer_id, cashLine.debit, cashLine.credit]
         );
 
         await client.query('COMMIT');
