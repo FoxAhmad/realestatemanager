@@ -237,7 +237,7 @@ const ManageBalances = () => {
     doc.setFontSize(11);
     doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
 
-    const tableColumn = ["Date", "Voucher #", "Dealer / Ref", "Debit", "Credit", "Balance"];
+    const tableColumn = ["Date", "Voucher #", "Instrument", "Dealer / Ref", "Debit", "Credit", "Balance"];
     const tableRows = [];
     
     let totalDebit = 0;
@@ -264,10 +264,12 @@ const ManageBalances = () => {
           });
       }
       const dealerRef = Array.from(names).join(', ') || 'System / Admin';
+      const instrumentStr = `${t.instrument || ''} ${t.instrument_number || ''}`.trim() || '-';
 
       tableRows.push([
         new Date(t.transaction_date).toLocaleDateString(),
         t.voucher_no || '-',
+        instrumentStr,
         dealerRef,
         debitVal > 0 ? debitVal.toLocaleString() : '-',
         creditVal > 0 ? creditVal.toLocaleString() : '-',
@@ -280,7 +282,7 @@ const ManageBalances = () => {
       body: tableRows,
       foot: [
         [
-          { content: 'Totals', colSpan: 3, styles: { halign: 'right' } },
+          { content: 'Totals', colSpan: 4, styles: { halign: 'right' } },
           totalDebit.toLocaleString(),
           totalCredit.toLocaleString(),
           (totalCredit - totalDebit).toLocaleString()
