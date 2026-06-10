@@ -5,7 +5,8 @@ import autoTable from 'jspdf-autotable';
 import {
   FaPlus, FaSearch, FaHistory, FaCog, FaFileUpload,
   FaWallet, FaCertificate, FaPiggyBank, FaTimes, FaExternalLinkAlt,
-  FaChevronDown, FaChevronUp, FaCheckCircle, FaUser, FaMapMarkerAlt
+  FaChevronDown, FaChevronUp, FaCheckCircle, FaUser, FaMapMarkerAlt,
+  FaEdit
 } from 'react-icons/fa';
 import './ManageBalances.css';
 
@@ -19,6 +20,18 @@ const ManageBalances = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [adjustmentCost, setAdjustmentCost] = useState(20000);
   const [expandedRows, setExpandedRows] = useState({});
+
+  // Edit Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editData, setEditData] = useState({
+    id: '',
+    date: '',
+    description: '',
+    voucher_no: '',
+    instrument: 'Cash',
+    instrument_number: '',
+    proof_file: null
+  });
 
   // Finance Entry State
   const [availableFinanceEntries, setAvailableFinanceEntries] = useState([]);
@@ -221,6 +234,40 @@ const ManageBalances = () => {
     } catch (err) {
       console.error('Error updating settings:', err);
       alert('Failed to update setting: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleEditClick = (transaction) => {
+    setEditData({
+      id: transaction.id,
+      date: transaction.transaction_date ? new Date(transaction.transaction_date).toISOString().split('T')[0] : '',
+      description: transaction.description || '',
+      voucher_no: transaction.voucher_no || '',
+      instrument: transaction.instrument || 'Cash',
+      instrument_number: transaction.instrument_number || '',
+      proof_file: null
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const data = new FormData();
+      Object.keys(editData).forEach(key => {
+        if (editData[key] !== null && key !== 'id') {
+          data.append(key, editData[key]);
+        }
+      });
+
+      await api.put(`/balance-transactions/${editData.id}`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      setShowEditModal(false);
+      fetchData();
+    } catch (err) {
+      alert('Error updating transaction: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -433,6 +480,7 @@ const ManageBalances = () => {
                 <th className="amount-col">Debit</th>
                 <th className="amount-col">Credit</th>
                 <th className="amount-col">Balance</th>
+                <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
             <tbody>
@@ -476,7 +524,7 @@ const ManageBalances = () => {
                                     </div>
                                 )}
                                 {t.proof_file && (
-                                <a href={(process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + t.proof_file} target="_blank" rel="noopener noreferrer" className="proof-link">
+                                <a href={t.proof_file.startsWith('http') ? t.proof_file : (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + t.proof_file} target="_blank" rel="noopener noreferrer" className="proof-link">
                                     <FaExternalLinkAlt size={10} /> View Proof
                                 </a>
                                 )}
@@ -516,6 +564,11 @@ const ManageBalances = () => {
                                     {balanceChange >= 0 ? '+' : ''}{balanceChange.toLocaleString()}
                                 </div>
                             </td>
+                            <td>
+                                <button className="edit-btn" style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', padding: '5px' }} onClick={() => handleEditClick(t)} title="Edit Transaction">
+                                    <FaEdit size={16} />
+                                </button>
+                            </td>
                         </tr>
                         {isExpanded && hasLinked && (
                             <tr className="expanded-details-row">
@@ -534,7 +587,7 @@ const ManageBalances = () => {
                                                         <p>{entry.description}</p>
                                                     </div>
                                                     {entry.proof_file && (
-                                                        <a href={(process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + entry.proof_file} target="_blank" rel="noopener noreferrer" className="proof-link small">
+                                                        <a href={entry.proof_file.startsWith('http') ? entry.proof_file : (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + entry.proof_file} target="_blank" rel="noopener noreferrer" className="proof-link small">
                                                             View Orig. Proof
                                                         </a>
                                                     )}
@@ -769,6 +822,55 @@ const ManageBalances = () => {
               <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowSettings(false)}>Cancel</button>
               <button type="button" className="premium-btn premium-btn-primary" onClick={updateAdjustmentCost}>Update Setting</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {showEditModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Edit Transaction Details</h2>
+              <button onClick={() => setShowEditModal(false)} className="close-modal-btn"><FaTimes /></button>
+            </div>
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-group">
+                  <label>Date</label>
+                  <input type="date" name="date" className="form-control" required value={editData.date} onChange={(e) => setEditData({...editData, date: e.target.value})} />
+              </div>
+              <div className="form-group">
+                  <label>Voucher Number</label>
+                  <input type="text" name="voucher_no" className="form-control" value={editData.voucher_no} onChange={(e) => setEditData({...editData, voucher_no: e.target.value})} />
+              </div>
+              <div className="form-row-2" style={{ display: 'flex', gap: '1rem' }}>
+                  <div className="form-group" style={{ flex: 1 }}>
+                      <label>Instrument</label>
+                      <select name="instrument" className="form-control" value={editData.instrument} onChange={(e) => setEditData({...editData, instrument: e.target.value})}>
+                      <option value="Cash">Cash</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Online">Online Transfer</option>
+                      </select>
+                  </div>
+                  <div className="form-group" style={{ flex: 1 }}>
+                      <label>Instrument Number</label>
+                      <input type="text" name="instrument_number" className="form-control" value={editData.instrument_number} onChange={(e) => setEditData({...editData, instrument_number: e.target.value})} />
+                  </div>
+              </div>
+              <div className="form-group">
+                  <label>Description</label>
+                  <textarea name="description" className="form-control" required value={editData.description} onChange={(e) => setEditData({...editData, description: e.target.value})}></textarea>
+              </div>
+              <div className="form-group">
+                  <label>Update Proof File (Optional)</label>
+                  <input type="file" className="form-control" accept="image/*" onChange={(e) => setEditData({...editData, proof_file: e.target.files[0]})} />
+                  <small style={{ color: 'var(--text-muted)' }}>Leave empty to keep the current proof file.</small>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
+                <button type="submit" className="premium-btn premium-btn-primary">Update Transaction</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

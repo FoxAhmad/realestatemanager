@@ -312,7 +312,7 @@ const Finance = () => {
                           </div>
                           {entry.proof_files.map((file, i) => (
                             <div key={`proof_${i}`} style={{ marginTop: '4px' }}>
-                              <a href={(process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + file} target="_blank" rel="noopener noreferrer" className="proof-link">
+                              <a href={file.startsWith('http') ? file : (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + file} target="_blank" rel="noopener noreferrer" className="proof-link">
                                 <FaExternalLinkAlt size={10} /> View Proof {entry.proof_files.length > 1 ? i + 1 : ''}
                               </a>
                             </div>

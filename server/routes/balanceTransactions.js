@@ -2,30 +2,14 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const { auth, adminAndAccountantOnly } = require('../middleware/auth');
 const db = require('../config/database');
 const ledgerService = require('../services/ledgerService');
+const supabase = require('../config/supabase');
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, '../uploads/proofs');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configure multer
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
+// Configure multer for memory storage
 const upload = multer({ 
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
@@ -110,7 +94,26 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
         }
     }
 
-    const proofFile = req.file ? '/uploads/proofs/' + req.file.filename : null;
+    let proofFile = null;
+    if (req.file) {
+      const fileExt = path.extname(req.file.originalname);
+      const fileName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase
+        .storage
+        .from('proofs')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: false
+        });
+        
+      if (uploadError) {
+        throw new Error('Failed to upload proof image: ' + uploadError.message);
+      }
+      
+      const { data: publicUrlData } = supabase.storage.from('proofs').getPublicUrl(fileName);
+      proofFile = publicUrlData.publicUrl;
+    }
     const accMap = await ledgerService.getAccountMap();
     const val = parseFloat(amount);
 
@@ -272,7 +275,64 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
       client.release();
     }
   });
-  
+
+  /**
+   * Update a balance transaction (Text fields and Proof only)
+   */
+  router.put('/:id', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
+    try {
+      const { date, description, voucher_no, instrument, instrument_number } = req.body;
+      
+      let queryArgs = [
+        date ? new Date(date) : new Date(), 
+        description, 
+        voucher_no, 
+        instrument, 
+        instrument_number, 
+        req.params.id
+      ];
+      let queryStr = `
+        UPDATE transactions 
+        SET transaction_date = $1, description = $2, voucher_no = $3, instrument = $4, instrument_number = $5
+      `;
+
+      if (req.file) {
+        const fileExt = path.extname(req.file.originalname);
+        const fileName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase
+          .storage
+          .from('proofs')
+          .upload(fileName, req.file.buffer, {
+            contentType: req.file.mimetype,
+            upsert: false
+          });
+          
+        if (uploadError) {
+          throw new Error('Failed to upload proof image: ' + uploadError.message);
+        }
+        
+        const { data: publicUrlData } = supabase.storage.from('proofs').getPublicUrl(fileName);
+        const proofFile = publicUrlData.publicUrl;
+        
+        queryStr += `, proof_file = $7`;
+        queryArgs.push(proofFile);
+      }
+
+      queryStr += ` WHERE id = $6 RETURNING *`;
+
+      const result = await db.query(queryStr, queryArgs);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'Transaction not found' });
+      }
+
+      res.json({ message: 'Transaction updated', transaction: result.rows[0] });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  });
+
   router.delete('/:id', auth, adminAndAccountantOnly, async (req, res) => {
     try {
       const result = await db.query('DELETE FROM transactions WHERE id = $1 RETURNING id', [req.params.id]);
