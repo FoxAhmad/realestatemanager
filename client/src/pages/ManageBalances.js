@@ -363,16 +363,32 @@ const ManageBalances = () => {
 
   // Calculate entity-wise balances
   const dealerBalances = entities.map(d => {
-    const dealerTransactions = transactions.filter(t => 
-      t.user_id === d.id || (t.customer_id === d.id)
-    );
-    const balance = dealerTransactions.reduce((sum, t) => sum + (parseFloat(t.credit) - parseFloat(t.debit)), 0);
-    const quantity = dealerTransactions.reduce((sum, t) => {
-        const q = parseInt(t.quantity) || 0;
-        if (parseFloat(t.credit) > 0) return sum + q;
-        if (parseFloat(t.debit) > 0) return sum - q;
-        return sum;
-    }, 0);
+    let balance = 0;
+    let quantity = 0;
+
+    transactions.forEach(t => {
+      const dealerLinkedEntries = t.linked_entries ? t.linked_entries.filter(e => e.user_name === d.name || (e.customer_name && e.customer_name === d.name)) : [];
+
+      if (dealerLinkedEntries.length > 0) {
+        // Dealer contributed via linked entries
+        const contributedAmount = dealerLinkedEntries.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+        balance += contributedAmount;
+        
+        if (activeTab === 8) {
+            const q = Math.round(contributedAmount / adjustmentCost) || 0;
+            quantity += q;
+        }
+      } else if (!t.linked_entries || t.linked_entries.length === 0) {
+        // Standard transaction without linked entries
+        if (t.user_id === d.id || t.customer_id === d.id) {
+            balance += (parseFloat(t.credit) - parseFloat(t.debit));
+            const q = parseInt(t.quantity) || 0;
+            if (parseFloat(t.credit) > 0) quantity += q;
+            if (parseFloat(t.debit) > 0) quantity -= q;
+        }
+      }
+    });
+
     return { ...d, balance, quantity, isCustomer: !d.role }; // d.role is present on users, not customers
   }).filter(d => d.balance !== 0 || (activeTab === 8 && d.quantity !== 0));
 
