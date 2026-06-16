@@ -17,12 +17,13 @@ const upload = multer({
  * Get all transactions for a specific account
  * Optionally filter by dealer (user_id)
  */
-router.get('/:accountId', auth, adminAndAccountantOnly, async (req, res) => {
+router.get('/:accountId', auth, async (req, res) => {
   try {
-    const { userId, deal_id } = req.query;
+    const { userId, deal_id, project_id } = req.query;
     let query = `
       SELECT t.*, tl.debit, tl.credit, tl.quantity, tl.plot_info, tl.customer_info, u.name as user_name, tl.user_id, c.name as customer_name, tl.customer_id, a.name as account_name,
              da.customer_price, da.cost_price, da.id as adjustment_id, tl.id as line_id,
+             tl.project_id, bp.name as project_name,
              (
                 SELECT JSON_AGG(JSON_BUILD_OBJECT(
                     'id', f_t.id,
@@ -45,6 +46,7 @@ router.get('/:accountId', auth, adminAndAccountantOnly, async (req, res) => {
       LEFT JOIN users u ON tl.user_id = u.id
       LEFT JOIN customers c ON tl.customer_id = c.id
       LEFT JOIN deal_adjustments da ON t.id = da.transaction_id
+      LEFT JOIN balance_projects bp ON tl.project_id = bp.id
       WHERE tl.account_id = $1
     `;
     const params = [req.params.accountId];
@@ -57,6 +59,14 @@ router.get('/:accountId', auth, adminAndAccountantOnly, async (req, res) => {
     if (deal_id) {
       query += ` AND da.deal_id = $${params.length + 1}`;
       params.push(deal_id);
+    }
+
+    // Filter by project: 'unassigned' shows NULL project_id entries, otherwise filter by project id
+    if (project_id === 'unassigned') {
+      query += ` AND tl.project_id IS NULL`;
+    } else if (project_id) {
+      query += ` AND tl.project_id = $${params.length + 1}`;
+      params.push(project_id);
     }
 
     query += ` ORDER BY t.transaction_date DESC, t.id DESC`;
@@ -78,7 +88,7 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
       account_id, user_id, amount, date, description, 
       voucher_no, instrument, instrument_number, type,
       linked_finance_line_ids, // Stringified array of IDs
-      quantity, plot_info, customer_info
+      quantity, plot_info, customer_info, project_id
     } = req.body;
 
     if (!account_id || !amount || !type) {
@@ -138,9 +148,10 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
         // We need a Debit in Dealer Finance and a Credit in the target Balance Account
         
         // 1. Credit Target Account (Advance/Savings)
+        const projId = project_id ? parseInt(project_id) : null;
         const assetLineRes = await client.query(
-            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit, quantity, plot_info, customer_info) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
-            [transId, account_id, user_id, 0, val, quantity || 1, plot_info || null, customer_info || null]
+            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit, quantity, plot_info, customer_info, project_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
+            [transId, account_id, user_id, 0, val, quantity || 1, plot_info || null, customer_info || null, projId]
         );
         targetLineId = assetLineRes.rows[0].id;
 
@@ -174,6 +185,7 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
         // CASE: Normal manual balance update (not linked to finance)
         let assetLine, cashLine;
         const isDeposit = type === 'add' || type === 'deposit' || type === 'Received';
+        const projId = project_id ? parseInt(project_id) : null;
         
         if (accType === 'Asset') {
             if (isDeposit) {
@@ -197,8 +209,8 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
         }
 
         await client.query(
-            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit, quantity, plot_info, customer_info) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-            [transId, assetLine.account_id, assetLine.user_id, assetLine.debit, assetLine.credit, quantity || 1, plot_info || null, customer_info || null]
+            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit, quantity, plot_info, customer_info, project_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+            [transId, assetLine.account_id, assetLine.user_id, assetLine.debit, assetLine.credit, quantity || 1, plot_info || null, customer_info || null, projId]
         );
         await client.query(
             'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
@@ -343,4 +355,26 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
     }
   });
 
+  /**
+   * PATCH /balance-transactions/line/:lineId/project
+   * Assign or unassign a transaction line to a project.
+   * Passing project_id: null unassigns it (moves back to General).
+   */
+  router.patch('/line/:lineId/project', auth, adminAndAccountantOnly, async (req, res) => {
+    try {
+      const { project_id } = req.body;
+      const result = await db.query(
+        'UPDATE transaction_lines SET project_id = $1 WHERE id = $2 RETURNING id, project_id',
+        [project_id || null, req.params.lineId]
+      );
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'Transaction line not found' });
+      }
+      res.json({ message: 'Project assigned', line: result.rows[0] });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  });
+
 module.exports = router;
+

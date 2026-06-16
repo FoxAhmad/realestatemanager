@@ -484,3 +484,408 @@
 .dealer-contrib-item .dealer-amount {
     font-weight: 700;
 }
+
+/* ── Projects Section ─────────────────────────────────────────────────── */
+.projects-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+
+.projects-title-group {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.projects-icon {
+    font-size: 2rem;
+    color: var(--primary);
+    opacity: 0.7;
+}
+
+.projects-heading {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin: 0 0 0.2rem;
+}
+
+.projects-subheading {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* ── Project Cards Grid ───────────────────────────────────────────────── */
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.project-card {
+    padding: 1.75rem;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    cursor: default;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.project-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary), #7c8ef7);
+    border-radius: 20px 20px 0 0;
+}
+
+.project-card-general::before {
+    background: linear-gradient(90deg, #6c757d, #adb5bd);
+}
+
+.project-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 50px rgba(84, 105, 212, 0.15);
+}
+
+.project-card-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(84,105,212,0.12), rgba(84,105,212,0.06));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: var(--primary);
+}
+
+.project-card-general .project-card-icon {
+    background: linear-gradient(135deg, rgba(108,117,125,0.12), rgba(108,117,125,0.06));
+    color: #6c757d;
+}
+
+.project-card-body {
+    flex: 1;
+}
+
+.project-card-name {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 0.35rem;
+}
+
+.project-card-desc {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+}
+
+.project-card-stats {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.project-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.project-stat .stat-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.project-stat .stat-val {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+/* ── Project Card Actions ─────────────────────────────────────────────── */
+.project-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(0,0,0,0.05);
+}
+
+.project-view-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.2rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.project-view-btn:hover {
+    background: #4a5bc8;
+    transform: scale(1.03);
+    box-shadow: 0 4px 15px rgba(84, 105, 212, 0.3);
+}
+
+.project-edit-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.project-icon-btn {
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 0.85rem;
+}
+
+.project-icon-btn.edit {
+    background: rgba(0, 123, 255, 0.1);
+    color: #007bff;
+}
+
+.project-icon-btn.edit:hover {
+    background: #007bff;
+    color: white;
+}
+
+.project-icon-btn.delete {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
+
+.project-icon-btn.delete:hover {
+    background: #dc3545;
+    color: white;
+}
+
+/* ── "Create First Project" card ─────────────────────────────────────── */
+.project-card-new {
+    border: 2px dashed rgba(84, 105, 212, 0.3) !important;
+    background: transparent !important;
+    cursor: pointer;
+    min-height: 160px;
+    justify-content: center;
+    align-items: center;
+}
+
+.project-card-new::before {
+    display: none;
+}
+
+.project-card-new:hover {
+    border-color: var(--primary) !important;
+    background: rgba(84, 105, 212, 0.04) !important;
+}
+
+.project-card-new-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.95rem;
+    opacity: 0.6;
+    transition: var(--transition);
+}
+
+.project-card-new:hover .project-card-new-inner {
+    opacity: 1;
+}
+
+.project-card-new-inner svg {
+    font-size: 1.8rem;
+}
+
+/* ── Projects Empty State ─────────────────────────────────────────────── */
+.projects-empty {
+    text-align: center;
+    padding: 5rem 2rem;
+    color: var(--text-muted);
+}
+
+.projects-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+/* ── Breadcrumb ───────────────────────────────────────────────────────── */
+.project-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--white);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    width: fit-content;
+}
+
+.back-to-projects-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 0;
+    transition: var(--transition);
+}
+
+.back-to-projects-btn:hover {
+    color: #4a5bc8;
+    gap: 0.75rem;
+}
+
+.breadcrumb-sep {
+    color: var(--text-muted);
+    font-weight: 300;
+}
+
+.breadcrumb-project {
+    font-weight: 700;
+    color: var(--text-main);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+}
+
+/* ── Modal Project Tag ────────────────────────────────────────────────── */
+.modal-project-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: rgba(84, 105, 212, 0.1);
+    color: var(--primary);
+    padding: 0.2rem 0.7rem;
+    border-radius: 6px;
+    margin-left: 0.75rem;
+    vertical-align: middle;
+}
+
+/* ── Move to Project Button ───────────────────────────────────────────── */
+.move-to-project-btn {
+    background: rgba(255, 152, 0, 0.1);
+    border: none;
+    color: #e67e00;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.move-to-project-btn:hover {
+    background: #e67e00;
+    color: white;
+    transform: scale(1.1);
+}
+
+/* ── Compact Modal ────────────────────────────────────────────────────── */
+.modal-compact {
+    max-width: 440px;
+    width: 95%;
+}
+
+.move-modal-entry-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1rem 1.25rem;
+    background: #f8fafc;
+    border-radius: 10px;
+    border-left: 4px solid var(--primary);
+    margin-bottom: 1.5rem;
+}
+
+.move-entry-desc {
+    font-weight: 700;
+    color: var(--text-main);
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.move-entry-from {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* ── Project Account Breakdown ────────────────────────────────────────── */
+.project-account-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed rgba(0,0,0,0.07);
+}
+
+.breakdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.breakdown-item svg {
+    opacity: 0.5;
+    flex-shrink: 0;
+}
+
+.breakdown-label {
+    flex: 1;
+    font-weight: 600;
+}
+
+.breakdown-val {
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+.no-entries-note {
+    font-style: italic;
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 0.75rem;
+}

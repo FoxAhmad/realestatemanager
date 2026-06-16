@@ -30,6 +30,7 @@ const Dashboard = () => {
   const [finance, setFinance] = useState({
     total_revenue: 0,
     total_profit: 0,
+    dealer_finance_balance: 0,
   });
   const [ledgerBalances, setLedgerBalances] = useState({});
   const [mutualSummary, setMutualSummary] = useState({ owe: 0, owed: 0 });
@@ -158,6 +159,12 @@ const Dashboard = () => {
             <h2>Finance Overview</h2>
           </div>
           <div className="finance-grid">
+            {isDealer && (
+              <div className="stat-item">
+                <span className="stat-label">Wallet Balance</span>
+                <span className="stat-value profit" style={{ color: 'var(--success)', fontSize: '1.4rem' }}>Rs. {parseFloat(finance.dealer_finance_balance || 0).toLocaleString()}</span>
+              </div>
+            )}
             <div className="stat-item">
               <span className="stat-label">{isAccountant ? 'Network Revenue' : 'Total Revenue'}</span>
               <span className="stat-value revenue">Rs. {parseFloat(finance.total_revenue || 0).toLocaleString()}</span>

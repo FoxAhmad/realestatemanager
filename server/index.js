@@ -33,6 +33,7 @@ app.use('/api/ledger', require('./routes/ledger'));
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/dealer-exchanges', require('./routes/dealerExchanges'));
 app.use('/api/balance-transactions', require('./routes/balanceTransactions'));
+app.use('/api/balance-projects', require('./routes/balanceProjects'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/agencies', require('./routes/agencies'));
 

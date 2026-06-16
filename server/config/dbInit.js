@@ -534,6 +534,23 @@ const initDatabase = async () => {
       await db.query(`ALTER TABLE deal_adjustments ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1`);
     } catch (e) { /* ignore */ }
 
+    // Create Balance Projects table (shared across Dealer Advances & Certificate accounts)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS balance_projects (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Add project_id to transaction_lines if not exists
+    try {
+      await db.query(`ALTER TABLE transaction_lines ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES balance_projects(id) ON DELETE SET NULL`);
+    } catch (e) { /* ignore */ }
+
     // Create App Settings table
     await db.query(`
       CREATE TABLE IF NOT EXISTS app_settings (
