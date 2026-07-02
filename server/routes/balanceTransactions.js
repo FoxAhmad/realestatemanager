@@ -293,25 +293,25 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
    */
   router.put('/:id', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
     try {
-      const { date, description, voucher_no, instrument, instrument_number } = req.body;
-      
+      const { date, description, voucher_no, instrument, instrument_number, user_id, line_id } = req.body;
+
       let queryArgs = [
-        date ? new Date(date) : new Date(), 
-        description, 
-        voucher_no, 
-        instrument, 
-        instrument_number, 
+        date ? new Date(date) : new Date(),
+        description,
+        voucher_no,
+        instrument,
+        instrument_number,
         req.params.id
       ];
       let queryStr = `
-        UPDATE transactions 
+        UPDATE transactions
         SET transaction_date = $1, description = $2, voucher_no = $3, instrument = $4, instrument_number = $5
       `;
 
       if (req.file) {
         const fileExt = path.extname(req.file.originalname);
         const fileName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${fileExt}`;
-        
+
         const { data: uploadData, error: uploadError } = await supabase
           .storage
           .from('proofs')
@@ -319,14 +319,14 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
             contentType: req.file.mimetype,
             upsert: false
           });
-          
+
         if (uploadError) {
           throw new Error('Failed to upload proof image: ' + uploadError.message);
         }
-        
+
         const { data: publicUrlData } = supabase.storage.from('proofs').getPublicUrl(fileName);
         const proofFile = publicUrlData.publicUrl;
-        
+
         queryStr += `, proof_file = $7`;
         queryArgs.push(proofFile);
       }
@@ -337,6 +337,13 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
 
       if (result.rows.length === 0) {
         return res.status(404).json({ message: 'Transaction not found' });
+      }
+
+      if (user_id && line_id) {
+        await db.query(
+          'UPDATE transaction_lines SET user_id = $1 WHERE id = $2',
+          [user_id, line_id]
+        );
       }
 
       res.json({ message: 'Transaction updated', transaction: result.rows[0] });

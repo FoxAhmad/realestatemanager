@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import {
   FaChartBar, FaCalendarAlt, FaUserTie, FaWallet, FaHistory,
-  FaPlus, FaTimes, FaExternalLinkAlt, FaFileInvoiceDollar, FaCheckCircle
+  FaPlus, FaTimes, FaExternalLinkAlt, FaFileInvoiceDollar, FaCheckCircle,
+  FaEdit, FaTrash
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import './Finance.css';
@@ -10,6 +11,7 @@ import './Finance.css';
 const Finance = () => {
   const { user } = useAuth();
   const isAccountant = user?.role === 'accountant';
+  const canManage = user?.role === 'admin' || user?.role === 'accountant';
   const [activeTab, setActiveTab] = useState('ledger'); // 'ledger' or 'analytics'
   const [summary, setSummary] = useState({
     total_revenue: 0,
@@ -24,6 +26,9 @@ const Finance = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [dealers, setDealers] = useState([]);
+  const [editEntry, setEditEntry] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
+  const [deletingId, setDeletingId] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -89,6 +94,66 @@ const Finance = () => {
 
   const handleFileChange = (e) => {
     setFormData({ ...formData, proof_file: e.target.files[0] });
+  };
+
+  const handleEditClick = (entry) => {
+    const firstInstrument = Array.from(entry.instruments)[0] || '';
+    const knownInstruments = ['Cash', 'Cheque', 'Online'];
+    const parts = firstInstrument.split(' ');
+    const instrumentType = knownInstruments.includes(parts[0]) ? parts[0] : 'Cash';
+    const instrumentNumber = parts.length > 1 ? parts.slice(1).join(' ') : '';
+    setEditEntry(entry);
+    setEditFormData({
+      date: new Date(entry.transaction_date).toISOString().split('T')[0],
+      description: Array.from(entry.descriptions)[0] || '',
+      voucher_no: Array.from(entry.vouchers)[0] || '',
+      instrument: instrumentType,
+      instrument_number: instrumentNumber,
+      user_id: entry.user_id || '',
+      line_id: entry.line_id || '',
+      proof_file: null
+    });
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData({ ...editFormData, [name]: value });
+  };
+
+  const handleEditFileChange = (e) => {
+    setEditFormData({ ...editFormData, proof_file: e.target.files[0] });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const data = new FormData();
+      Object.keys(editFormData).forEach(key => {
+        if (editFormData[key] !== null && editFormData[key] !== undefined) {
+          data.append(key, editFormData[key]);
+        }
+      });
+      await api.put(`/balance-transactions/${editEntry.id}`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setEditEntry(null);
+      fetchData();
+    } catch (err) {
+      alert('Error updating entry: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleDelete = async (entry) => {
+    if (!window.confirm('Delete this transaction? This cannot be undone.')) return;
+    setDeletingId(entry.id);
+    try {
+      await api.delete(`/balance-transactions/${entry.id}`);
+      fetchData();
+    } catch (err) {
+      alert('Error deleting entry: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -196,12 +261,13 @@ const Finance = () => {
                     <th className="amount-col">Credit (In)</th>
                     <th className="amount-col">Debit (Out)</th>
                     <th className="amount-col">Balance</th>
+                    {canManage && <th style={{ textAlign: 'center' }}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {(() => {
                     if (entries.length === 0) {
-                      return <tr><td colSpan={isAccountant ? 7 : 6} className="empty-state">No financial transactions found.</td></tr>;
+                      return <tr><td colSpan={6 + (isAccountant ? 1 : 0) + (canManage ? 1 : 0)} className="empty-state">No financial transactions found.</td></tr>;
                     }
 
                     const processedEntries = [];
@@ -327,6 +393,25 @@ const Finance = () => {
                         <td className="amount-col" style={{ fontWeight: 800 }}>
                           {entry.runningBal.toLocaleString()}
                         </td>
+                        {canManage && (
+                          <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <button
+                              onClick={() => handleEditClick(entry)}
+                              title="Edit Entry"
+                              style={{ padding: '4px 8px', borderRadius: '6px', border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer', marginRight: '6px' }}
+                            >
+                              <FaEdit size={13} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(entry)}
+                              title="Delete Entry"
+                              disabled={deletingId === entry.id}
+                              style={{ padding: '4px 8px', borderRadius: '6px', border: 'none', background: '#dc3545', color: '#fff', cursor: 'pointer' }}
+                            >
+                              <FaTrash size={13} />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ));
                   })()}
@@ -399,6 +484,61 @@ const Finance = () => {
                 </div>
               </section>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Entry Modal */}
+      {editEntry && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Edit Finance Entry</h2>
+              <button onClick={() => setEditEntry(null)} className="close-modal-btn"><FaTimes /></button>
+            </div>
+            <form onSubmit={handleEditSubmit}>
+              {canManage && (
+                <div className="form-group">
+                  <label>Salesperson</label>
+                  <select name="user_id" className="form-control" value={editFormData.user_id} onChange={handleEditChange}>
+                    <option value="">— Select Salesperson —</option>
+                    {dealers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+                </div>
+              )}
+              <div className="form-group">
+                <label>Date</label>
+                <input type="date" name="date" className="form-control" value={editFormData.date} onChange={handleEditChange} />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea name="description" className="form-control" value={editFormData.description} onChange={handleEditChange}></textarea>
+              </div>
+              <div className="form-group">
+                <label>Voucher Number</label>
+                <input type="text" name="voucher_no" className="form-control" value={editFormData.voucher_no} onChange={handleEditChange} />
+              </div>
+              <div className="form-group">
+                <label>Instrument</label>
+                <select name="instrument" className="form-control" value={editFormData.instrument} onChange={handleEditChange}>
+                  <option value="Cash">Cash</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="Online">Online Transfer</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Instrument Number</label>
+                <input type="text" name="instrument_number" className="form-control" value={editFormData.instrument_number} onChange={handleEditChange} />
+              </div>
+              <div className="form-group">
+                <label>Replace Proof (optional)</label>
+                <input type="file" className="form-control" accept="image/*" onChange={handleEditFileChange} />
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setEditEntry(null)}>Cancel</button>
+                <button type="submit" className="premium-btn premium-btn-primary">Update Entry</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
