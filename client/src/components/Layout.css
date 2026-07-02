@@ -1,5 +1,5 @@
 .layout {
-  min-height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background-color: var(--bg-main);
@@ -80,12 +80,13 @@
   display: flex;
   flex: 1;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* Sidebar Overhaul */
 .sidebar {
   width: 260px;
-  background: #0f172a; /* Deep Navy Dark */
+  background: #0f172a;
   color: #cbd5e1;
   display: flex;
   flex-direction: column;
@@ -93,6 +94,7 @@
   position: relative;
   box-shadow: 4px 0 20px rgba(0,0,0,0.15);
   z-index: 101;
+  height: 100%;
 }
 
 .sidebar.closed {
@@ -199,8 +201,10 @@
 .main-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   background-color: var(--bg-main);
   position: relative;
+  min-height: 0;
 }
 
 /* App Footer */

@@ -25,6 +25,11 @@
   box-sizing: border-box;
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -33,10 +38,13 @@ body {
   color: var(--text-main);
 }
 
+#root {
+  height: 100%;
+}
+
 /* Premium Page Layout */
 .premium-page {
   padding: 2.5rem;
-  min-height: calc(100vh - 120px);
 }
 
 .premium-page-header {
@@ -88,6 +96,7 @@ body {
 
 .premium-table {
   width: 100%;
+  min-width: 650px;
   border-collapse: separate;
   border-spacing: 0;
 }
