@@ -37,6 +37,7 @@ const ManageBalances = () => {
   const [projectForm, setProjectForm] = useState({ name: '', description: '' });
   const [adjustmentCost, setAdjustmentCost] = useState(20000);
   const [expandedRows, setExpandedRows] = useState({});
+  const [deletingId, setDeletingId] = useState(null);
 
   // ── Move to Project State ───────────────────────────────────────────────────
   const [moveTarget, setMoveTarget] = useState(null); // { lineId, currentDesc } | null
@@ -321,6 +322,37 @@ const ManageBalances = () => {
       proof_file: null
     });
     setShowEditModal(true);
+  };
+
+  /**
+   * Delete a balance entry. Linked finance entries are deliberately preserved —
+   * they stay in Finance and go back to the unlinked pool so they can be re-linked.
+   */
+  const handleDeleteTransaction = async (t) => {
+    const linkedCount = t.linked_entries ? t.linked_entries.length : 0;
+    const confirmMsg = linkedCount > 0
+      ? `Delete this balance entry?\n\n`
+        + `${linkedCount} linked finance ${linkedCount === 1 ? 'entry' : 'entries'} will NOT be deleted. `
+        + `${linkedCount === 1 ? 'It' : 'They'} will stay in Finance and return to the unlinked pool, ready to be linked again.\n\n`
+        + `This cannot be undone.`
+      : 'Delete this balance entry? This cannot be undone.';
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setDeletingId(t.id);
+    try {
+      const res = await api.delete(`/balance-transactions/${t.id}`);
+      const n = res.data?.unlinked_finance_entries || 0;
+      if (n > 0) {
+        alert(`Balance entry deleted. ${n} finance ${n === 1 ? 'entry was' : 'entries were'} preserved and returned to the unlinked pool.`);
+      }
+      fetchTransactions(selectedProject ? selectedProject.id : null);
+      fetchProjects();
+    } catch (err) {
+      alert('Error deleting entry: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleOpenMoveModal = (t) => {
@@ -800,6 +832,17 @@ const ManageBalances = () => {
                                       <FaExchangeAlt size={14} />
                                     </button>
                                   )}
+                                  <button
+                                    className="delete-btn"
+                                    style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer', padding: '5px' }}
+                                    onClick={() => handleDeleteTransaction(t)}
+                                    disabled={deletingId === t.id}
+                                    title={hasLinked
+                                      ? 'Delete this balance entry (linked finance entries are kept)'
+                                      : 'Delete this balance entry'}
+                                  >
+                                    <FaTrash size={15} />
+                                  </button>
                                 </div>
                               </td>
                             )}

@@ -352,13 +352,52 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
     }
   });
 
+  /**
+   * DELETE /balance-transactions/:id
+   * Delete a balance entry WITHOUT touching any finance entries linked to it.
+   *
+   * Linked finance entries live in their own transactions, so they are never
+   * cascade-deleted here. We explicitly clear their linked_line_id first so the
+   * intent is visible in the code rather than relying on the FK's implicit
+   * ON DELETE SET NULL. The finance entries return to the unlinked pool and can
+   * be re-linked to another balance entry.
+   */
   router.delete('/:id', auth, adminAndAccountantOnly, async (req, res) => {
+    const client = await db.connect();
     try {
-      const result = await db.query('DELETE FROM transactions WHERE id = $1 RETURNING id', [req.params.id]);
-      if (result.rows.length === 0) return res.status(404).json({ message: 'Transaction not found' });
-      res.json({ message: 'Transaction deleted' });
+      await client.query('BEGIN');
+
+      // Preserve, don't delete: detach finance lines pointing at this transaction's lines.
+      const unlinked = await client.query(
+        `UPDATE transaction_lines
+            SET linked_line_id = NULL
+          WHERE linked_line_id IN (
+                SELECT id FROM transaction_lines WHERE transaction_id = $1
+          )
+          RETURNING id`,
+        [req.params.id]
+      );
+
+      const result = await client.query(
+        'DELETE FROM transactions WHERE id = $1 RETURNING id',
+        [req.params.id]
+      );
+
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ message: 'Transaction not found' });
+      }
+
+      await client.query('COMMIT');
+      res.json({
+        message: 'Transaction deleted',
+        unlinked_finance_entries: unlinked.rows.length
+      });
     } catch (error) {
+      await client.query('ROLLBACK');
       res.status(500).json({ message: 'Server error', error: error.message });
+    } finally {
+      client.release();
     }
   });
 

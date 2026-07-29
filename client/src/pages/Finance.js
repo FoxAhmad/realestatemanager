@@ -3,9 +3,10 @@ import api from '../services/api';
 import {
   FaChartBar, FaCalendarAlt, FaUserTie, FaWallet, FaHistory,
   FaPlus, FaTimes, FaExternalLinkAlt, FaFileInvoiceDollar, FaCheckCircle,
-  FaEdit, FaTrash
+  FaEdit, FaTrash, FaFolderOpen
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import { mergeFinanceEntries } from '../utils/financeLedger';
 import './Finance.css';
 
 const Finance = () => {
@@ -26,6 +27,7 @@ const Finance = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [dealers, setDealers] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [editEntry, setEditEntry] = useState(null);
   const [editFormData, setEditFormData] = useState({});
   const [deletingId, setDeletingId] = useState(null);
@@ -40,11 +42,14 @@ const Finance = () => {
     instrument: 'Cash',
     instrument_number: '',
     user_id: '',
+    project_id: '',
+    balance_account_id: '',
     proof_file: null
   });
 
   useEffect(() => {
     fetchData();
+    fetchProjects();
     if (user.role === 'admin' || user.role === 'accountant') {
       fetchDealers();
       fetchDealerStats();
@@ -78,6 +83,15 @@ const Finance = () => {
     }
   };
 
+  const fetchProjects = async () => {
+    try {
+      const res = await api.get('/balance-projects');
+      setProjects(res.data);
+    } catch (err) {
+      console.error('Error fetching balance projects:', err);
+    }
+  };
+
   const fetchDealerStats = async () => {
     try {
       const res = await api.get('/finance/by-dealer');
@@ -87,9 +101,36 @@ const Finance = () => {
     }
   };
 
+  // The three Manage Balance accounts an entry can be transferred into.
+  const balanceAccounts = [
+    { id: 3, name: 'Dealer Advances' },
+    { id: 8, name: 'Advance for Certificate' },
+    { id: 4, name: 'Savings Deposits' }
+  ];
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+  };
+
+  // Only credit entries can be transferred, so clear the account if type flips to debit.
+  const handleTypeChange = (e) => {
+    const { value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      type: value,
+      balance_account_id: (value === 'add' || value === 'credit') ? prev.balance_account_id : ''
+    }));
+  };
+
+  // Savings Deposits has no projects in Balance Management, so drop the project tag.
+  const handleBalanceAccountChange = (e) => {
+    const { value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      balance_account_id: value,
+      project_id: String(value) === '4' ? '' : prev.project_id
+    }));
   };
 
   const handleFileChange = (e) => {
@@ -143,8 +184,36 @@ const Finance = () => {
     }
   };
 
+  /**
+   * Delete a finance entry.
+   *
+   * entry.id is always the finance (credit) transaction — see the merge block in the
+   * ledger table. Deleting it removes the finance transaction and its lines, which takes
+   * the linked_line_id pointer with them: the linkage disappears from Manage Balances
+   * while the balance entry itself survives.
+   */
   const handleDelete = async (entry) => {
-    if (!window.confirm('Delete this transaction? This cannot be undone.')) return;
+    const amt = parseFloat(entry.credit) || parseFloat(entry.debit) || 0;
+    const isLinked = entry.linked_line_id !== null && entry.linked_line_id !== undefined;
+
+    let msg;
+    if (isLinked) {
+      msg = `Delete this finance entry (Rs. ${amt.toLocaleString()})?\n\n`
+          + `The linked Balance entry will NOT be deleted — it only loses its link to this entry.\n\n`
+          + `Its offsetting Dealer Finance debit stays in place, so the wallet balance will drop `
+          + `by Rs. ${amt.toLocaleString()}.\n\n`
+          + `This cannot be undone.`;
+    } else if (entry.is_merged) {
+      msg = `This row combines two transactions.\n\n`
+          + `Only the credit (finance entry) of Rs. ${amt.toLocaleString()} will be deleted. `
+          + `The matching debit remains and will show as its own row.\n\n`
+          + `This cannot be undone.`;
+    } else {
+      msg = 'Delete this transaction? This cannot be undone.';
+    }
+
+    if (!window.confirm(msg)) return;
+
     setDeletingId(entry.id);
     try {
       await api.delete(`/balance-transactions/${entry.id}`);
@@ -178,6 +247,8 @@ const Finance = () => {
         instrument: 'Cash',
         instrument_number: '',
         user_id: '',
+        project_id: '',
+        balance_account_id: '',
         proof_file: null
       });
       fetchData();
@@ -270,80 +341,7 @@ const Finance = () => {
                       return <tr><td colSpan={6 + (isAccountant ? 1 : 0) + (canManage ? 1 : 0)} className="empty-state">No financial transactions found.</td></tr>;
                     }
 
-                    const processedEntries = [];
-                    const usedIndices = new Set();
-
-                    entries.forEach((entry, idx) => {
-                      if (usedIndices.has(idx)) return;
-
-                      const isCredit = parseFloat(entry.credit) > 0;
-                      const isDebit = parseFloat(entry.debit) > 0;
-                      const amount = isCredit ? parseFloat(entry.credit) : parseFloat(entry.debit);
-                      
-                      let matchIdx = -1;
-                      if (amount > 0) {
-                        for (let j = idx + 1; j < entries.length; j++) {
-                          if (usedIndices.has(j)) continue;
-                          const other = entries[j];
-                          const otherDealer = other.user_name || 'System';
-                          const thisDealer = entry.user_name || 'System';
-                          
-                          if (otherDealer === thisDealer) {
-                            const otherCredit = parseFloat(other.credit) || 0;
-                            const otherDebit = parseFloat(other.debit) || 0;
-                            
-                            if (isCredit && otherDebit === amount) {
-                              matchIdx = j;
-                              break;
-                            }
-                            if (isDebit && otherCredit === amount) {
-                              matchIdx = j;
-                              break;
-                            }
-                          }
-                        }
-                      }
-
-                      if (matchIdx !== -1) {
-                        usedIndices.add(idx);
-                        usedIndices.add(matchIdx);
-                        const matchEntry = entries[matchIdx];
-                        
-                        processedEntries.push({
-                          ...entry,
-                          credit: amount,
-                          debit: amount,
-                          descriptions: new Set([entry.description, matchEntry.description].filter(Boolean)),
-                          proof_files: [entry.proof_file, matchEntry.proof_file].filter(Boolean),
-                          instruments: new Set([
-                            `${entry.instrument || ''} ${entry.instrument_number || ''}`.trim(),
-                            `${matchEntry.instrument || ''} ${matchEntry.instrument_number || ''}`.trim()
-                          ].filter(Boolean)),
-                          vouchers: new Set([entry.voucher_no, matchEntry.voucher_no].filter(Boolean)),
-                          transaction_date: entry.transaction_date,
-                          other_date: new Date(matchEntry.transaction_date).toLocaleDateString() !== new Date(entry.transaction_date).toLocaleDateString() 
-                            ? matchEntry.transaction_date 
-                            : null
-                        });
-                      } else {
-                        usedIndices.add(idx);
-                        processedEntries.push({
-                          ...entry,
-                          credit: parseFloat(entry.credit) || 0,
-                          debit: parseFloat(entry.debit) || 0,
-                          descriptions: new Set(entry.description ? [entry.description] : []),
-                          proof_files: entry.proof_file ? [entry.proof_file] : [],
-                          instruments: new Set([`${entry.instrument || ''} ${entry.instrument_number || ''}`.trim()].filter(Boolean)),
-                          vouchers: new Set(entry.voucher_no ? [entry.voucher_no] : [])
-                        });
-                      }
-                    });
-
-                    let currentBalance = 0;
-                    for (let i = processedEntries.length - 1; i >= 0; i--) {
-                      currentBalance += (processedEntries[i].credit - processedEntries[i].debit);
-                      processedEntries[i].runningBal = currentBalance;
-                    }
+                    const processedEntries = mergeFinanceEntries(entries);
 
                     return processedEntries.map((entry, idx) => (
                       <tr key={`${entry.id}_${idx}`}>
@@ -376,6 +374,11 @@ const Finance = () => {
                               </div>
                             ))}
                           </div>
+                          {entry.project_name && (
+                            <div className="instrument-tag" style={{ marginTop: '4px', display: 'inline-block' }}>
+                              <FaFolderOpen size={10} style={{ marginRight: '4px' }} />{entry.project_name}
+                            </div>
+                          )}
                           {entry.proof_files.map((file, i) => (
                             <div key={`proof_${i}`} style={{ marginTop: '4px' }}>
                               <a href={file.startsWith('http') ? file : (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + file} target="_blank" rel="noopener noreferrer" className="proof-link">
@@ -554,7 +557,7 @@ const Finance = () => {
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label>Entry Type</label>
-                <select name="type" className="form-control" value={formData.type} onChange={handleInputChange}>
+                <select name="type" className="form-control" value={formData.type} onChange={handleTypeChange}>
                   <option value="add">Credit (Income/Deposit)</option>
                   <option value="deduct">Debit (Withdraw/Use)</option>
                 </select>
@@ -572,6 +575,49 @@ const Finance = () => {
                   </select>
                 </div>
               )}
+              {(formData.type === 'add' || formData.type === 'credit') && (
+                <div className="form-group">
+                  <label>Transfer to Balance Account (Optional)</label>
+                  <select
+                    name="balance_account_id"
+                    className="form-control"
+                    value={formData.balance_account_id}
+                    onChange={handleBalanceAccountChange}
+                  >
+                    <option value="">— None (keep in wallet) —</option>
+                    {balanceAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                  <small style={{ color: 'var(--text-muted)' }}>
+                    Pick an account to also create the matching Balance entry and link the two
+                    immediately. Leave as None to keep the money in the wallet and link it later
+                    from Balance Management.
+                  </small>
+                </div>
+              )}
+              <div className="form-group">
+                <label>
+                  {formData.balance_account_id ? 'Balance Project' : 'Tag with Balance Project'} (Optional)
+                </label>
+                <select
+                  name="project_id"
+                  className="form-control"
+                  value={formData.project_id}
+                  onChange={handleInputChange}
+                  disabled={String(formData.balance_account_id) === '4'}
+                >
+                  <option value="">— None / General —</option>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <small style={{ color: 'var(--text-muted)' }}>
+                  {String(formData.balance_account_id) === '4'
+                    ? 'Savings Deposits are not organised into projects.'
+                    : projects.length === 0
+                      ? 'No balance projects exist yet — create one in Balance Management.'
+                      : formData.balance_account_id
+                        ? 'The new Balance entry will be filed under this project.'
+                        : 'Tags this entry with a project. Leave as None to keep the current flow.'}
+                </small>
+              </div>
               <div className="form-group">
                 <label>Voucher Number</label>
                 <input type="text" name="voucher_no" className="form-control" value={formData.voucher_no} onChange={handleInputChange} />

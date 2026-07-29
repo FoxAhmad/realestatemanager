@@ -56,19 +56,23 @@ router.get('/entries', auth, async (req, res) => {
 
         if (customerId) {
             query = `
-                SELECT t.*, tl.debit, tl.credit, c.name as user_name, tl.customer_id as user_id, tl.id as line_id
+                SELECT t.*, tl.debit, tl.credit, c.name as user_name, tl.customer_id as user_id, tl.id as line_id,
+                       tl.project_id, bp.name as project_name, tl.linked_line_id
                 FROM transactions t
                 JOIN transaction_lines tl ON t.id = tl.transaction_id
                 LEFT JOIN customers c ON tl.customer_id = c.id
+                LEFT JOIN balance_projects bp ON tl.project_id = bp.id
                 WHERE tl.account_id = $1 AND tl.customer_id = $2
             `;
             params = [accMap.ADVANCE_FOR_CERTIFICATE, customerId];
         } else if (agencyId) {
             query = `
-                SELECT t.*, tl.debit, tl.credit, a.name as user_name, tl.agency_id as user_id, tl.id as line_id
+                SELECT t.*, tl.debit, tl.credit, a.name as user_name, tl.agency_id as user_id, tl.id as line_id,
+                       tl.project_id, bp.name as project_name, tl.linked_line_id
                 FROM transactions t
                 JOIN transaction_lines tl ON t.id = tl.transaction_id
                 LEFT JOIN agencies a ON tl.agency_id = a.id
+                LEFT JOIN balance_projects bp ON tl.project_id = bp.id
                 WHERE tl.account_id = $1 AND tl.agency_id = $2
             `;
             params = [accMap.ADVANCE_FOR_CERTIFICATE, agencyId];
@@ -79,11 +83,13 @@ router.get('/entries', auth, async (req, res) => {
             }
 
             query = `
-                SELECT t.*, tl.debit, tl.credit, u.name as user_name, tl.user_id, tl.id as line_id
+                SELECT t.*, tl.debit, tl.credit, u.name as user_name, tl.user_id, tl.id as line_id,
+                       tl.project_id, bp.name as project_name, tl.linked_line_id
                 FROM transactions t
                 JOIN transaction_lines tl ON t.id = tl.transaction_id
                 LEFT JOIN users u ON tl.user_id = u.id
-                WHERE tl.account_id = $1 
+                LEFT JOIN balance_projects bp ON tl.project_id = bp.id
+                WHERE tl.account_id = $1
             `;
             params = [accMap.DEALER_FINANCE];
 
@@ -112,14 +118,38 @@ router.get('/entries', auth, async (req, res) => {
 router.post('/entries', auth, upload.single('proof_file'), async (req, res) => {
     const client = await db.connect();
     try {
-        const { amount, type, description, date, voucher_no, instrument, instrument_number, target_type, agency_id, customer_id } = req.body;
+        const { amount, type, description, date, voucher_no, instrument, instrument_number, target_type, agency_id, customer_id, project_id, balance_account_id } = req.body;
         const userId = req.body.user_id || req.user.id;
-        
+        // Optional: tag this entry with a Manage Balance project at creation time.
+        // Note: for agency/customer entries the finance line posts to
+        // ADVANCE_FOR_CERTIFICATE (8), which balanceProjects.js does sum. A project tag
+        // on those lines therefore counts toward the project's certificate balance --
+        // intentional, since it is a genuine account-8 movement for that project.
+        const projId = project_id ? parseInt(project_id) : null;
+        // Optional: also create the matching Manage Balance entry and link the two.
+        const balanceAccountId = balance_account_id ? parseInt(balance_account_id) : null;
+
         if (!amount || !type) {
             return res.status(400).json({ message: 'Amount and type are required' });
         }
 
         const accMap = await ledgerService.getAccountMap();
+
+        // Only these three accounts are valid transfer destinations (the Manage Balance tabs).
+        const TRANSFER_ACCOUNTS = [accMap.DEALER_ADVANCES, accMap.SAVINGS_DEPOSITS, accMap.ADVANCE_FOR_CERTIFICATE];
+        const isCreditEntry = type === 'add' || type === 'credit';
+
+        if (balanceAccountId !== null) {
+            if (!TRANSFER_ACCOUNTS.includes(balanceAccountId)) {
+                return res.status(400).json({ message: 'Invalid balance account. Must be Dealer Advances, Advance for Certificate, or Savings Deposits.' });
+            }
+            if (!isCreditEntry) {
+                return res.status(400).json({ message: 'Only credit entries can be transferred to a balance account.' });
+            }
+            if (target_type === 'agency' || target_type === 'customer') {
+                return res.status(400).json({ message: 'Agency/customer entries cannot be auto-transferred to a balance account.' });
+            }
+        }
         const val = parseFloat(amount);
         let proofFile = null;
         if (req.file) {
@@ -182,17 +212,74 @@ router.post('/entries', auth, upload.single('proof_file'), async (req, res) => {
         }
 
         // Insert Lines
-        await client.query(
-            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, agency_id, customer_id, debit, credit) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-            [transId, financeLine.account_id, financeLine.user_id, financeLine.agency_id, financeLine.customer_id, financeLine.debit, financeLine.credit]
+        // The project tag goes on the finance line only — the cash/bank side stays unallocated.
+        const financeLineRes = await client.query(
+            'INSERT INTO transaction_lines (transaction_id, account_id, user_id, agency_id, customer_id, debit, credit, project_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+            [transId, financeLine.account_id, financeLine.user_id, financeLine.agency_id, financeLine.customer_id, financeLine.debit, financeLine.credit, projId]
         );
+        const financeLineId = financeLineRes.rows[0].id;
+
         await client.query(
             'INSERT INTO transaction_lines (transaction_id, account_id, user_id, agency_id, customer_id, debit, credit) VALUES ($1, $2, $3, $4, $5, $6, $7)',
             [transId, cashLine.account_id, cashLine.user_id, cashLine.agency_id, cashLine.customer_id, cashLine.debit, cashLine.credit]
         );
 
+        // ── Optional: create the matching Manage Balance entry and link it ──────────
+        // This is the one-step version of the manual flow in balanceTransactions.js:
+        // a separate balance transaction that credits the chosen account and debits
+        // Dealer Finance, with the finance line pointing at the new balance line.
+        // Keeping them as two transactions means either side can be deleted
+        // independently, exactly as the manual flow behaves.
+        let balanceTransactionId = null;
+        if (balanceAccountId !== null) {
+            let quantity = 1;
+            if (balanceAccountId === accMap.ADVANCE_FOR_CERTIFICATE) {
+                const costRes = await client.query(
+                    "SELECT setting_value FROM app_settings WHERE setting_key = 'ADJUSTMENT_FORM_DEFAULT_COST'"
+                );
+                const unitCost = parseFloat(costRes.rows[0]?.setting_value) || 0;
+                if (unitCost > 0) quantity = Math.round(val / unitCost) || 1;
+            }
+
+            const balTransRes = await client.query(
+                `INSERT INTO transactions
+                    (transaction_date, description, reference_type, voucher_no, instrument, instrument_number, proof_file)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+                [
+                    date || new Date(),
+                    `Transfer from Finance: ${description || 'Finance Entry'}`,
+                    'BALANCE_UPDATE',
+                    voucher_no, instrument, instrument_number, proofFile
+                ]
+            );
+            balanceTransactionId = balTransRes.rows[0].id;
+
+            // Credit the chosen balance account (tagged with the project, if any)
+            const balLineRes = await client.query(
+                'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit, quantity, project_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+                [balanceTransactionId, balanceAccountId, lineUserId, 0, val, quantity, projId]
+            );
+            const balanceLineId = balLineRes.rows[0].id;
+
+            // Debit Dealer Finance so the wallet nets to zero for this movement
+            await client.query(
+                'INSERT INTO transaction_lines (transaction_id, account_id, user_id, debit, credit) VALUES ($1, $2, $3, $4, $5)',
+                [balanceTransactionId, accMap.DEALER_FINANCE, lineUserId, val, 0]
+            );
+
+            // Link the finance line to the new balance line
+            await client.query(
+                'UPDATE transaction_lines SET linked_line_id = $1 WHERE id = $2',
+                [balanceLineId, financeLineId]
+            );
+        }
+
         await client.query('COMMIT');
-        res.status(201).json({ message: 'Entry recorded', transaction_id: transId });
+        res.status(201).json({
+            message: balanceTransactionId ? 'Entry recorded and linked to balance account' : 'Entry recorded',
+            transaction_id: transId,
+            balance_transaction_id: balanceTransactionId
+        });
     } catch (error) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: 'Server error', error: error.message });
