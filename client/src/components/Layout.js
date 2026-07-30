@@ -98,7 +98,7 @@ const Layout = () => {
               </>
             )}
 
-            <div className="sidebar-section">
+            {/* <div className="sidebar-section">
               <Link
                 to="/leads"
                 className={`sidebar-submenu-item ${isActive('/leads') ? 'active' : ''}`}
@@ -107,9 +107,9 @@ const Layout = () => {
                 <FaUserPlus className="sidebar-icon" />
                 {sidebarOpen && <span>Leads</span>}
               </Link>
-            </div>
+            </div> */}
 
-            <div className="sidebar-section">
+            {/* <div className="sidebar-section">
               <Link
                 to="/customers"
                 className={`sidebar-submenu-item ${isActive('/customers') ? 'active' : ''}`}
@@ -129,7 +129,7 @@ const Layout = () => {
                 <FaHandshake className="sidebar-icon" />
                 {sidebarOpen && <span>Deals</span>}
               </Link>
-            </div>
+            </div> */}
 
             {user?.role !== 'customer' && (
               <div className="sidebar-section">
@@ -155,7 +155,7 @@ const Layout = () => {
               </Link>
             </div>
 
-            <div className="sidebar-section">
+            {/* <div className="sidebar-section">
               <Link
                 to="/ledger"
                 className={`sidebar-submenu-item ${isActive('/ledger') ? 'active' : ''}`}
@@ -164,7 +164,7 @@ const Layout = () => {
                 <FaBook className="sidebar-icon" />
                 {sidebarOpen && <span>Slip Record</span>}
               </Link>
-            </div>
+            </div> */}
             
             {(user?.role === 'admin' || user?.role === 'accountant') && (
               <div className="sidebar-section">
@@ -179,7 +179,7 @@ const Layout = () => {
               </div>
             )}
 
-            <div className="sidebar-section">
+            {/* <div className="sidebar-section">
               <Link
                 to="/inventory"
                 className={`sidebar-submenu-item ${isActive('/inventory') ? 'active' : ''}`}
@@ -188,9 +188,9 @@ const Layout = () => {
                 <FaWarehouse className="sidebar-icon" />
                 {sidebarOpen && <span>Inventory</span>}
               </Link>
-            </div>
+            </div> */}
 
-            <div className="sidebar-section">
+            {/* <div className="sidebar-section">
               <Link
                 to="/payments"
                 className={`sidebar-submenu-item ${isActive('/payments') ? 'active' : ''}`}
@@ -199,9 +199,9 @@ const Layout = () => {
                 <FaDollarSign className="sidebar-icon" />
                 {sidebarOpen && <span>Payments</span>}
               </Link>
-            </div>
+            </div> */}
 
-            <div className="sidebar-section">
+            {/* <div className="sidebar-section">
               <Link
                 to="/investors"
                 className={`sidebar-submenu-item ${isActive('/investors') ? 'active' : ''}`}
@@ -210,7 +210,7 @@ const Layout = () => {
                 <FaMoneyBillWave className="sidebar-icon" />
                 {sidebarOpen && <span>Investors</span>}
               </Link>
-            </div>
+            </div> */}
           </nav>
         </aside>
 
