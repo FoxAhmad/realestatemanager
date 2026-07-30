@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import {
-  FaPlus, FaSearch, FaHistory, FaCog, FaFileUpload,
+  FaPlus, FaSearch, FaHistory, FaCog, FaFilePdf,
   FaWallet, FaCertificate, FaPiggyBank, FaTimes, FaExternalLinkAlt,
   FaChevronDown, FaChevronUp, FaCheckCircle, FaUser, FaMapMarkerAlt,
   FaEdit, FaArrowLeft, FaFolder, FaFolderOpen, FaTrash, FaEye,
-  FaBuilding, FaExchangeAlt
+  FaBuilding, FaExchangeAlt, FaUsers, FaListAlt
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import {
+  buildDealerLedgers, buildDealerSharesPDF, buildTotalSummaryPDF
+} from '../utils/balanceReports';
 import './ManageBalances.css';
 
 const ManageBalances = () => {
@@ -38,6 +39,8 @@ const ManageBalances = () => {
   const [adjustmentCost, setAdjustmentCost] = useState(20000);
   const [expandedRows, setExpandedRows] = useState({});
   const [deletingId, setDeletingId] = useState(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef(null);
 
   // ── Move to Project State ───────────────────────────────────────────────────
   const [moveTarget, setMoveTarget] = useState(null); // { lineId, currentDesc } | null
@@ -88,6 +91,18 @@ const ManageBalances = () => {
       fetchProjects();
     }
   }, [activeTab]);
+
+  // Close the export menu on any outside click
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const onDocClick = (e) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [showExportMenu]);
 
   useEffect(() => {
     if (formData.user_id && showModal) {
@@ -412,87 +427,32 @@ const ManageBalances = () => {
   }, 0) : null;
 
   const entities = activeTab === 8 ? [...dealers, ...customers] : dealers;
-  const dealerBalances = entities.map(d => {
-    let balance = 0; let quantity = 0;
-    transactions.forEach(t => {
-      const dealerLinkedEntries = t.linked_entries ? t.linked_entries.filter(e => e.user_name === d.name || (e.customer_name && e.customer_name === d.name)) : [];
-      if (dealerLinkedEntries.length > 0) {
-        const contributedAmount = dealerLinkedEntries.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
-        balance += contributedAmount;
-        if (activeTab === 8) {
-          const q = Math.round(contributedAmount / adjustmentCost) || 0;
-          quantity += q;
-        }
-      } else if (!t.linked_entries || t.linked_entries.length === 0) {
-        if (t.user_id === d.id || t.customer_id === d.id) {
-          balance += (parseFloat(t.credit) - parseFloat(t.debit));
-          const q = parseInt(t.quantity) || 0;
-          if (parseFloat(t.credit) > 0) quantity += q;
-          if (parseFloat(t.debit) > 0) quantity -= q;
-        }
-      }
-    });
-    return { ...d, balance, quantity, isCustomer: !d.role };
-  }).filter(d => d.balance !== 0 || (activeTab === 8 && d.quantity !== 0));
 
-  // ── PDF Export ────────────────────────────────────────────────────────────────
-  const exportToPDF = () => {
-    const doc = new jsPDF('landscape');
-    const accountName = accounts.find(a => a.id === activeTab)?.name || 'Account';
-    const projectLabel = selectedProject ? ` — ${selectedProject.name}` : ' — General';
+  // Shared with the PDF exports so printed shares can never drift from the cards.
+  const dealerBalances = buildDealerLedgers({
+    transactions, entities, activeTab, adjustmentCost
+  });
 
-    doc.setFontSize(18);
-    doc.text(`Balance Report: ${accountName}${projectLabel}`, 14, 22);
-    doc.setFontSize(11);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+  // ── PDF Exports ───────────────────────────────────────────────────────────────
+  const reportArgs = () => ({
+    transactions,
+    ledgers: dealerBalances,
+    activeTab,
+    accountName: accounts.find(a => a.id === activeTab)?.name || 'Account',
+    projectName: selectedProject ? selectedProject.name : null,
+    preparedBy: user?.name || user?.email || '—',
+    totalBalance,
+    totalQuantity
+  });
 
-    const tableColumn = ["Date", "Voucher #", "Instrument", "Dealer / Ref", "Debit", "Credit", "Balance"];
-    const tableRows = [];
-    let totalDebit = 0; let totalCredit = 0;
-
-    transactions.forEach((t, idx) => {
-      const runningBalance = transactions.slice(idx).reduce((sum, item) => {
-        return sum + (parseFloat(item.credit) - parseFloat(item.debit));
-      }, 0);
-      const debitVal = parseFloat(t.debit) || 0;
-      const creditVal = parseFloat(t.credit) || 0;
-      totalDebit += debitVal;
-      totalCredit += creditVal;
-
-      const names = new Set();
-      if (t.customer_name) names.add(t.customer_name + ' (Client)');
-      else if (t.user_name) names.add(t.user_name);
-      if (t.linked_entries) {
-        t.linked_entries.forEach(e => {
-          if (e.customer_name) names.add(e.customer_name + ' (Client)');
-          else if (e.user_name) names.add(e.user_name);
-        });
-      }
-      const dealerRef = Array.from(names).join(', ') || 'System / Admin';
-      const instrumentStr = `${t.instrument || ''} ${t.instrument_number || ''}`.trim() || '-';
-
-      tableRows.push([
-        new Date(t.transaction_date).toLocaleDateString(),
-        t.voucher_no || '-', instrumentStr, dealerRef,
-        debitVal > 0 ? debitVal.toLocaleString() : '-',
-        creditVal > 0 ? creditVal.toLocaleString() : '-',
-        runningBalance.toLocaleString()
-      ]);
-    });
-
-    autoTable(doc, {
-      head: [tableColumn], body: tableRows,
-      foot: [[
-        { content: 'Totals', colSpan: 4, styles: { halign: 'right' } },
-        totalDebit.toLocaleString(), totalCredit.toLocaleString(),
-        (totalCredit - totalDebit).toLocaleString()
-      ]],
-      startY: 40, theme: 'grid', styles: { fontSize: 10 },
-      headStyles: { fillColor: [41, 128, 185] },
-      footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }
-    });
-
-    doc.save(`Balances_${accountName}_${projectLabel.replace(' — ', '')}_${new Date().toISOString().split('T')[0]}.pdf`);
+  const runExport = (builder) => {
+    setShowExportMenu(false);
+    try {
+      builder(reportArgs());
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      alert('Could not generate the PDF: ' + err.message);
+    }
   };
 
   // ── Render: Project Card ──────────────────────────────────────────────────────
@@ -571,9 +531,40 @@ const ManageBalances = () => {
         </div>
         <div className="header-actions">
           {view === 'entries' && (
-            <button className="premium-btn premium-btn-secondary" onClick={exportToPDF}>
-              <FaFileUpload /> Export PDF
-            </button>
+            <div className="export-menu-wrap" ref={exportMenuRef}>
+              <button
+                className="premium-btn premium-btn-secondary"
+                onClick={() => setShowExportMenu(v => !v)}
+                aria-haspopup="true"
+                aria-expanded={showExportMenu}
+              >
+                <FaFilePdf /> Export PDF {showExportMenu ? <FaChevronUp size={11} /> : <FaChevronDown size={11} />}
+              </button>
+              {showExportMenu && (
+                <div className="export-menu">
+                  <button className="export-menu-item" onClick={() => runExport(buildDealerSharesPDF)}>
+                    <span className="export-menu-icon"><FaUsers /></span>
+                    <span className="export-menu-text">
+                      <strong>Dealer Shares &amp; Payment Logs</strong>
+                      <small>
+                        Every included dealer's share, each followed by the payment logs behind it
+                        {dealerBalances.length > 0 && ` · ${dealerBalances.length} ${dealerBalances.length === 1 ? 'party' : 'parties'}`}
+                      </small>
+                    </span>
+                  </button>
+                  <button className="export-menu-item" onClick={() => runExport(buildTotalSummaryPDF)}>
+                    <span className="export-menu-icon"><FaListAlt /></span>
+                    <span className="export-menu-text">
+                      <strong>Total Summary &amp; Full Register</strong>
+                      <small>
+                        Account totals, share split and the complete ledger with all payment logs
+                        {transactions.length > 0 && ` · ${transactions.length} ${transactions.length === 1 ? 'entry' : 'entries'}`}
+                      </small>
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           {isAdminOrAccountant && (
             <button className="premium-btn premium-btn-secondary" onClick={() => setShowSettings(true)}>
