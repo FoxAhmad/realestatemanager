@@ -223,4 +223,120 @@ router.post('/', auth, upload.single('proof_file'), async (req, res) => {
   }
 });
 
+const isManagement = (req) => req.user.role === 'admin' || req.user.role === 'accountant';
+
+const isParty = (row, userId) => row.sender_id === userId || row.receiver_id === userId;
+
+/**
+ * Resolve the "primary" party for a direction-based payload.
+ * Management can act on someone else's behalf via override_sender_id; a dealer is always
+ * themselves. If neither applies (management editing a row they aren't part of, with no
+ * override supplied) we fall back to the row's existing sender so the parties are not
+ * silently rewritten to the editor.
+ */
+const resolveBaseUser = (req, existing) => {
+  if (isManagement(req) && req.body.override_sender_id) {
+    return parseInt(req.body.override_sender_id);
+  }
+  if (isParty(existing, req.user.id)) return req.user.id;
+  return existing.sender_id;
+};
+
+/**
+ * PUT /api/dealer-exchanges/:id
+ * Edit an exchange. Management may edit any row; a dealer only rows they are party to.
+ * Exchanges are standalone rows (no ledger lines), so there is nothing to unwind —
+ * the net balances in /balances are recomputed from these rows on every read.
+ */
+router.put('/:id', auth, upload.single('proof_file'), async (req, res) => {
+  try {
+    const { receiver_id, amount, exchange_date, detail, direction } = req.body;
+
+    const existingRes = await db.query('SELECT * FROM dealer_exchanges WHERE id = $1', [req.params.id]);
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Exchange not found' });
+    }
+    const existing = existingRes.rows[0];
+
+    if (!isManagement(req) && !isParty(existing, req.user.id)) {
+      return res.status(403).json({ message: 'You can only edit exchanges you are part of' });
+    }
+
+    if (!receiver_id || !amount || !exchange_date) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const baseUserId = resolveBaseUser(req, existing);
+    let senderId = baseUserId;
+    let recipientId = parseInt(receiver_id);
+    if (direction === 'receive') {
+      senderId = parseInt(receiver_id);
+      recipientId = baseUserId;
+    }
+
+    if (senderId === recipientId) {
+      return res.status(400).json({ message: 'Sender and receiver cannot be the same person' });
+    }
+
+    // Keep the current proof unless a replacement was uploaded.
+    let proofFile = existing.proof_file;
+    if (req.file) {
+      const fileExt = path.extname(req.file.originalname);
+      const fileName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${fileExt}`;
+
+      const { error: uploadError } = await supabase
+        .storage
+        .from('proofs')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw new Error('Failed to upload proof image: ' + uploadError.message);
+      }
+
+      const { data: publicUrlData } = supabase.storage.from('proofs').getPublicUrl(fileName);
+      proofFile = publicUrlData.publicUrl;
+    }
+
+    const result = await db.query(`
+      UPDATE dealer_exchanges
+         SET sender_id = $1, receiver_id = $2, amount = $3,
+             exchange_date = $4, detail = $5, proof_file = $6
+       WHERE id = $7
+       RETURNING *
+    `, [senderId, recipientId, amount, exchange_date, detail || null, proofFile, req.params.id]);
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/dealer-exchanges/:id
+ * Management may delete any row; a dealer only rows they are party to.
+ */
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const existingRes = await db.query(
+      'SELECT sender_id, receiver_id FROM dealer_exchanges WHERE id = $1',
+      [req.params.id]
+    );
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Exchange not found' });
+    }
+
+    if (!isManagement(req) && !isParty(existingRes.rows[0], req.user.id)) {
+      return res.status(403).json({ message: 'You can only delete exchanges you are part of' });
+    }
+
+    await db.query('DELETE FROM dealer_exchanges WHERE id = $1', [req.params.id]);
+    res.json({ message: 'Exchange deleted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;

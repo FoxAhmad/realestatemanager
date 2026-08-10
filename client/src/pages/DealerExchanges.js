@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { FaEdit, FaTrash } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import MutualNetReport from '../components/MutualNetReport';
 import './DealerExchanges.css';
@@ -15,6 +16,7 @@ const DealerExchanges = () => {
   const [editingExchange, setEditingExchange] = useState(null);
   const [balances, setBalances] = useState([]);
   const [peers, setPeers] = useState([]);
+  const [deletingId, setDeletingId] = useState(null);
   const [formData, setFormData] = useState({
     override_sender_id: '',
     receiver_id: '',
@@ -102,6 +104,69 @@ const DealerExchanges = () => {
     }
   };
 
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingExchange(null);
+  };
+
+  // Management can touch any row; a dealer only rows they are a party to (mirrors the API).
+  const canModify = (ex) =>
+    isAdmin || isAccountant || ex.sender_id === user?.id || ex.receiver_id === user?.id;
+
+  /**
+   * The row stores absolute sender/receiver, but the form works in terms of one primary
+   * party plus a direction. Management edits from the sender's point of view; a dealer
+   * edits from their own, so "Sent"/"Received" reads correctly for whoever is looking.
+   */
+  const openEdit = (ex) => {
+    const base = (isAdmin || isAccountant) ? ex.sender_id : user.id;
+    const isReceiving = ex.receiver_id === base && ex.sender_id !== base;
+
+    setEditingExchange(ex);
+    setFormData({
+      override_sender_id: String(base),
+      receiver_id: String(isReceiving ? ex.sender_id : ex.receiver_id),
+      amount: String(ex.amount),
+      direction: isReceiving ? 'receive' : 'send',
+      exchange_date: ex.exchange_date
+        ? new Date(ex.exchange_date).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0],
+      detail: ex.detail || '',
+      proof_file: null
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (ex) => {
+    const amt = parseFloat(ex.amount).toLocaleString(undefined, { minimumFractionDigits: 2 });
+    const ok = window.confirm(
+      `Delete this mutual exchange?\n\n`
+      + `${ex.sender_name} → ${ex.receiver_name} for ${amt}\n\n`
+      + `The net balance between them will be recalculated. This cannot be undone.`
+    );
+    if (!ok) return;
+
+    setDeletingId(ex.id);
+    try {
+      await api.delete(`/dealer-exchanges/${ex.id}`);
+      fetchExchanges();
+      fetchBalances();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error deleting exchange');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // On create this is the accountant's dealer list. When editing, the primary party may be
+  // an admin (absent from /dealers), so widen it to peers + self and dedupe.
+  const primaryPartyOptions = editingExchange
+    ? [
+        { id: user?.id, name: `${user?.name || 'Me'} (me)` },
+        ...peers.map((p) => ({ id: p.id, name: `${p.name} (${p.role})` }))
+      ].filter((o, i, arr) => o.id != null && arr.findIndex((x) => x.id === o.id) === i)
+    : dealers.map((d) => ({ id: d.id, name: d.name }));
+
   if (loading) return <div className="dealer-exchanges-loading">Loading Ledger Analytics...</div>;
 
   return (
@@ -151,12 +216,13 @@ const DealerExchanges = () => {
                 <th>Reference / Detail</th>
                 <th>Amount</th>
                 <th>Proof</th>
+                <th style={{ textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {exchanges.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="empty-state">
+                  <td colSpan="7" className="empty-state">
                     No mutual transactions recorded in the current period
                   </td>
                 </tr>
@@ -185,6 +251,29 @@ const DealerExchanges = () => {
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
                       )}
                     </td>
+                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      {canModify(ex) ? (
+                        <>
+                          <button
+                            onClick={() => openEdit(ex)}
+                            title="Edit exchange"
+                            style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', padding: '5px' }}
+                          >
+                            <FaEdit size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(ex)}
+                            disabled={deletingId === ex.id}
+                            title="Delete exchange"
+                            style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer', padding: '5px' }}
+                          >
+                            <FaTrash size={15} />
+                          </button>
+                        </>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -194,20 +283,20 @@ const DealerExchanges = () => {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Capture Mutual Exchange</h2>
+            <h2>{editingExchange ? 'Edit Mutual Exchange' : 'Capture Mutual Exchange'}</h2>
             <form onSubmit={handleSubmit}>
-              {isAccountant && (
+              {(isAccountant || (isAdmin && editingExchange)) && (
                 <div className="form-group">
-                  <label>Recording For (Primary Dealer) *</label>
+                  <label>{editingExchange ? 'Primary Party' : 'Recording For (Primary Dealer)'} *</label>
                   <select
                     value={formData.override_sender_id}
                     onChange={(e) => setFormData({ ...formData, override_sender_id: e.target.value })}
                     required
                   >
                     <option value="">Select dealer to record for...</option>
-                    {dealers.map((d) => (
+                    {primaryPartyOptions.map((d) => (
                       <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
                   </select>
@@ -286,11 +375,11 @@ const DealerExchanges = () => {
                 />
               </div>
               <div className="modal-actions">
-                <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowModal(false)}>
+                <button type="button" className="premium-btn premium-btn-secondary" onClick={closeModal}>
                   Cancel
                 </button>
                 <button type="submit" className="premium-btn premium-btn-primary">
-                  Confirm Transaction
+                  {editingExchange ? 'Save Changes' : 'Confirm Transaction'}
                 </button>
               </div>
             </form>
