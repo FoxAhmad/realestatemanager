@@ -195,8 +195,8 @@ const Deals = () => {
                         </span>
                       </div>
                     </td>
-                    <td style={{ color: 'var(--text-muted)' }}>${parseFloat(deal.original_price || 0).toLocaleString()}</td>
-                    <td style={{ fontWeight: '700' }}>${parseFloat(deal.sale_price || 0).toLocaleString()}</td>
+                    <td style={{ color: 'var(--text-muted)' }}>Rs. {parseFloat(deal.original_price || 0).toLocaleString()}</td>
+                    <td style={{ fontWeight: '700' }}>Rs. {parseFloat(deal.sale_price || 0).toLocaleString()}</td>
                     <td>{getStatusBadge(deal.status)}</td>
                     <td>
                       <button

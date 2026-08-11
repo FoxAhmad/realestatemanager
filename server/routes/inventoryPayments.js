@@ -159,7 +159,7 @@ router.post('/', auth, async (req, res) => {
         
         if (paymentAmount > remainingBalance) {
           return res.status(400).json({ 
-            message: `Investor ${investor.name} has insufficient balance. Available: $${remainingBalance.toFixed(2)}, Requested: $${paymentAmount.toFixed(2)}` 
+            message: `Investor ${investor.name} has insufficient balance. Available: Rs. ${remainingBalance.toFixed(2)}, Requested: Rs. ${paymentAmount.toFixed(2)}` 
           });
         }
       }

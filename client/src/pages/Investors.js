@@ -138,7 +138,7 @@ const Investors = () => {
                     <td>{investor.contact_number}</td>
                     <td>
                       <span className={parseFloat(investor.balance) >= 0 ? 'balance-positive' : 'balance-negative'}>
-                        ${parseFloat(investor.balance || 0).toLocaleString()}
+                        Rs. {parseFloat(investor.balance || 0).toLocaleString()}
                       </span>
                     </td>
                     <td>

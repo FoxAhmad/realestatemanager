@@ -234,7 +234,7 @@ const DealerExchanges = () => {
                     <td style={{ fontWeight: 700 }}>{ex.receiver_name}</td>
                     <td>{ex.detail || ex.description}</td>
                     <td style={{ fontWeight: 800, color: 'var(--primary)' }}>
-                      ${parseFloat(ex.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      Rs. {parseFloat(ex.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                     <td>
                       {ex.proof_file ? (

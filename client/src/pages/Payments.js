@@ -57,7 +57,7 @@ const Payments = () => {
         <div className="summary-card glass-card">
           <span className="summary-label">Aggregate Inflow</span>
           <span className="summary-value amount">
-            ${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            Rs. {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </span>
         </div>
         <div className="summary-card glass-card">
@@ -118,7 +118,7 @@ const Payments = () => {
                     </td>
                     <td style={{ fontWeight: 600 }}>{p.customer_name}</td>
                     <td className="amount-cell" style={{ textAlign: 'right' }}>
-                      ${parseFloat(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      Rs. {parseFloat(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                     <td>
                       <button

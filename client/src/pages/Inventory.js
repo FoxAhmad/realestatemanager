@@ -456,7 +456,7 @@ const Inventory = () => {
                             {plots[0].investors && plots[0].investors.length > 0 && (
                               <div style={{ color: 'var(--success)' }}>
                                 Investors: {plots[0].investors.map(inv =>
-                                  `${inv.investor_name} ($${parseFloat(inv.amount_contributed || 0).toLocaleString()})`
+                                  `${inv.investor_name} (Rs. ${parseFloat(inv.amount_contributed || 0).toLocaleString()})`
                                 ).join(', ')}
                               </div>
                             )}
@@ -464,7 +464,7 @@ const Inventory = () => {
                         )}
                       </div>
                     </td>
-                    <td style={{ fontWeight: '700' }}>${parseFloat(item.price || 0).toLocaleString()}</td>
+                    <td style={{ fontWeight: '700' }}>Rs. {parseFloat(item.price || 0).toLocaleString()}</td>
                     <td>{item.total_quantity}</td>
                     <td>{getStatusBadge(item.status, item)}</td>
                     {canEdit && (
@@ -725,7 +725,7 @@ const Inventory = () => {
                       <option key={plot.id} value={plot.id}>
                         {plot.plot_number} ({plot.status})
                         {plot.investors && plot.investors.length > 0 &&
-                          ` - Paid: $${plot.investors.reduce((sum, inv) => sum + parseFloat(inv.amount_contributed || 0), 0).toLocaleString()}`
+                          ` - Paid: Rs. ${plot.investors.reduce((sum, inv) => sum + parseFloat(inv.amount_contributed || 0), 0).toLocaleString()}`
                         }
                       </option>
                     ))}
@@ -746,7 +746,7 @@ const Inventory = () => {
                   />
                   {showPaymentModal.plot.investors && showPaymentModal.plot.investors.length > 0 && (
                     <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
-                      Already paid: ${showPaymentModal.plot.investors.reduce((sum, inv) => sum + parseFloat(inv.amount_contributed || 0), 0).toLocaleString()}
+                      Already paid: Rs. {showPaymentModal.plot.investors.reduce((sum, inv) => sum + parseFloat(inv.amount_contributed || 0), 0).toLocaleString()}
                     </div>
                   )}
                 </div>
@@ -756,14 +756,14 @@ const Inventory = () => {
                 <label>Total Amount</label>
                 <input
                   type="text"
-                  value={`$${parseFloat(showPaymentModal.inventory.price || 0).toLocaleString()}`}
+                  value={`Rs. ${parseFloat(showPaymentModal.inventory.price || 0).toLocaleString()}`}
                   disabled
                 />
                 {showPaymentModal.plot && showPaymentModal.plot.investors && showPaymentModal.plot.investors.length > 0 && (
                   <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
-                    <div>Already Paid: ${showPaymentModal.plot.investors.reduce((sum, inv) => sum + parseFloat(inv.amount_contributed || 0), 0).toLocaleString()}</div>
+                    <div>Already Paid: Rs. {showPaymentModal.plot.investors.reduce((sum, inv) => sum + parseFloat(inv.amount_contributed || 0), 0).toLocaleString()}</div>
                     <div style={{ color: '#dc3545', fontWeight: '500' }}>
-                      Remaining: ${(parseFloat(showPaymentModal.inventory.price || 0) - showPaymentModal.plot.investors.reduce((sum, inv) => sum + parseFloat(inv.amount_contributed || 0), 0)).toLocaleString()}
+                      Remaining: Rs. {(parseFloat(showPaymentModal.inventory.price || 0) - showPaymentModal.plot.investors.reduce((sum, inv) => sum + parseFloat(inv.amount_contributed || 0), 0)).toLocaleString()}
                     </div>
                   </div>
                 )}
@@ -841,7 +841,7 @@ const Inventory = () => {
                                     : (parseFloat(investor.total_invested || 0) - parseFloat(investor.paid_amount || 0));
                                   return (
                                     <option key={investor.id} value={investor.id}>
-                                      {investor.name} (Available: ${remBalance.toLocaleString()})
+                                      {investor.name} (Available: Rs. {remBalance.toLocaleString()})
                                     </option>
                                   );
                                 })}
@@ -864,7 +864,7 @@ const Inventory = () => {
                                   marginTop: '0.25rem',
                                   color: parseFloat(inv.amount || 0) > remainingBalance ? '#dc3545' : '#666'
                                 }}>
-                                  Available: ${remainingBalance.toLocaleString()}
+                                  Available: Rs. {remainingBalance.toLocaleString()}
                                   {parseFloat(inv.amount || 0) > remainingBalance && ' (Insufficient balance!)'}
                                 </small>
                               )}
@@ -881,7 +881,7 @@ const Inventory = () => {
                       border: '1px solid #b3d9ff'
                     }}>
                       <strong>Total Payment: </strong>
-                      ${paymentForm.investors.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0).toLocaleString()}
+                      Rs. {paymentForm.investors.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0).toLocaleString()}
                     </div>
                   </div>
                 )}

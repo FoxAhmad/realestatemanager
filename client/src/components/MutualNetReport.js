@@ -58,14 +58,14 @@ const MutualNetReport = ({ balances = [], isAdmin, isAccountant, mode = 'card' }
                 Total I Owe
               </span>
             </div>
-            <span className="value">${owe.toLocaleString()}</span>
+            <span className="value">Rs. {owe.toLocaleString()}</span>
 
             {card1Peers.length > 0 && (
               <div className="card-breakdown">
                 {card1Peers.slice(0, 3).map((p, i) => (
                   <div key={i} className="breakdown-item">
                     <span className="peer-name">{p.peer_name}</span>
-                    <span className="peer-amount">${Math.abs(parseFloat(p.net_balance)).toLocaleString()}</span>
+                    <span className="peer-amount">Rs. {Math.abs(parseFloat(p.net_balance)).toLocaleString()}</span>
                   </div>
                 ))}
                 {card1Peers.length > 3 && (
@@ -82,14 +82,14 @@ const MutualNetReport = ({ balances = [], isAdmin, isAccountant, mode = 'card' }
                 Total Owed to Me
               </span>
             </div>
-            <span className="value">${owed.toLocaleString()}</span>
+            <span className="value">Rs. {owed.toLocaleString()}</span>
 
             {card2Peers.length > 0 && (
               <div className="card-breakdown">
                 {card2Peers.slice(0, 3).map((p, i) => (
                   <div key={i} className="breakdown-item">
                     <span className="peer-name">{p.peer_name}</span>
-                    <span className="peer-amount">${Math.abs(parseFloat(p.net_balance)).toLocaleString()}</span>
+                    <span className="peer-amount">Rs. {Math.abs(parseFloat(p.net_balance)).toLocaleString()}</span>
                   </div>
                 ))}
                 {card2Peers.length > 3 && (
@@ -133,10 +133,10 @@ const MutualNetReport = ({ balances = [], isAdmin, isAccountant, mode = 'card' }
                           </div>
                         </td>
                       )}
-                      <td>${parseFloat(db.sent_amount || 0).toLocaleString()}</td>
-                      <td>${parseFloat(db.received_amount || 0).toLocaleString()}</td>
+                      <td>Rs. {parseFloat(db.sent_amount || 0).toLocaleString()}</td>
+                      <td>Rs. {parseFloat(db.received_amount || 0).toLocaleString()}</td>
                       <td className={`net-cell ${parseFloat(db.net_balance) >= 0 ? 'good' : 'bad'}`}>
-                        {parseFloat(db.net_balance) >= 0 ? '+' : '-'}${Math.abs(parseFloat(db.net_balance)).toLocaleString()}
+                        {parseFloat(db.net_balance) >= 0 ? '+' : '-'}Rs. {Math.abs(parseFloat(db.net_balance)).toLocaleString()}
                       </td>
                     </tr>
                   ))

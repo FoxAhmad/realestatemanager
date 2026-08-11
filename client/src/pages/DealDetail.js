@@ -240,19 +240,19 @@ const DealDetail = () => {
             <div className="payment-summary">
               <div className="summary-item">
                 <label>Sale Price</label>
-                <span className="amount">${parseFloat(deal.sale_price || 0).toLocaleString()}</span>
+                <span className="amount">Rs. {parseFloat(deal.sale_price || 0).toLocaleString()}</span>
               </div>
               <div className="summary-item">
                 <label>Paid Amount</label>
-                <span className="amount" style={{ color: 'var(--success)' }}>${totalPaid.toLocaleString()}</span>
+                <span className="amount" style={{ color: 'var(--success)' }}>Rs. {totalPaid.toLocaleString()}</span>
               </div>
               <div className="summary-item">
                 <label>Cert. Adjustments</label>
-                <span className="amount" style={{ color: '#ffc107' }}>${totalAdjusted.toLocaleString()}</span>
+                <span className="amount" style={{ color: '#ffc107' }}>Rs. {totalAdjusted.toLocaleString()}</span>
               </div>
               <div className="summary-item">
                 <label>Remaining</label>
-                <span className="amount remaining">${remainingBalance.toLocaleString()}</span>
+                <span className="amount remaining">Rs. {remainingBalance.toLocaleString()}</span>
               </div>
             </div>
             {deal.notes && (
@@ -325,7 +325,7 @@ const DealDetail = () => {
                       <div className="payment-date">{new Date(p.payment_date).toLocaleDateString()}</div>
                     </div>
                     <div className="payment-val" style={{ textAlign: 'right' }}>
-                      <div className="payment-amount">${parseFloat(p.amount).toLocaleString()}</div>
+                      <div className="payment-amount">Rs. {parseFloat(p.amount).toLocaleString()}</div>
                       {p.notes && <div className="payment-notes">{p.notes}</div>}
                     </div>
                     {(isAdmin || isAccountant) && (
@@ -444,7 +444,7 @@ const DealDetail = () => {
                     onChange={(e) => setAdjustmentForm({ ...adjustmentForm, customer_price: e.target.value })}
                     required
                   />
-                  <small style={{ color: 'var(--text-muted)' }}>Unit: ${defaultCustomerValue.toLocaleString()}</small>
+                  <small style={{ color: 'var(--text-muted)' }}>Unit: Rs. {defaultCustomerValue.toLocaleString()}</small>
                 </div>
                 {/* <div className="form-group">
                     <label>Cost Price (Total Deduction) *</label>
@@ -454,7 +454,7 @@ const DealDetail = () => {
                     onChange={(e) => setAdjustmentForm({ ...adjustmentForm, cost_price: e.target.value })}
                     required
                     />
-                    <small style={{ color: 'var(--text-muted)' }}>Unit: ${defaultCost.toLocaleString()}</small>
+                    <small style={{ color: 'var(--text-muted)' }}>Unit: Rs. {defaultCost.toLocaleString()}</small>
                 </div> */}
               </div>
               <div className="form-group">

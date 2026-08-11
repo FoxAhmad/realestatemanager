@@ -126,7 +126,7 @@ const InventoryRequests = () => {
                   <td>{getCategoryLabel(request.category)}</td>
                   <td>
                     {request.inventory_price
-                      ? `$${parseFloat(request.inventory_price).toLocaleString()}`
+                      ? `Rs. ${parseFloat(request.inventory_price).toLocaleString()}`
                       : '-'}
                   </td>
                   {isAdmin && (
