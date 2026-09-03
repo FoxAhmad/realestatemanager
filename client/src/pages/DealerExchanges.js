@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { FaEdit, FaTrash } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaChevronDown, FaChevronRight } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import MutualNetReport from '../components/MutualNetReport';
 import './DealerExchanges.css';
@@ -17,6 +17,7 @@ const DealerExchanges = () => {
   const [balances, setBalances] = useState([]);
   const [peers, setPeers] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
+  const [expandedPairs, setExpandedSenders] = useState(() => new Set());
   const [formData, setFormData] = useState({
     override_sender_id: '',
     receiver_id: '',
@@ -167,6 +168,81 @@ const DealerExchanges = () => {
       ].filter((o, i, arr) => o.id != null && arr.findIndex((x) => x.id === o.id) === i)
     : dealers.map((d) => ({ id: d.id, name: d.name }));
 
+  const togglePairGroup = (pairKey) => {
+    setExpandedSenders((prev) => {
+      const next = new Set(prev);
+      if (next.has(pairKey)) next.delete(pairKey);
+      else next.add(pairKey);
+      return next;
+    });
+  };
+
+  // Groups rows by the directional sender+receiver pair — "Adil -> Danish" and
+  // "Danish -> Adil" are kept separate, so the collapsed total only ever sums
+  // entries that went the same direction between the same two parties.
+  const senderGroups = [];
+  const groupIndexByPair = new Map();
+  exchanges.forEach((ex) => {
+    const partyA = ex.sender_name || 'Unknown';
+    const partyB = ex.receiver_name || 'Unknown';
+    const key = `${partyA}|||${partyB}`;
+    if (!groupIndexByPair.has(key)) {
+      groupIndexByPair.set(key, senderGroups.length);
+      senderGroups.push({ pairKey: key, partyA, partyB, entries: [] });
+    }
+    senderGroups[groupIndexByPair.get(key)].entries.push(ex);
+  });
+
+  const renderExchangeRow = (ex, { nested = false } = {}) => (
+    <tr key={ex.id} className={nested ? 'mutual-subrow' : undefined}>
+      <td>{new Date(ex.exchange_date).toLocaleDateString()}</td>
+      <td style={{ fontWeight: 700 }}>{ex.sender_name}</td>
+      <td style={{ fontWeight: 700 }}>{ex.receiver_name}</td>
+      <td>{ex.detail || ex.description}</td>
+      <td style={{ fontWeight: 800, color: 'var(--primary)' }}>
+        Rs. {parseFloat(ex.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+      </td>
+      <td>
+        {ex.proof_file ? (
+          <a
+            href={ex.proof_file.startsWith('http') ? ex.proof_file : `${process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000'}${ex.proof_file}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="premium-badge premium-badge-info"
+            style={{ textDecoration: 'none', cursor: 'pointer' }}
+          >
+            View Proof
+          </a>
+        ) : (
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
+        )}
+      </td>
+      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+        {canModify(ex) ? (
+          <>
+            <button
+              onClick={() => openEdit(ex)}
+              title="Edit exchange"
+              style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', padding: '5px' }}
+            >
+              <FaEdit size={16} />
+            </button>
+            <button
+              onClick={() => handleDelete(ex)}
+              disabled={deletingId === ex.id}
+              title="Delete exchange"
+              style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer', padding: '5px' }}
+            >
+              <FaTrash size={15} />
+            </button>
+          </>
+        ) : (
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
+        )}
+      </td>
+    </tr>
+  );
+
   if (loading) return <div className="dealer-exchanges-loading">Loading Ledger Analytics...</div>;
 
   return (
@@ -227,55 +303,42 @@ const DealerExchanges = () => {
                   </td>
                 </tr>
               ) : (
-                exchanges.map((ex) => (
-                  <tr key={ex.id}>
-                    <td>{new Date(ex.exchange_date).toLocaleDateString()}</td>
-                    <td style={{ fontWeight: 700 }}>{ex.sender_name}</td>
-                    <td style={{ fontWeight: 700 }}>{ex.receiver_name}</td>
-                    <td>{ex.detail || ex.description}</td>
-                    <td style={{ fontWeight: 800, color: 'var(--primary)' }}>
-                      Rs. {parseFloat(ex.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
-                    <td>
-                      {ex.proof_file ? (
-                        <a 
-                          href={ex.proof_file.startsWith('http') ? ex.proof_file : `${process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000'}${ex.proof_file}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="premium-badge premium-badge-info"
-                          style={{ textDecoration: 'none', cursor: 'pointer' }}
-                        >
-                          View Proof
-                        </a>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
-                      )}
-                    </td>
-                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                      {canModify(ex) ? (
-                        <>
-                          <button
-                            onClick={() => openEdit(ex)}
-                            title="Edit exchange"
-                            style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', padding: '5px' }}
-                          >
-                            <FaEdit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(ex)}
-                            disabled={deletingId === ex.id}
-                            title="Delete exchange"
-                            style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer', padding: '5px' }}
-                          >
-                            <FaTrash size={15} />
-                          </button>
-                        </>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                senderGroups.map((group) => {
+                  if (group.entries.length === 1) {
+                    return renderExchangeRow(group.entries[0]);
+                  }
+
+                  const isExpanded = expandedPairs.has(group.pairKey);
+                  const total = group.entries.reduce((sum, ex) => sum + parseFloat(ex.amount || 0), 0);
+
+                  return (
+                    <React.Fragment key={group.pairKey}>
+                      <tr
+                        className="mutual-group-row"
+                        onClick={() => togglePairGroup(group.pairKey)}
+                      >
+                        <td>—</td>
+                        <td style={{ fontWeight: 700 }}>
+                          <span className="mutual-group-toggle">
+                            {isExpanded ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
+                          </span>
+                          {group.partyA}
+                          <span className="premium-badge premium-badge-info mutual-group-count">
+                            {group.entries.length} entries
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: 700 }}>{group.partyB}</td>
+                        <td>—</td>
+                        <td style={{ fontWeight: 800, color: 'var(--primary)' }}>
+                          Rs. {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                        <td>—</td>
+                        <td>—</td>
+                      </tr>
+                      {isExpanded && group.entries.map((ex) => renderExchangeRow(ex, { nested: true }))}
+                    </React.Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>

@@ -130,3 +130,13 @@
     padding: 1.5rem;
   }
 }
+
+@media (max-width: 480px) {
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .modal-actions .premium-btn {
+    width: 100%;
+  }
+}

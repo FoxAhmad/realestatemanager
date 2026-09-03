@@ -223,3 +223,17 @@
   margin-top: 2rem;
 }
 
+@media (max-width: 480px) {
+  .modal-content {
+    padding: 1.5rem;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .modal-actions .premium-btn {
+    width: 100%;
+  }
+}
+

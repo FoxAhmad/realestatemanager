@@ -104,6 +104,20 @@
   border-top: 1px solid #f1f5f9;
 }
 
+@media (max-width: 480px) {
+  .modal-content {
+    padding: 1.5rem;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .modal-actions .premium-btn {
+    width: 100%;
+  }
+}
+
 .history-list {
   max-height: 400px;
   overflow-y: auto;

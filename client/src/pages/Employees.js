@@ -78,19 +78,19 @@ const Employees = () => {
               ) : (
                 employees.map((emp) => (
                   <tr key={emp.id}>
-                    <td style={{ fontWeight: '700' }}>{emp.name}</td>
-                    <td>{emp.email}</td>
-                    <td>
+                    <td data-label="Member Name" style={{ fontWeight: '700' }}>{emp.name}</td>
+                    <td data-label="Access Email">{emp.email}</td>
+                    <td data-label="Security Role">
                       <span className={`premium-badge ${
-                        emp.role === 'admin' ? 'premium-badge-primary' : 
-                        emp.role === 'accountant' ? 'premium-badge-success' : 
+                        emp.role === 'admin' ? 'premium-badge-primary' :
+                        emp.role === 'accountant' ? 'premium-badge-success' :
                         'premium-badge-warning'
                       }`}>
                         {emp.role.toUpperCase()}
                       </span>
                     </td>
-                    <td>{new Date(emp.created_at).toLocaleDateString()}</td>
-                    <td>
+                    <td data-label="Onboarding Date">{new Date(emp.created_at).toLocaleDateString()}</td>
+                    <td data-label="Actions">
                       <button
                         className="premium-btn premium-btn-secondary"
                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}

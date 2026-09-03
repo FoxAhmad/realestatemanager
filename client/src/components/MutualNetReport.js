@@ -119,23 +119,23 @@ const MutualNetReport = ({ balances = [], isAdmin, isAccountant, mode = 'card' }
                  {balances.length > 0 ? (
                   balances.map((db, idx) => (
                     <tr key={idx}>
-                      <td>
+                      <td data-label={isManagement ? 'Party 1' : 'Dealer'}>
                         <div className="dealer-cell">
                           <span className="name">{isManagement ? db.party1_name : db.peer_name}</span>
                           <span className="id">#{isManagement ? db.party1_id : db.peer_id} — {isManagement ? db.party1_role : db.peer_role}</span>
                         </div>
                       </td>
                       {isManagement && (
-                        <td>
+                        <td data-label="Party 2">
                           <div className="dealer-cell">
                             <span className="name">{db.party2_name}</span>
                             <span className="id">#{db.party2_id} — {db.party2_role}</span>
                           </div>
                         </td>
                       )}
-                      <td>Rs. {parseFloat(db.sent_amount || 0).toLocaleString()}</td>
-                      <td>Rs. {parseFloat(db.received_amount || 0).toLocaleString()}</td>
-                      <td className={`net-cell ${parseFloat(db.net_balance) >= 0 ? 'good' : 'bad'}`}>
+                      <td data-label="Sent">Rs. {parseFloat(db.sent_amount || 0).toLocaleString()}</td>
+                      <td data-label="Received">Rs. {parseFloat(db.received_amount || 0).toLocaleString()}</td>
+                      <td data-label="Net" className={`net-cell ${parseFloat(db.net_balance) >= 0 ? 'good' : 'bad'}`}>
                         {parseFloat(db.net_balance) >= 0 ? '+' : '-'}Rs. {Math.abs(parseFloat(db.net_balance)).toLocaleString()}
                       </td>
                     </tr>

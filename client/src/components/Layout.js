@@ -5,7 +5,6 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaHome,
-  FaUserTie,
   FaUsers,
   FaHandshake,
   FaChartLine,
@@ -13,28 +12,46 @@ import {
   FaMoneyBillWave,
   FaDollarSign,
   FaUserPlus,
-  FaUserShield,
   FaBook,
   FaExchangeAlt,
-  FaWallet
+  FaWallet,
+  FaUserTie,
+  FaUserShield,
+  FaBars,
+  FaTimes
 } from 'react-icons/fa';
 import './Layout.css';
+
+const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidth <= 768;
 
 const Layout = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => !isMobileViewport());
 
   const isActive = (path) => location.pathname === path;
+
+  const closeSidebarOnMobile = () => {
+    if (isMobileViewport()) setSidebarOpen(false);
+  };
 
   return (
     <div className="layout">
       {/* Top Navigation Bar */}
       <nav className="top-navbar">
         <div className="top-navbar-content">
-          <div className="navbar-brand">
-            <img src="./images/logoUm.png" alt="logo" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
-            <h1 className='text-white'>Universal Manager</h1>
+          <div className="navbar-left">
+            <button
+              className="mobile-menu-btn"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label="Toggle navigation menu"
+            >
+              {sidebarOpen ? <FaTimes /> : <FaBars />}
+            </button>
+            <div className="navbar-brand">
+              <img src="./images/logoUm.png" alt="logo" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
+              <h1 className='text-white'>Universal Manager</h1>
+            </div>
           </div>
           <div className="navbar-user-section">
             <div className="user-info">
@@ -47,6 +64,7 @@ const Layout = () => {
       </nav>
 
       <div className="layout-body">
+        {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
         {/* Left Sidebar - Premium Dark */}
         <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
           <button
@@ -67,6 +85,7 @@ const Layout = () => {
                 to="/dashboard"
                 className={`sidebar-submenu-item ${isActive('/dashboard') ? 'active' : ''}`}
                 title="Dashboard"
+                onClick={closeSidebarOnMobile}
               >
                 <FaHome className="sidebar-icon" />
                 {sidebarOpen && <span>Dashboard</span>}
@@ -80,6 +99,7 @@ const Layout = () => {
                     to="/dealers"
                     className={`sidebar-submenu-item ${isActive('/dealers') ? 'active' : ''}`}
                     title="Salespersons"
+                    onClick={closeSidebarOnMobile}
                   >
                     <FaUserTie className="sidebar-icon" />
                     {sidebarOpen && <span>Salespersons</span>}
@@ -90,6 +110,7 @@ const Layout = () => {
                     to="/employees"
                     className={`sidebar-submenu-item ${isActive('/employees') ? 'active' : ''}`}
                     title="Employees"
+                    onClick={closeSidebarOnMobile}
                   >
                     <FaUserShield className="sidebar-icon" />
                     {sidebarOpen && <span>User Roles</span>}
@@ -137,6 +158,7 @@ const Layout = () => {
                   to="/dealer-exchanges"
                   className={`sidebar-submenu-item ${isActive('/dealer-exchanges') ? 'active' : ''}`}
                   title="Dealer Mutuals"
+                  onClick={closeSidebarOnMobile}
                 >
                   <FaExchangeAlt className="sidebar-icon" />
                   {sidebarOpen && <span>Dealer Mutuals</span>}
@@ -149,6 +171,7 @@ const Layout = () => {
                 to="/finance"
                 className={`sidebar-submenu-item ${isActive('/finance') ? 'active' : ''}`}
                 title="Finance"
+                onClick={closeSidebarOnMobile}
               >
                 <FaChartLine className="sidebar-icon" />
                 {sidebarOpen && <span>Finance</span>}
@@ -172,6 +195,7 @@ const Layout = () => {
                   to="/manage-balances"
                   className={`sidebar-submenu-item ${isActive('/manage-balances') ? 'active' : ''}`}
                   title="Manage Balances"
+                  onClick={closeSidebarOnMobile}
                 >
                   <FaWallet className="sidebar-icon" />
                   {sidebarOpen && <span>Manage Balances</span>}

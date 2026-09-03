@@ -9,7 +9,8 @@ import {
   FaHistory,
   FaWallet,
   FaCoins,
-  FaCertificate
+  FaCertificate,
+  FaFolderOpen
 } from 'react-icons/fa';
 import MutualNetReport from '../components/MutualNetReport';
 import './Dashboard.css';
@@ -35,13 +36,17 @@ const Dashboard = () => {
   const [ledgerBalances, setLedgerBalances] = useState({});
   const [mutualSummary, setMutualSummary] = useState({ owe: 0, owed: 0 });
   const [allDealerBalances, setAllDealerBalances] = useState([]);
+  const [projectBalances, setProjectBalances] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
       fetchDashboardData();
     }
-  }, [user]);
+    // Depend on the user id rather than the user object: AuthContext hands back a
+    // freshly-parsed object on every /auth/me response, so keying off the object
+    // reference re-triggers this fetch even when the logged-in user hasn't changed.
+  }, [user?.id]);
 
   const fetchDashboardData = async () => {
     if (!user) return;
@@ -57,9 +62,10 @@ const Dashboard = () => {
       const fetchFinance = api.get('/finance/summary').catch(e => ({ data: { total_revenue: 0, total_profit: 0 } }));
       const fetchRequests = isMgmt ? api.get('/inventory-requests').catch(e => ({ data: [] })) : Promise.resolve({ data: [] });
       const fetchBalances = api.get('/dealer-exchanges/balances').catch(e => ({ data: { peerBalances: [], ledgerBalances: {} } }));
+      const fetchProjectBalances = isMgmt ? api.get('/balance-projects').catch(e => ({ data: [] })) : Promise.resolve({ data: [] });
 
-      const [dealsRes, inventoryRes, financeRes, reqsRes, mutualsRes] = await Promise.all([
-        fetchDeals, fetchInventory, fetchFinance, fetchRequests, fetchBalances
+      const [dealsRes, inventoryRes, financeRes, reqsRes, mutualsRes, projectBalancesRes] = await Promise.all([
+        fetchDeals, fetchInventory, fetchFinance, fetchRequests, fetchBalances, fetchProjectBalances
       ]);
 
       const deals = dealsRes.data || [];
@@ -85,6 +91,9 @@ const Dashboard = () => {
 
       // Update Ledger Balances
       setLedgerBalances(mutualsData.ledgerBalances || {});
+
+      // Update Project-wise Balance Breakdown (Dealer Advances + Advance for Certificate)
+      setProjectBalances(projectBalancesRes.data || []);
       
       // Update Peer Balances
       const pBalances = mutualsData.peerBalances || [];
@@ -150,6 +159,58 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Balance by Project */}
+      {(isAdmin || isAccountant) && projectBalances.length > 0 && (() => {
+        const sortedProjects = [...projectBalances].sort(
+          (a, b) => parseFloat(b.total_balance) - parseFloat(a.total_balance)
+        );
+        const projectAdvancesSum = projectBalances.reduce((s, p) => s + parseFloat(p.advances_balance || 0), 0);
+        const projectCertSum = projectBalances.reduce((s, p) => s + parseFloat(p.certificate_balance || 0), 0);
+        const unassignedAdvances = parseFloat(ledgerBalances.dealerAdvances || 0) - projectAdvancesSum;
+        const unassignedCert = parseFloat(ledgerBalances.advanceForCertificate || 0) - projectCertSum;
+        const unassignedTotal = unassignedAdvances + unassignedCert;
+
+        return (
+          <div className="stats-section glass-card project-balances-section" style={{ marginBottom: '2rem' }}>
+            <div className="section-header">
+              <FaFolderOpen className="header-icon inventory" />
+              <h2>Balance by Project</h2>
+            </div>
+            <div className="project-balance-table-wrap">
+              <table className="project-balance-table">
+                <thead>
+                  <tr>
+                    <th>Project</th>
+                    <th>Dealer Advances</th>
+                    <th>Advance for Certificate</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedProjects.map(p => (
+                    <tr key={p.id}>
+                      <td className="project-name-cell" data-label="Project">{p.name}</td>
+                      <td data-label="Dealer Advances">Rs. {Math.abs(parseFloat(p.advances_balance || 0)).toLocaleString()}</td>
+                      <td data-label="Advance for Certificate">Rs. {Math.abs(parseFloat(p.certificate_balance || 0)).toLocaleString()}</td>
+                      <td className="project-total-cell" data-label="Total">Rs. {Math.abs(parseFloat(p.total_balance || 0)).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {Math.abs(unassignedTotal) > 0.01 && (
+                    <tr className="project-unassigned-row">
+                      <td className="project-name-cell" data-label="Project">Unassigned</td>
+                      <td data-label="Dealer Advances">Rs. {Math.abs(unassignedAdvances).toLocaleString()}</td>
+                      <td data-label="Advance for Certificate">Rs. {Math.abs(unassignedCert).toLocaleString()}</td>
+                      <td className="project-total-cell" data-label="Total">Rs. {Math.abs(unassignedTotal).toLocaleString()}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <p className="summary-footer">Visit the Manage Balances page for full project detail and history.</p>
+          </div>
+        );
+      })()}
 
       <div className="main-stats-grid">
         {/* Finance Overview */}

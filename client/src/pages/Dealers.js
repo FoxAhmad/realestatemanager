@@ -111,26 +111,26 @@ const Dealers = () => {
             <tbody>
               {dealers.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="empty-state">
+                  <td colSpan="5" className="empty-state">
                     No salespersons found in the registry
                   </td>
                 </tr>
               ) : (
                 dealers.map((dealer) => (
                   <tr key={dealer.id}>
-                    <td style={{ fontWeight: '700' }}>{dealer.name}</td>
-                    <td>{dealer.email}</td>
-                    <td>
+                    <td data-label="Full Name" style={{ fontWeight: '700' }}>{dealer.name}</td>
+                    <td data-label="Access Email">{dealer.email}</td>
+                    <td data-label="Role">
                       <span className={`premium-badge ${
-                        dealer.role === 'admin' ? 'premium-badge-primary' : 
-                        dealer.role === 'accountant' ? 'premium-badge-success' : 
+                        dealer.role === 'admin' ? 'premium-badge-primary' :
+                        dealer.role === 'accountant' ? 'premium-badge-success' :
                         'premium-badge-warning'
                       }`}>
                         {dealer.role.toUpperCase()}
                       </span>
                     </td>
-                    <td>{new Date(dealer.created_at).toLocaleDateString()}</td>
-                    <td>
+                    <td data-label="Onboarding Date">{new Date(dealer.created_at).toLocaleDateString()}</td>
+                    <td data-label="Actions">
                       <div className="action-buttons">
                         <button
                           className="premium-btn premium-btn-secondary"

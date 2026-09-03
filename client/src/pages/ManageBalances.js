@@ -664,18 +664,6 @@ const ManageBalances = () => {
                 <div className={`amount ${totalBalance >= 0 ? 'text-success' : 'text-danger'}`}>
                   Rs. {totalBalance.toLocaleString()}
                 </div>
-                {dealerBalances.length > 0 && (
-                  <div className="dealer-contributions-list">
-                    {dealerBalances.map(db => (
-                      <div key={db.id} className="dealer-contrib-item">
-                        <span className="dealer-name">{db.name}</span>
-                        <span className={`dealer-amount ${db.balance >= 0 ? 'text-success' : 'text-danger'}`}>
-                          Rs. {db.balance.toLocaleString()}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
             <div className="balance-card">
@@ -757,12 +745,12 @@ const ManageBalances = () => {
                                 </button>
                               )}
                             </td>
-                            <td>{new Date(t.transaction_date).toLocaleDateString()}</td>
-                            <td>
+                            <td data-label="Date">{new Date(t.transaction_date).toLocaleDateString()}</td>
+                            <td data-label="Voucher #">
                               {t.voucher_no && <span className="voucher-badge">{t.voucher_no}</span>}
                               <div className="instrument-tag">{t.instrument} {t.instrument_number}</div>
                             </td>
-                            <td>
+                            <td className="td-wrap" data-label={activeTab === 8 ? 'Details & Narration' : 'Narration & Proof'}>
                               <div style={{ fontWeight: 600 }}>
                                 {t.description}
                                 {t.quantity && <span className="qty-badge"> (Qty: {t.quantity})</span>}
@@ -779,7 +767,7 @@ const ManageBalances = () => {
                                 </a>
                               )}
                             </td>
-                            <td>
+                            <td className="td-wrap" data-label="Dealer / Ref">
                               {(() => {
                                 const names = new Set();
                                 if (t.customer_name) names.add(t.customer_name + ' (Client)');
@@ -793,13 +781,13 @@ const ManageBalances = () => {
                                 return Array.from(names).join(', ') || 'System / Admin';
                               })()}
                             </td>
-                            <td className="amount-col" style={{ color: '#dc3545', fontWeight: 600 }}>
+                            <td data-label="Debit" className="amount-col" style={{ color: '#dc3545', fontWeight: 600 }}>
                               {parseFloat(t.debit) > 0 ? parseFloat(t.debit).toLocaleString() : '-'}
                             </td>
-                            <td className="amount-col" style={{ color: '#28a745', fontWeight: 600 }}>
+                            <td data-label="Credit" className="amount-col" style={{ color: '#28a745', fontWeight: 600 }}>
                               {parseFloat(t.credit) > 0 ? parseFloat(t.credit).toLocaleString() : '-'}
                             </td>
-                            <td className="amount-col">
+                            <td data-label="Balance" className="amount-col">
                               <div style={{ fontWeight: 800, color: runningBalance >= 0 ? '#28a745' : '#dc3545' }}>
                                 {runningBalance.toLocaleString()}
                               </div>
@@ -808,7 +796,7 @@ const ManageBalances = () => {
                               </div>
                             </td>
                             {isAdminOrAccountant && (
-                              <td>
+                              <td data-label="Actions">
                                 <div style={{ display: 'flex', gap: '4px' }}>
                                   <button className="edit-btn" style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', padding: '5px' }} onClick={() => handleEditClick(t)} title="Edit Transaction">
                                     <FaEdit size={16} />

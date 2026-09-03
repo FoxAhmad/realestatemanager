@@ -22,6 +22,37 @@
   gap: 0.5rem;
 }
 
+/* Dealer mutuals table: dropdown grouping for a sender with multiple entries */
+.mutual-group-row {
+  cursor: pointer;
+  background: #f8fafc;
+}
+
+.mutual-group-row:hover {
+  background: #f1f5f9;
+}
+
+.mutual-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.5rem;
+  color: var(--text-muted);
+}
+
+.mutual-group-count {
+  margin-left: 0.6rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.mutual-subrow {
+  background: #fbfcfe;
+}
+
+.mutual-subrow td:first-child {
+  padding-left: 2.25rem;
+}
+
 /* Modal styling */
 .modal-overlay {
   position: fixed;
@@ -97,6 +128,20 @@
   margin-top: 2.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid #f1f5f9;
+}
+
+@media (max-width: 480px) {
+  .modal-content {
+    padding: 1.5rem;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .modal-actions .premium-btn {
+    width: 100%;
+  }
 }
 
 .direction-toggle {

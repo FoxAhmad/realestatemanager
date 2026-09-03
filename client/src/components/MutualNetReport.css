@@ -206,4 +206,45 @@
   .mutual-summary-grid {
     grid-template-columns: 1fr;
   }
+
+  .dealer-net-table thead {
+    display: none;
+  }
+
+  .dealer-net-table tr {
+    display: block;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 0.5rem 0;
+  }
+
+  .dealer-net-table tr:hover {
+    background: transparent;
+  }
+
+  .dealer-net-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.35rem 1rem;
+    border-bottom: none;
+  }
+
+  .dealer-net-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #94a3b8;
+  }
+
+  .dealer-net-table td:not([data-label])::before {
+    content: none;
+  }
+
+  .dealer-net-table td[colspan] {
+    display: block;
+  }
 }

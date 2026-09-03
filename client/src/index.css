@@ -129,6 +129,95 @@ body {
   background: rgba(248, 250, 252, 0.5);
 }
 
+/* Card-stack layout on phones: each row becomes a labeled card
+   instead of a table that requires horizontal scrolling. */
+@media (max-width: 640px) {
+  .premium-table-container {
+    overflow-x: visible;
+  }
+
+  .premium-table {
+    min-width: 0;
+  }
+
+  .premium-table thead {
+    display: none;
+  }
+
+  .premium-table tr {
+    display: block;
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    margin-bottom: 0.85rem;
+  }
+
+  .premium-table tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .premium-table tr:hover td {
+    background: transparent;
+  }
+
+  .premium-table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    text-align: right;
+  }
+
+  .premium-table tr td:last-child {
+    border-bottom: none;
+  }
+
+  .premium-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    text-align: left;
+    padding-top: 0.1rem;
+  }
+
+  .premium-table td:not([data-label])::before {
+    content: none;
+  }
+
+  .premium-table td:not([data-label]) {
+    justify-content: flex-start;
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .premium-table td:not([data-label]):empty {
+    display: none;
+  }
+
+  /* Long, variable-length text (narration, descriptions) reads badly
+     flush-right — stack the label above it and read left to right instead. */
+  .premium-table td.td-wrap {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    gap: 0.35rem;
+  }
+
+  /* Full-width message/detail rows (empty state, loading, expanded
+     linked-entry panels) stay a single block instead of a label:value row. */
+  .premium-table td[colspan] {
+    display: block;
+    text-align: center;
+  }
+}
+
 /* Premium Buttons */
 .premium-btn {
   padding: 0.75rem 1.5rem;
