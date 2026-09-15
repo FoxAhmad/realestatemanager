@@ -3,7 +3,16 @@ import api from '../services/api';
 import { FaEdit, FaTrash, FaChevronDown, FaChevronRight } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import MutualNetReport from '../components/MutualNetReport';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './DealerExchanges.css';
+
+const DEALER_EXCHANGE_COLUMNS = [
+  { key: 'exchange_date', label: 'Date', type: 'date' },
+  { key: 'sender_name', label: 'Sender', type: 'text' },
+  { key: 'receiver_name', label: 'Receiver', type: 'text' },
+  { key: 'detail', label: 'Reference / Detail', type: 'text', accessor: (row) => row.detail || row.description },
+  { key: 'amount', label: 'Amount', type: 'currency' },
+];
 
 const DealerExchanges = () => {
   const { user } = useAuth();
@@ -177,12 +186,21 @@ const DealerExchanges = () => {
     });
   };
 
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredExchanges,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(exchanges, DEALER_EXCHANGE_COLUMNS);
+
   // Groups rows by the directional sender+receiver pair — "Adil -> Danish" and
   // "Danish -> Adil" are kept separate, so the collapsed total only ever sums
   // entries that went the same direction between the same two parties.
   const senderGroups = [];
   const groupIndexByPair = new Map();
-  exchanges.forEach((ex) => {
+  filteredExchanges.forEach((ex) => {
     const partyA = ex.sender_name || 'Unknown';
     const partyB = ex.receiver_name || 'Unknown';
     const key = `${partyA}|||${partyB}`;
@@ -282,6 +300,20 @@ const DealerExchanges = () => {
       </div>
 
       <div className="glass-card">
+        <TableToolbar
+          columns={DEALER_EXCHANGE_COLUMNS}
+          search={search}
+          onSearchChange={setSearch}
+          filters={filters}
+          onFilterChange={setFilter}
+          uniqueValues={uniqueValues}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+          searchPlaceholder="Search exchanges by sender, receiver, detail..."
+          resultCount={filteredExchanges.length}
+        />
         <div className="premium-table-container">
           <table className="premium-table">
             <thead>
@@ -296,7 +328,7 @@ const DealerExchanges = () => {
               </tr>
             </thead>
             <tbody>
-              {exchanges.length === 0 ? (
+              {filteredExchanges.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="empty-state">
                     No mutual transactions recorded in the current period

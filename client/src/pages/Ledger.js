@@ -1,10 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Ledger.css';
+
+const LEDGER_COLUMNS = [
+  { key: 'transaction_date', label: 'Date', type: 'date' },
+  { key: 'voucher_no', label: 'Voucher #', type: 'text' },
+  {
+    key: 'account_description',
+    label: 'Account & Description',
+    type: 'text',
+    accessor: (row) => `${row.account_name || ''} ${row.description || ''}`.trim(),
+  },
+  { key: 'debit', label: 'Debit', type: 'currency' },
+  { key: 'credit', label: 'Credit', type: 'currency' },
+];
 
 const Ledger = () => {
   const [ledgerLines, setLedgerLines] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredLedgerLines,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(ledgerLines, LEDGER_COLUMNS);
 
   useEffect(() => {
     fetchLedger();
@@ -38,6 +61,20 @@ const Ledger = () => {
       </div>
 
       <div className="glass-card">
+        <TableToolbar
+          columns={LEDGER_COLUMNS}
+          search={search}
+          onSearchChange={setSearch}
+          filters={filters}
+          onFilterChange={setFilter}
+          uniqueValues={uniqueValues}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+          searchPlaceholder="Search ledger by voucher, account, description..."
+          resultCount={filteredLedgerLines.length}
+        />
         <div className="premium-table-container">
           <table className="premium-table">
             <thead>
@@ -50,14 +87,14 @@ const Ledger = () => {
               </tr>
             </thead>
             <tbody>
-              {ledgerLines.length === 0 ? (
+              {filteredLedgerLines.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="empty-state">
                     No ledger entries recorded in this period
                   </td>
                 </tr>
               ) : (
-                ledgerLines.map((line, index) => {
+                filteredLedgerLines.map((line, index) => {
                   const isCredit = parseFloat(line.credit || 0) > 0;
                   // Grouping logic: if next line is same transaction, style accordingly
                   // For now simple list

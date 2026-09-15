@@ -1,7 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './InventoryRequests.css';
+
+const REQUEST_CATEGORY_LABELS = {
+  plot: 'Plot',
+  house: 'House',
+  shop_office: 'Shop/Office',
+};
+
+const REQUEST_STATUS_LABELS = {
+  pending: 'Pending',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
+
+const INVENTORY_REQUEST_COLUMNS = [
+  { key: 'id', label: 'ID', type: 'text' },
+  { key: 'inventory_address', label: 'Inventory', type: 'text' },
+  { key: 'category', label: 'Category', type: 'enum', formatOption: (v) => REQUEST_CATEGORY_LABELS[v] || v },
+  { key: 'inventory_price', label: 'Price', type: 'currency' },
+  { key: 'salesperson_name', label: 'Salesperson', type: 'text' },
+  { key: 'status', label: 'Status', type: 'enum', formatOption: (v) => REQUEST_STATUS_LABELS[v] || v },
+  { key: 'created_at', label: 'Request Date', type: 'date' },
+  { key: 'admin_notes', label: 'Admin Notes', type: 'text' },
+];
 
 const InventoryRequests = () => {
   const { isAdmin } = useAuth();
@@ -9,6 +33,15 @@ const InventoryRequests = () => {
   const [loading, setLoading] = useState(true);
   const [actionModal, setActionModal] = useState(null);
   const [adminNotes, setAdminNotes] = useState('');
+
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredRequests,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(requests, INVENTORY_REQUEST_COLUMNS);
 
   useEffect(() => {
     fetchRequests();
@@ -96,6 +129,21 @@ const InventoryRequests = () => {
         <h1 className="inventory-requests-title">Inventory Requests</h1>
       </div>
 
+      <TableToolbar
+        columns={INVENTORY_REQUEST_COLUMNS}
+        search={search}
+        onSearchChange={setSearch}
+        filters={filters}
+        onFilterChange={setFilter}
+        uniqueValues={uniqueValues}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters(!showFilters)}
+        onClearFilters={clearFilters}
+        activeFilterCount={activeFilterCount}
+        searchPlaceholder="Search requests by inventory, salesperson..."
+        resultCount={filteredRequests.length}
+      />
+
       <div className="inventory-requests-table-container">
         <table className="inventory-requests-table">
           <thead>
@@ -112,14 +160,14 @@ const InventoryRequests = () => {
             </tr>
           </thead>
           <tbody>
-            {requests.length === 0 ? (
+            {filteredRequests.length === 0 ? (
               <tr>
                 <td colSpan={isAdmin ? 9 : 7} className="empty-state">
                   No inventory requests found
                 </td>
               </tr>
             ) : (
-              requests.map((request) => (
+              filteredRequests.map((request) => (
                 <tr key={request.id}>
                   <td>{request.id}</td>
                   <td>{request.inventory_address || '-'}</td>

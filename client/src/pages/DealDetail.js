@@ -1,9 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { FaArrowLeft, FaPlus, FaTrash, FaFileInvoiceDollar, FaUser, FaMapMarkerAlt } from 'react-icons/fa';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './DealDetail.css';
+
+const LEDGER_COLUMNS = [
+  { key: 'date', label: 'Date', type: 'date' },
+  { key: 'type', label: 'Type', type: 'enum' },
+  { key: 'amount', label: 'Amount', type: 'currency' },
+  { key: 'notes', label: 'Notes', type: 'text' },
+];
 
 const DealDetail = () => {
   const { id } = useParams();
@@ -81,6 +89,36 @@ const DealDetail = () => {
   useEffect(() => {
     fetchDealDetails();
   }, [fetchDealDetails]);
+
+  const ledgerEntries = useMemo(() => ([
+    ...adjustments.map((a) => ({
+      id: `adj-${a.id}`,
+      _kind: 'adjustment',
+      _raw: a,
+      date: a.transaction_date,
+      type: 'Adjustment',
+      amount: parseFloat(a.customer_price || 0),
+      notes: a.description || a.notes || '',
+    })),
+    ...payments.map((p) => ({
+      id: `pay-${p.id}`,
+      _kind: 'payment',
+      _raw: p,
+      date: p.payment_date,
+      type: p.payment_type,
+      amount: parseFloat(p.amount || 0),
+      notes: p.notes || '',
+    })),
+  ]), [adjustments, payments]);
+
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredLedgerEntries,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(ledgerEntries, LEDGER_COLUMNS);
 
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
@@ -282,12 +320,30 @@ const DealDetail = () => {
             </div>
           </div>
 
+          <TableToolbar
+            columns={LEDGER_COLUMNS}
+            search={search}
+            onSearchChange={setSearch}
+            filters={filters}
+            onFilterChange={setFilter}
+            uniqueValues={uniqueValues}
+            showFilters={showFilters}
+            onToggleFilters={() => setShowFilters(!showFilters)}
+            onClearFilters={clearFilters}
+            activeFilterCount={activeFilterCount}
+            searchPlaceholder="Search ledger entries by type, notes..."
+            resultCount={filteredLedgerEntries.length}
+          />
           <div className="payments-list">
-            {payments.length === 0 && adjustments.length === 0 ? (
-              <div className="empty-state">No financial records found for this deal.</div>
+            {filteredLedgerEntries.length === 0 ? (
+              <div className="empty-state">
+                {ledgerEntries.length === 0
+                  ? 'No financial records found for this deal.'
+                  : 'No ledger entries match the current search/filter criteria.'}
+              </div>
             ) : (
               <>
-                {adjustments.map((a) => (
+                {filteredLedgerEntries.filter((e) => e._kind === 'adjustment').map(({ _raw: a }) => (
                   <div key={`adj-${a.id}`} className="payment-item" style={{ borderLeft: '4px solid #ffc107' }}>
                     <div className="payment-main">
                       <div className="payment-type" style={{ background: '#ffc107', color: '#000' }}>
@@ -318,7 +374,7 @@ const DealDetail = () => {
                     )}
                   </div>
                 ))}
-                {payments.map((p) => (
+                {filteredLedgerEntries.filter((e) => e._kind === 'payment').map(({ _raw: p }) => (
                   <div key={p.id} className="payment-item">
                     <div className="payment-main">
                       <div className="payment-type">{p.payment_type.toUpperCase()}</div>

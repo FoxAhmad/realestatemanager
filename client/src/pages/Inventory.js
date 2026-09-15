@@ -1,7 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Inventory.css';
+
+const INVENTORY_CATEGORY_LABELS = {
+  plot: 'Plot',
+  house: 'House',
+  shop_office: 'Shop/Office',
+};
+
+const INVENTORY_COLUMNS = [
+  { key: 'id', label: 'ID', type: 'text' },
+  { key: 'category', label: 'Category', type: 'enum', formatOption: (v) => INVENTORY_CATEGORY_LABELS[v] || v },
+  { key: 'size', label: 'Type/Size', type: 'text', accessor: (r) => [r.plot_type, r.plot_category, r.size].filter(Boolean).join(' ') },
+  { key: 'address', label: 'Address', type: 'text' },
+  { key: 'price', label: 'Price', type: 'currency' },
+  { key: 'quantity', label: 'Qty', type: 'number' },
+  { key: 'status', label: 'Status', type: 'enum' },
+  { key: 'assigned_to_name', label: 'Assigned To', type: 'text' },
+];
 
 const Inventory = () => {
   const { isAdmin, isAccountant, isEmployee, user } = useAuth();
@@ -40,6 +58,15 @@ const Inventory = () => {
     payment_date: new Date().toISOString().split('T')[0],
     notes: '',
   });
+
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredInventory,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(inventory, INVENTORY_COLUMNS);
 
   useEffect(() => {
     fetchInventory();
@@ -370,7 +397,7 @@ const Inventory = () => {
     return <div className="inventory-loading">Loading inventory...</div>;
   }
 
-  const groupedInventory = getGroupedInventory(inventory);
+  const groupedInventory = getGroupedInventory(filteredInventory);
 
   return (
     <div className="premium-page">
@@ -396,6 +423,20 @@ const Inventory = () => {
       </div>
 
       <div className="glass-card">
+        <TableToolbar
+          columns={INVENTORY_COLUMNS}
+          search={search}
+          onSearchChange={setSearch}
+          filters={filters}
+          onFilterChange={setFilter}
+          uniqueValues={uniqueValues}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+          searchPlaceholder="Search inventory by address, category, status..."
+          resultCount={groupedInventory.length}
+        />
         <div className="premium-table-container">
           <table className="premium-table">
             <thead>

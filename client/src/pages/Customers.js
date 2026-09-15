@@ -1,6 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Customers.css';
+
+const CUSTOMER_COLUMNS = [
+  { key: 'name', label: 'Customer Name', type: 'text' },
+  { key: 'cnic', label: 'Identity (CNIC)', type: 'text' },
+  { key: 'phone_number', label: 'Phone', type: 'text' },
+  { key: 'email', label: 'Email', type: 'text' },
+  { key: 'address', label: 'Address', type: 'text' },
+  { key: 'status', label: 'Status', type: 'enum' },
+  {
+    key: 'source',
+    label: 'Source',
+    type: 'enum',
+    formatOption: (v) => (v === 'lead_conversion' ? 'Converted Lead' : 'Walk-in'),
+  },
+];
 
 const Customers = () => {
   const [customers, setCustomers] = useState([]);
@@ -15,6 +31,15 @@ const Customers = () => {
     address: '',
     status: 'potential',
   });
+
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredCustomers,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(customers, CUSTOMER_COLUMNS);
 
   useEffect(() => {
     fetchCustomers();
@@ -101,6 +126,20 @@ const Customers = () => {
       </div>
 
       <div className="glass-card">
+        <TableToolbar
+          columns={CUSTOMER_COLUMNS}
+          search={search}
+          onSearchChange={setSearch}
+          filters={filters}
+          onFilterChange={setFilter}
+          uniqueValues={uniqueValues}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+          searchPlaceholder="Search customers by name, CNIC, phone, email..."
+          resultCount={filteredCustomers.length}
+        />
         <div className="premium-table-container">
           <table className="premium-table">
             <thead>
@@ -115,14 +154,14 @@ const Customers = () => {
               </tr>
             </thead>
             <tbody>
-              {customers.length === 0 ? (
+              {filteredCustomers.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="empty-state">
-                    No customers found in current records
+                    No customers found matching the current search/filter criteria
                   </td>
                 </tr>
               ) : (
-                customers.map((customer) => (
+                filteredCustomers.map((customer) => (
                   <tr key={customer.id}>
                     <td style={{ fontWeight: '700' }}>{customer.name}</td>
                     <td>{customer.cnic || '-'}</td>

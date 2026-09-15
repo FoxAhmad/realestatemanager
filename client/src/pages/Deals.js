@@ -2,7 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Deals.css';
+
+const DEAL_STATUS_LABELS = {
+  in_progress: 'In Progress',
+  deal_done: 'Completed',
+  deal_not_done: 'Cancelled',
+};
+
+const DEAL_COLUMNS = [
+  { key: 'id', label: 'Deal ID', type: 'number' },
+  { key: 'customer_name', label: 'Customer Name', type: 'text' },
+  { key: 'dealer_name', label: 'Salesperson', type: 'text' },
+  {
+    key: 'asset_details',
+    label: 'Asset Details',
+    type: 'text',
+    accessor: (row) => [row.inventory_address, row.plot_number, row.property_type].filter(Boolean).join(' '),
+  },
+  { key: 'original_price', label: 'Base Price', type: 'currency' },
+  { key: 'sale_price', label: 'Sale Price', type: 'currency' },
+  { key: 'status', label: 'Status', type: 'enum', formatOption: (v) => DEAL_STATUS_LABELS[v] || v },
+];
 
 const Deals = () => {
   const navigate = useNavigate();
@@ -27,6 +49,15 @@ const Deals = () => {
   });
 
   const [availablePlots, setAvailablePlots] = useState([]);
+
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredDeals,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(deals, DEAL_COLUMNS);
 
   useEffect(() => {
     fetchDeals();
@@ -157,6 +188,20 @@ const Deals = () => {
       </div>
 
       <div className="glass-card">
+        <TableToolbar
+          columns={DEAL_COLUMNS}
+          search={search}
+          onSearchChange={setSearch}
+          filters={filters}
+          onFilterChange={setFilter}
+          uniqueValues={uniqueValues}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+          searchPlaceholder="Search deals by customer, salesperson, asset..."
+          resultCount={filteredDeals.length}
+        />
         <div className="premium-table-container">
           <table className="premium-table">
             <thead>
@@ -172,14 +217,14 @@ const Deals = () => {
               </tr>
             </thead>
             <tbody>
-              {deals.length === 0 ? (
+              {filteredDeals.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="empty-state">
-                    No active deals recorded in current pipeline
+                    No active deals match the current search/filter criteria
                   </td>
                 </tr>
               ) : (
-                deals.map((deal) => (
+                filteredDeals.map((deal) => (
                   <tr key={deal.id}>
                     <td>#{deal.id}</td>
                     <td style={{ fontWeight: '700' }}>{deal.customer_name}</td>

@@ -18,7 +18,8 @@ import {
   FaUserTie,
   FaUserShield,
   FaBars,
-  FaTimes
+  FaTimes,
+  FaPiggyBank
 } from 'react-icons/fa';
 import './Layout.css';
 
@@ -199,6 +200,20 @@ const Layout = () => {
                 >
                   <FaWallet className="sidebar-icon" />
                   {sidebarOpen && <span>Manage Balances</span>}
+                </Link>
+              </div>
+            )}
+
+            {(user?.role === 'admin' || user?.role === 'accountant') && (
+              <div className="sidebar-section">
+                <Link
+                  to="/loans-and-investments"
+                  className={`sidebar-submenu-item ${isActive('/loans-and-investments') ? 'active' : ''}`}
+                  title="Loans & Investments"
+                  onClick={closeSidebarOnMobile}
+                >
+                  <FaPiggyBank className="sidebar-icon" />
+                  {sidebarOpen && <span>Loans & Investments</span>}
                 </Link>
               </div>
             )}

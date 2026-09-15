@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import {
   FaChartBar, FaCalendarAlt, FaUserTie, FaWallet, FaHistory,
@@ -7,7 +7,34 @@ import {
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import { mergeFinanceEntries } from '../utils/financeLedger';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Finance.css';
+
+const FINANCE_LEDGER_COLUMNS = [
+  { key: 'transaction_date', label: 'Date', type: 'date' },
+  { key: 'user_name', label: 'Dealer', type: 'enum', accessor: (row) => row.user_name || 'System' },
+  {
+    key: 'reference',
+    label: 'Reference',
+    type: 'text',
+    accessor: (row) => [...Array.from(row.vouchers || []), ...Array.from(row.instruments || [])].filter(Boolean).join(' '),
+  },
+  {
+    key: 'description',
+    label: 'Description',
+    type: 'text',
+    accessor: (row) => Array.from(row.descriptions || []).filter(Boolean).join(' '),
+  },
+  { key: 'credit', label: 'Credit', type: 'currency' },
+  { key: 'debit', label: 'Debit', type: 'currency' },
+  { key: 'runningBal', label: 'Balance', type: 'currency' },
+];
+
+const TEAM_PERFORMANCE_COLUMNS = [
+  { key: 'dealer_name', label: 'Salesperson', type: 'text' },
+  { key: 'total_revenue', label: 'Volume', type: 'currency' },
+  { key: 'wallet_balance', label: 'Wallet', type: 'currency' },
+];
 
 const Finance = () => {
   const { user } = useAuth();
@@ -31,6 +58,26 @@ const Finance = () => {
   const [editEntry, setEditEntry] = useState(null);
   const [editFormData, setEditFormData] = useState({});
   const [deletingId, setDeletingId] = useState(null);
+
+  const processedEntries = useMemo(() => mergeFinanceEntries(entries), [entries]);
+
+  const {
+    search: ledgerSearch, setSearch: setLedgerSearch,
+    filters: ledgerFilters, setFilter: setLedgerFilter, clearFilters: clearLedgerFilters,
+    filteredData: filteredLedgerEntries,
+    uniqueValues: ledgerUniqueValues,
+    showFilters: showLedgerFilters, setShowFilters: setShowLedgerFilters,
+    activeFilterCount: ledgerActiveFilterCount,
+  } = useTableFilters(processedEntries, FINANCE_LEDGER_COLUMNS);
+
+  const {
+    search: teamSearch, setSearch: setTeamSearch,
+    filters: teamFilters, setFilter: setTeamFilter, clearFilters: clearTeamFilters,
+    filteredData: filteredDealerStats,
+    uniqueValues: teamUniqueValues,
+    showFilters: showTeamFilters, setShowFilters: setShowTeamFilters,
+    activeFilterCount: teamActiveFilterCount,
+  } = useTableFilters(dealerStats, TEAM_PERFORMANCE_COLUMNS);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -321,6 +368,20 @@ const Finance = () => {
             <h2><FaHistory /> Transaction History</h2>
           </div>
           <div className="glass-card" style={{ padding: '0' }}>
+            <TableToolbar
+              columns={FINANCE_LEDGER_COLUMNS}
+              search={ledgerSearch}
+              onSearchChange={setLedgerSearch}
+              filters={ledgerFilters}
+              onFilterChange={setLedgerFilter}
+              uniqueValues={ledgerUniqueValues}
+              showFilters={showLedgerFilters}
+              onToggleFilters={() => setShowLedgerFilters(!showLedgerFilters)}
+              onClearFilters={clearLedgerFilters}
+              activeFilterCount={ledgerActiveFilterCount}
+              searchPlaceholder="Search ledger by dealer, reference, description..."
+              resultCount={filteredLedgerEntries.length}
+            />
             <div className="premium-table-container">
               <table className="premium-table">
                 <thead>
@@ -337,13 +398,11 @@ const Finance = () => {
                 </thead>
                 <tbody>
                   {(() => {
-                    if (entries.length === 0) {
+                    if (filteredLedgerEntries.length === 0) {
                       return <tr><td colSpan={6 + (isAccountant ? 1 : 0) + (canManage ? 1 : 0)} className="empty-state">No financial transactions found.</td></tr>;
                     }
 
-                    const processedEntries = mergeFinanceEntries(entries);
-
-                    return processedEntries.map((entry, idx) => (
+                    return filteredLedgerEntries.map((entry, idx) => (
                       <tr key={`${entry.id}_${idx}`}>
                         <td>
                           {new Date(entry.transaction_date).toLocaleDateString()}
@@ -460,6 +519,20 @@ const Finance = () => {
               <section className="finance-section">
                 <h2><FaUserTie style={{ color: 'var(--primary)' }} /> Team Performance</h2>
                 <div className="glass-card" style={{ padding: '0' }}>
+                  <TableToolbar
+                    columns={TEAM_PERFORMANCE_COLUMNS}
+                    search={teamSearch}
+                    onSearchChange={setTeamSearch}
+                    filters={teamFilters}
+                    onFilterChange={setTeamFilter}
+                    uniqueValues={teamUniqueValues}
+                    showFilters={showTeamFilters}
+                    onToggleFilters={() => setShowTeamFilters(!showTeamFilters)}
+                    onClearFilters={clearTeamFilters}
+                    activeFilterCount={teamActiveFilterCount}
+                    searchPlaceholder="Search team by salesperson..."
+                    resultCount={filteredDealerStats.length}
+                  />
                   <div className="premium-table-container">
                     <table className="premium-table">
                       <thead>
@@ -470,10 +543,10 @@ const Finance = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {dealerStats.length === 0 ? (
+                        {filteredDealerStats.length === 0 ? (
                           <tr><td colSpan="3" className="empty-state">No team data available</td></tr>
                         ) : (
-                          dealerStats.map((stat, i) => (
+                          filteredDealerStats.map((stat, i) => (
                             <tr key={i}>
                               <td style={{ fontWeight: '700' }}>{stat.dealer_name}</td>
                               <td>Rs. {parseFloat(stat.total_revenue).toLocaleString()}</td>

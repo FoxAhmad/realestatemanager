@@ -2,7 +2,18 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { FaUserPlus, FaHistory, FaUserTag, FaExchangeAlt, FaEdit, FaTrash } from 'react-icons/fa';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Leads.css';
+
+const LEAD_COLUMNS = [
+  { key: 'name', label: 'Lead Name', type: 'text' },
+  { key: 'phone_number', label: 'Phone', type: 'text' },
+  { key: 'email', label: 'Email', type: 'text' },
+  { key: 'source', label: 'Source', type: 'enum', formatOption: (v) => (v || 'other').replace('_', ' ') },
+  { key: 'interest_area', label: 'Interest', type: 'text' },
+  { key: 'status', label: 'Status', type: 'enum' },
+  { key: 'assigned_to_name', label: 'Assigned To', type: 'text', accessor: (row) => row.assigned_to_name || '' },
+];
 
 const Leads = () => {
   const [leads, setLeads] = useState([]);
@@ -29,6 +40,15 @@ const Leads = () => {
   const [assignmentData, setAssignmentData] = useState({
     dealer_id: '',
   });
+
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredLeads,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(leads, LEAD_COLUMNS);
 
   useEffect(() => {
     fetchLeads();
@@ -171,6 +191,20 @@ const Leads = () => {
       </div>
 
       <div className="glass-card">
+        <TableToolbar
+          columns={LEAD_COLUMNS}
+          search={search}
+          onSearchChange={setSearch}
+          filters={filters}
+          onFilterChange={setFilter}
+          uniqueValues={uniqueValues}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+          searchPlaceholder="Search leads by name, phone, email, interest..."
+          resultCount={filteredLeads.length}
+        />
         <div className="premium-table-container">
           <table className="premium-table">
             <thead>
@@ -185,14 +219,14 @@ const Leads = () => {
               </tr>
             </thead>
             <tbody>
-              {leads.length === 0 ? (
+              {filteredLeads.length === 0 ? (
                 <tr>
                   <td colSpan={(isAdmin || isAccountant) ? 7 : 6} className="empty-state">
-                    No leads found in your pipeline
+                    No leads found matching the current search/filter criteria
                   </td>
                 </tr>
               ) : (
-                leads.map((lead) => (
+                filteredLeads.map((lead) => (
                   <tr key={lead.id}>
                     <td style={{ fontWeight: '700' }}>{lead.name}</td>
                     <td>

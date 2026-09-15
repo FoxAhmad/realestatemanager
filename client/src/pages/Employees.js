@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Employees.css';
+
+const EMPLOYEE_COLUMNS = [
+  { key: 'name', label: 'Member Name', type: 'text' },
+  { key: 'email', label: 'Access Email', type: 'text' },
+  { key: 'role', label: 'Security Role', type: 'enum' },
+  { key: 'created_at', label: 'Onboarding Date', type: 'date' },
+];
 
 const Employees = () => {
   const [employees, setEmployees] = useState([]);
@@ -45,6 +53,15 @@ const Employees = () => {
     }
   };
 
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredEmployees,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(employees, EMPLOYEE_COLUMNS);
+
   if (loading) return <div className="employees-loading">Staffing Command Center...</div>;
 
   return (
@@ -57,6 +74,20 @@ const Employees = () => {
       </div>
 
       <div className="glass-card">
+        <TableToolbar
+          columns={EMPLOYEE_COLUMNS}
+          search={search}
+          onSearchChange={setSearch}
+          filters={filters}
+          onFilterChange={setFilter}
+          uniqueValues={uniqueValues}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+          searchPlaceholder="Search staff by name, email..."
+          resultCount={filteredEmployees.length}
+        />
         <div className="premium-table-container">
           <table className="premium-table">
             <thead>
@@ -69,14 +100,14 @@ const Employees = () => {
               </tr>
             </thead>
             <tbody>
-              {employees.length === 0 ? (
+              {filteredEmployees.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="empty-state">
                     No active staff members found
                   </td>
                 </tr>
               ) : (
-                employees.map((emp) => (
+                filteredEmployees.map((emp) => (
                   <tr key={emp.id}>
                     <td data-label="Member Name" style={{ fontWeight: '700' }}>{emp.name}</td>
                     <td data-label="Access Email">{emp.email}</td>

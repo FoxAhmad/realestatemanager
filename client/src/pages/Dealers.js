@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Dealers.css';
+
+const DEALER_COLUMNS = [
+  { key: 'name', label: 'Full Name', type: 'text' },
+  { key: 'email', label: 'Access Email', type: 'text' },
+  { key: 'role', label: 'Role', type: 'enum' },
+  { key: 'created_at', label: 'Onboarding Date', type: 'date' },
+];
 
 const Dealers = () => {
   const [dealers, setDealers] = useState([]);
@@ -73,6 +81,15 @@ const Dealers = () => {
     }
   };
 
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredDealers,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(dealers, DEALER_COLUMNS);
+
   if (loading) {
     return <div className="dealers-loading">Connecting to Sales Network...</div>;
   }
@@ -97,6 +114,20 @@ const Dealers = () => {
       </div>
 
       <div className="glass-card">
+        <TableToolbar
+          columns={DEALER_COLUMNS}
+          search={search}
+          onSearchChange={setSearch}
+          filters={filters}
+          onFilterChange={setFilter}
+          uniqueValues={uniqueValues}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+          searchPlaceholder="Search salespersons by name, email..."
+          resultCount={filteredDealers.length}
+        />
         <div className="premium-table-container">
           <table className="premium-table">
             <thead>
@@ -109,14 +140,14 @@ const Dealers = () => {
               </tr>
             </thead>
             <tbody>
-              {dealers.length === 0 ? (
+              {filteredDealers.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="empty-state">
                     No salespersons found in the registry
                   </td>
                 </tr>
               ) : (
-                dealers.map((dealer) => (
+                filteredDealers.map((dealer) => (
                   <tr key={dealer.id}>
                     <td data-label="Full Name" style={{ fontWeight: '700' }}>{dealer.name}</td>
                     <td data-label="Access Email">{dealer.email}</td>

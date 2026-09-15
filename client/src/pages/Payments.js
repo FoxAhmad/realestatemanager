@@ -1,13 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Payments.css';
+
+const PAYMENT_TYPE_LABELS = {
+  booking: 'Booking / Down Payment',
+  down_payment: 'Booking / Down Payment',
+  installment: 'Instalment Plans',
+  other: 'General / Others',
+};
+
+const PAYMENT_COLUMNS = [
+  { key: 'payment_date', label: 'Date', type: 'date' },
+  { key: 'payment_type', label: 'Classification', type: 'enum', formatOption: (v) => PAYMENT_TYPE_LABELS[v] || v },
+  { key: 'deal_id', label: 'Asset / Deal', type: 'text' },
+  { key: 'customer_name', label: 'Associate', type: 'text' },
+  { key: 'amount', label: 'Voucher Amount', type: 'currency' },
+];
 
 const Payments = () => {
   const navigate = useNavigate();
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterType, setFilterType] = useState('all');
 
   useEffect(() => {
     fetchPayments();
@@ -36,9 +51,14 @@ const Payments = () => {
     }
   };
 
-  const filteredPayments = filterType === 'all' 
-    ? payments 
-    : payments.filter(p => p.payment_type === filterType);
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredPayments,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(payments, PAYMENT_COLUMNS);
 
   const totalAmount = filteredPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
@@ -66,19 +86,21 @@ const Payments = () => {
         </div>
       </div>
 
-      <div className="glass-card payments-filters">
-        <div className="filter-group">
-          <label>Filter by Classification</label>
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-            <option value="all">All Transactions</option>
-            <option value="down_payment">Booking / Down Payment</option>
-            <option value="installment">Instalment Plans</option>
-            <option value="other">General / Others</option>
-          </select>
-        </div>
-      </div>
-
       <div className="glass-card">
+        <TableToolbar
+          columns={PAYMENT_COLUMNS}
+          search={search}
+          onSearchChange={setSearch}
+          filters={filters}
+          onFilterChange={setFilter}
+          uniqueValues={uniqueValues}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+          searchPlaceholder="Search payments by deal, associate..."
+          resultCount={filteredPayments.length}
+        />
         <div className="premium-table-container">
           <table className="premium-table">
             <thead>

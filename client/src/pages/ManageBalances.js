@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import api from '../services/api';
 import {
   FaPlus, FaSearch, FaHistory, FaCog, FaFilePdf,
@@ -11,7 +11,31 @@ import { useAuth } from '../context/AuthContext';
 import {
   buildDealerLedgers, buildDealerSharesPDF, buildTotalSummaryPDF
 } from '../utils/balanceReports';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './ManageBalances.css';
+
+const dealerRefAccessor = (row) => {
+  const names = new Set();
+  if (row.customer_name) names.add(row.customer_name + ' (Client)');
+  else if (row.user_name) names.add(row.user_name);
+  if (row.linked_entries) {
+    row.linked_entries.forEach(e => {
+      if (e.customer_name) names.add(e.customer_name + ' (Client)');
+      else if (e.user_name) names.add(e.user_name);
+    });
+  }
+  return Array.from(names).join(', ') || 'System / Admin';
+};
+
+const BALANCE_COLUMNS = [
+  { key: 'transaction_date', label: 'Date', type: 'date' },
+  { key: 'voucher_no', label: 'Voucher #', type: 'text' },
+  { key: 'description', label: 'Narration', type: 'text' },
+  { key: 'dealer_ref', label: 'Dealer / Ref', type: 'text', accessor: dealerRefAccessor },
+  { key: 'debit', label: 'Debit', type: 'currency' },
+  { key: 'credit', label: 'Credit', type: 'currency' },
+  { key: 'running_balance', label: 'Balance', type: 'currency', accessor: (row) => row._runningBalance },
+];
 
 const ManageBalances = () => {
   const { user } = useAuth();
@@ -414,6 +438,29 @@ const ManageBalances = () => {
     setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Running balance depends on each row's position in the FULL unfiltered ledger
+  // (sum of this row and everything after it), so it must be computed once here,
+  // before any search/filter is applied — filtering must never re-sort or
+  // re-derive this ledger math.
+  const transactionsWithBalance = useMemo(() => {
+    return transactions.map((t, idx) => ({
+      ...t,
+      _runningBalance: transactions.slice(idx).reduce((sum, item) => {
+        return sum + (parseFloat(item.credit) - parseFloat(item.debit));
+      }, 0),
+      _balanceChange: parseFloat(t.credit) - parseFloat(t.debit),
+    }));
+  }, [transactions]);
+
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredTransactions,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(transactionsWithBalance, BALANCE_COLUMNS);
+
   // ── Computed Values ───────────────────────────────────────────────────────────
   const totalBalance = transactions.reduce((sum, t) => {
     return sum + (parseFloat(t.credit) - parseFloat(t.debit));
@@ -706,6 +753,20 @@ const ManageBalances = () => {
 
           {/* Transaction Table */}
           <div className="glass-card">
+            <TableToolbar
+              columns={BALANCE_COLUMNS}
+              search={search}
+              onSearchChange={setSearch}
+              filters={filters}
+              onFilterChange={setFilter}
+              uniqueValues={uniqueValues}
+              showFilters={showFilters}
+              onToggleFilters={() => setShowFilters(!showFilters)}
+              onClearFilters={clearFilters}
+              activeFilterCount={activeFilterCount}
+              searchPlaceholder="Search transactions by voucher, narration, dealer..."
+              resultCount={filteredTransactions.length}
+            />
             <div className="premium-table-container">
               <table className="premium-table">
                 <thead>
@@ -724,14 +785,12 @@ const ManageBalances = () => {
                 <tbody>
                   {loading ? (
                     <tr><td colSpan="9" className="empty-state">Loading transactions...</td></tr>
-                  ) : transactions.length === 0 ? (
+                  ) : filteredTransactions.length === 0 ? (
                     <tr><td colSpan="9" className="empty-state">No transactions recorded for this project</td></tr>
                   ) : (
-                    transactions.map((t, idx) => {
-                      const runningBalance = transactions.slice(idx).reduce((sum, item) => {
-                        return sum + (parseFloat(item.credit) - parseFloat(item.debit));
-                      }, 0);
-                      const balanceChange = parseFloat(t.credit) - parseFloat(t.debit);
+                    filteredTransactions.map((t) => {
+                      const runningBalance = t._runningBalance;
+                      const balanceChange = t._balanceChange;
                       const isExpanded = expandedRows[t.id];
                       const hasLinked = t.linked_entries && t.linked_entries.length > 0;
 

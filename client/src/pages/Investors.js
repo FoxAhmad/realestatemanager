@@ -2,7 +2,15 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { FaUserPlus, FaEdit, FaTrash, FaShieldAlt } from 'react-icons/fa';
+import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Investors.css';
+
+const INVESTOR_COLUMNS = [
+  { key: 'name', label: 'Partner Name', type: 'text' },
+  { key: 'cnic', label: 'Identity (CNIC)', type: 'text' },
+  { key: 'contact_number', label: 'Communication', type: 'text' },
+  { key: 'balance', label: 'Current Balance', type: 'currency' },
+];
 
 const Investors = () => {
   const [investors, setInvestors] = useState([]);
@@ -17,6 +25,15 @@ const Investors = () => {
   });
 
   const { isAdmin, isAccountant } = useAuth();
+
+  const {
+    search, setSearch,
+    filters, setFilter, clearFilters,
+    filteredData: filteredInvestors,
+    uniqueValues,
+    showFilters, setShowFilters,
+    activeFilterCount,
+  } = useTableFilters(investors, INVESTOR_COLUMNS);
 
   useEffect(() => {
     if (isAdmin || isAccountant) {
@@ -112,6 +129,20 @@ const Investors = () => {
       </div>
 
       <div className="glass-card">
+        <TableToolbar
+          columns={INVESTOR_COLUMNS}
+          search={search}
+          onSearchChange={setSearch}
+          filters={filters}
+          onFilterChange={setFilter}
+          uniqueValues={uniqueValues}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+          searchPlaceholder="Search investors by name, CNIC, contact..."
+          resultCount={filteredInvestors.length}
+        />
         <div className="premium-table-container">
           <table className="premium-table">
             <thead>
@@ -124,14 +155,14 @@ const Investors = () => {
               </tr>
             </thead>
             <tbody>
-              {investors.length === 0 ? (
+              {filteredInvestors.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="empty-state">
-                    No registered investors found in current portfolio
+                    No registered investors match the current search/filter criteria
                   </td>
                 </tr>
               ) : (
-                investors.map((investor) => (
+                filteredInvestors.map((investor) => (
                   <tr key={investor.id}>
                     <td style={{ fontWeight: '700' }}>{investor.name}</td>
                     <td>{investor.cnic}</td>

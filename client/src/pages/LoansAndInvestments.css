@@ -1,0 +1,91 @@
+.li-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.li-summary-card {
+    background: var(--white);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: 20px;
+    padding: 2rem;
+}
+
+.li-summary-card label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05rem;
+    margin-bottom: 1.25rem;
+}
+
+.li-summary-card .amount {
+    display: block;
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: var(--text-main);
+    letter-spacing: -1px;
+}
+
+.li-tabs-nav {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.li-tab-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 12px 12px 0 0;
+    position: relative;
+}
+
+.li-tab-item:hover {
+    color: var(--text-main);
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.li-tab-item.active {
+    color: var(--primary);
+}
+
+.li-tab-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--primary);
+}
+
+.li-balance {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.li-balance.positive {
+    color: var(--success, #1a8f4c);
+}
+
+.li-balance.zero {
+    color: var(--text-muted);
+}
+
+.li-empty-row td {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 2rem 1rem;
+}
