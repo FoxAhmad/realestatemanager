@@ -19,7 +19,8 @@ import {
   FaUserShield,
   FaBars,
   FaTimes,
-  FaPiggyBank
+  FaPiggyBank,
+  FaFileContract
 } from 'react-icons/fa';
 import './Layout.css';
 
@@ -76,10 +77,6 @@ const Layout = () => {
             {sidebarOpen ? <FaChevronLeft /> : <FaChevronRight />}
           </button>
 
-          <div className="sidebar-header">
-            {sidebarOpen && <span>Command Center</span>}
-          </div>
-
           <nav className="sidebar-nav">
             <div className="sidebar-section">
               <Link
@@ -94,75 +91,15 @@ const Layout = () => {
             </div>
 
             {(user?.role === 'admin' || user?.role === 'accountant') && (
-              <>
-                <div className="sidebar-section">
-                  <Link
-                    to="/dealers"
-                    className={`sidebar-submenu-item ${isActive('/dealers') ? 'active' : ''}`}
-                    title="Salespersons"
-                    onClick={closeSidebarOnMobile}
-                  >
-                    <FaUserTie className="sidebar-icon" />
-                    {sidebarOpen && <span>Salespersons</span>}
-                  </Link>
-                </div>
-                <div className="sidebar-section">
-                  <Link
-                    to="/employees"
-                    className={`sidebar-submenu-item ${isActive('/employees') ? 'active' : ''}`}
-                    title="Employees"
-                    onClick={closeSidebarOnMobile}
-                  >
-                    <FaUserShield className="sidebar-icon" />
-                    {sidebarOpen && <span>User Roles</span>}
-                  </Link>
-                </div>
-              </>
-            )}
-
-            {/* <div className="sidebar-section">
-              <Link
-                to="/leads"
-                className={`sidebar-submenu-item ${isActive('/leads') ? 'active' : ''}`}
-                title="Leads"
-              >
-                <FaUserPlus className="sidebar-icon" />
-                {sidebarOpen && <span>Leads</span>}
-              </Link>
-            </div> */}
-
-            {/* <div className="sidebar-section">
-              <Link
-                to="/customers"
-                className={`sidebar-submenu-item ${isActive('/customers') ? 'active' : ''}`}
-                title="Customers"
-              >
-                <FaUsers className="sidebar-icon" />
-                {sidebarOpen && <span>Customers</span>}
-              </Link>
-            </div>
-
-            <div className="sidebar-section">
-              <Link
-                to="/deals"
-                className={`sidebar-submenu-item ${isActive('/deals') ? 'active' : ''}`}
-                title="Deals"
-              >
-                <FaHandshake className="sidebar-icon" />
-                {sidebarOpen && <span>Deals</span>}
-              </Link>
-            </div> */}
-
-            {user?.role !== 'customer' && (
               <div className="sidebar-section">
                 <Link
-                  to="/dealer-exchanges"
-                  className={`sidebar-submenu-item ${isActive('/dealer-exchanges') ? 'active' : ''}`}
-                  title="Dealer Mutuals"
+                  to="/dealers"
+                  className={`sidebar-submenu-item ${isActive('/dealers') ? 'active' : ''}`}
+                  title="Salespersons"
                   onClick={closeSidebarOnMobile}
                 >
-                  <FaExchangeAlt className="sidebar-icon" />
-                  {sidebarOpen && <span>Dealer Mutuals</span>}
+                  <FaUserTie className="sidebar-icon" />
+                  {sidebarOpen && <span>Salespersons</span>}
                 </Link>
               </div>
             )}
@@ -179,17 +116,6 @@ const Layout = () => {
               </Link>
             </div>
 
-            {/* <div className="sidebar-section">
-              <Link
-                to="/ledger"
-                className={`sidebar-submenu-item ${isActive('/ledger') ? 'active' : ''}`}
-                title="Slip Record"
-              >
-                <FaBook className="sidebar-icon" />
-                {sidebarOpen && <span>Slip Record</span>}
-              </Link>
-            </div> */}
-            
             {(user?.role === 'admin' || user?.role === 'accountant') && (
               <div className="sidebar-section">
                 <Link
@@ -200,6 +126,72 @@ const Layout = () => {
                 >
                   <FaWallet className="sidebar-icon" />
                   {sidebarOpen && <span>Manage Balances</span>}
+                </Link>
+              </div>
+            )}
+
+            {(user?.role === 'admin' || user?.role === 'accountant') && (
+              <div className="sidebar-section">
+                <Link
+                  to="/forms-ledger"
+                  className={`sidebar-submenu-item ${isActive('/forms-ledger') ? 'active' : ''}`}
+                  title="Forms Ledger"
+                  onClick={closeSidebarOnMobile}
+                >
+                  <FaFileContract className="sidebar-icon" />
+                  {sidebarOpen && <span>Forms Ledger</span>}
+                </Link>
+              </div>
+            )}
+
+            <div className="sidebar-section">
+              <Link
+                to="/inventory"
+                className={`sidebar-submenu-item ${isActive('/inventory') ? 'active' : ''}`}
+                title="Inventory"
+                onClick={closeSidebarOnMobile}
+              >
+                <FaWarehouse className="sidebar-icon" />
+                {sidebarOpen && <span>Inventory</span>}
+              </Link>
+            </div>
+
+            <div className="sidebar-section">
+              <Link
+                to="/deals"
+                className={`sidebar-submenu-item ${isActive('/deals') ? 'active' : ''}`}
+                title="Deals"
+                onClick={closeSidebarOnMobile}
+              >
+                <FaHandshake className="sidebar-icon" />
+                {sidebarOpen && <span>Deals</span>}
+              </Link>
+            </div>
+
+            {(user?.role === 'admin' || user?.role === 'accountant') && (
+              <div className="sidebar-section">
+                <Link
+                  to="/employees"
+                  className={`sidebar-submenu-item ${isActive('/employees') ? 'active' : ''}`}
+                  title="Employees"
+                  onClick={closeSidebarOnMobile}
+                >
+                  <FaUserShield className="sidebar-icon" />
+                  {sidebarOpen && <span>User Roles</span>}
+                </Link>
+              </div>
+            )}
+
+            {user?.role !== 'customer' && (
+              <div className="sidebar-section">
+                <Link
+                  to="/dealer-exchanges"
+                  className={`sidebar-submenu-item ${isActive('/dealer-exchanges') ? 'active' : ''}`}
+                  title="Dealer Mutuals"
+                  onClick={closeSidebarOnMobile}
+                >
+                  <FaExchangeAlt className="sidebar-icon" />
+                  {sidebarOpen && <span>Dealer Mutuals</span>}
                 </Link>
               </div>
             )}
@@ -218,38 +210,29 @@ const Layout = () => {
               </div>
             )}
 
-            {/* <div className="sidebar-section">
-              <Link
-                to="/inventory"
-                className={`sidebar-submenu-item ${isActive('/inventory') ? 'active' : ''}`}
-                title="Inventory"
-              >
-                <FaWarehouse className="sidebar-icon" />
-                {sidebarOpen && <span>Inventory</span>}
-              </Link>
-            </div> */}
-
-            {/* <div className="sidebar-section">
+            <div className="sidebar-section">
               <Link
                 to="/payments"
                 className={`sidebar-submenu-item ${isActive('/payments') ? 'active' : ''}`}
                 title="Payments"
+                onClick={closeSidebarOnMobile}
               >
                 <FaDollarSign className="sidebar-icon" />
                 {sidebarOpen && <span>Payments</span>}
               </Link>
-            </div> */}
+            </div>
 
-            {/* <div className="sidebar-section">
+            <div className="sidebar-section">
               <Link
                 to="/investors"
                 className={`sidebar-submenu-item ${isActive('/investors') ? 'active' : ''}`}
                 title="Investors"
+                onClick={closeSidebarOnMobile}
               >
                 <FaMoneyBillWave className="sidebar-icon" />
                 {sidebarOpen && <span>Investors</span>}
               </Link>
-            </div> */}
+            </div>
           </nav>
         </aside>
 

@@ -110,6 +110,10 @@ const initDatabase = async () => {
       await db.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS plot_category VARCHAR(255) DEFAULT 'standard'`);
       await db.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS plot_type VARCHAR(5) DEFAULT 'R'`);
       await db.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS size VARCHAR(255)`);
+      await db.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS block VARCHAR(50)`);
+      await db.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS membership_no VARCHAR(100)`);
+      await db.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS registration_no VARCHAR(100)`);
+      await db.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS form_number VARCHAR(100)`);
       await db.query(`ALTER TABLE inventory_plots DROP CONSTRAINT IF EXISTS inventory_plots_plot_category_check`);
       await db.query(`ALTER TABLE inventory_plots DROP CONSTRAINT IF EXISTS inventory_plots_plot_type_check`);
       await db.query(`ALTER TABLE inventory_plots ADD CONSTRAINT inventory_plots_plot_type_check CHECK (plot_type IN ('C', 'R'))`);
@@ -200,6 +204,22 @@ const initDatabase = async () => {
     await db.query(`
       CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date)
     `);
+
+    // Add receipt/instrument detail fields to payments, matching dealer account
+    // statements (instrument type + number, LPS charged alongside a receipt), and
+    // widen payment_type to cover the other receivable lines those statements show.
+    try {
+      await db.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS instrument VARCHAR(50)`);
+      await db.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS instrument_number VARCHAR(100)`);
+      await db.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS voucher_no VARCHAR(100)`);
+      await db.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS lps_amount DECIMAL(15, 2) DEFAULT 0`);
+      await db.query(`ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_payment_type_check`);
+      await db.query(`
+        ALTER TABLE payments
+        ADD CONSTRAINT payments_payment_type_check
+        CHECK (payment_type IN ('down_payment', 'installment', 'excess_area', 'possession_fee', 'form_fee', 'other'))
+      `);
+    } catch (e) { /* ignore */ }
 
 
     // Create Inventory Plot Assignments table (tracks assignments with payment details)
@@ -460,7 +480,7 @@ const initDatabase = async () => {
         id SERIAL PRIMARY KEY,
         transaction_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         description TEXT,
-        reference_type VARCHAR(50) CHECK (reference_type IN ('DEAL', 'DEPOSIT', 'ADJUSTMENT', 'TRANSFER', 'COMMISSION', 'BALANCE_UPDATE')),
+        reference_type VARCHAR(50) CHECK (reference_type IN ('DEAL', 'DEPOSIT', 'ADJUSTMENT', 'TRANSFER', 'COMMISSION', 'BALANCE_UPDATE', 'LOAN_DISBURSED', 'LOAN_REPAYMENT', 'LOAN_TAKEN', 'LOAN_REPAID', 'INVESTMENT_MADE', 'INVESTMENT_RETURN', 'OWNER_DRAWING', 'OWNER_CONTRIBUTION')),
         reference_id INTEGER,
         voucher_no VARCHAR(100),
         instrument VARCHAR(50),
@@ -478,7 +498,7 @@ const initDatabase = async () => {
       await db.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS instrument_number VARCHAR(100)`);
       await db.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS proof_file VARCHAR(500)`);
       await db.query(`ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_reference_type_check`);
-      await db.query(`ALTER TABLE transactions ADD CONSTRAINT transactions_reference_type_check CHECK (reference_type IN ('DEAL', 'DEPOSIT', 'ADJUSTMENT', 'TRANSFER', 'COMMISSION', 'BALANCE_UPDATE'))`);
+      await db.query(`ALTER TABLE transactions ADD CONSTRAINT transactions_reference_type_check CHECK (reference_type IN ('DEAL', 'DEPOSIT', 'ADJUSTMENT', 'TRANSFER', 'COMMISSION', 'BALANCE_UPDATE', 'LOAN_DISBURSED', 'LOAN_REPAYMENT', 'LOAN_TAKEN', 'LOAN_REPAID', 'INVESTMENT_MADE', 'INVESTMENT_RETURN', 'OWNER_DRAWING', 'OWNER_CONTRIBUTION'))`);
     } catch (e) { /* ignore */ }
 
     await db.query(`
@@ -532,6 +552,18 @@ const initDatabase = async () => {
     // Add quantity column if it doesn't exist
     try {
       await db.query(`ALTER TABLE deal_adjustments ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1`);
+      // Optional link to the specific installment (payments row) this adjustment form
+      // was applied against, so it can be posted from within that installment instead
+      // of floating as an unrelated ledger entry. NULL = a standalone adjustment (old behavior).
+      await db.query(`ALTER TABLE deal_adjustments ADD COLUMN IF NOT EXISTS payment_id INTEGER REFERENCES payments(id) ON DELETE SET NULL`);
+    } catch (e) { /* ignore */ }
+
+    // Mirror investor repayments (inventory_payments) and dealer mutual exchanges
+    // (dealer_exchanges) into the ledger for visibility, without moving their CRUD
+    // onto the chart of accounts. Must run after `transactions` exists (above).
+    try {
+      await db.query(`ALTER TABLE inventory_payments ADD COLUMN IF NOT EXISTS ledger_transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL`);
+      await db.query(`ALTER TABLE dealer_exchanges ADD COLUMN IF NOT EXISTS ledger_transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL`);
     } catch (e) { /* ignore */ }
 
     // Create Balance Projects table (shared across Dealer Advances & Certificate accounts)
@@ -549,6 +581,11 @@ const initDatabase = async () => {
     // Add project_id to transaction_lines if not exists
     try {
       await db.query(`ALTER TABLE transaction_lines ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES balance_projects(id) ON DELETE SET NULL`);
+    } catch (e) { /* ignore */ }
+
+    // Link inventory to the same Balance Projects used in Manage Balances
+    try {
+      await db.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES balance_projects(id) ON DELETE SET NULL`);
     } catch (e) { /* ignore */ }
 
     // Create App Settings table
@@ -739,6 +776,27 @@ const initDatabase = async () => {
       await db.query(`SELECT setval('accounts_id_seq', (SELECT MAX(id) FROM accounts))`);
     } catch(err) {
       console.log('Note: Seed accounts error:', err.message);
+    }
+
+    // Seed parent accounts for loans/investments/owner-equity (finance ledger extension).
+    // These aren't given fixed IDs like the original 9 — per-person/venture sub-accounts
+    // are created dynamically under them at runtime via ledgerService.findOrCreateSubAccount.
+    try {
+      const newParentAccounts = [
+        ['Investments', 'Asset'],
+        ['Loans Receivable', 'Asset'],
+        ['Loans Payable', 'Liability'],
+        ['Owner Equity / Drawings', 'Equity']
+      ];
+      for (const [name, type] of newParentAccounts) {
+        await db.query(`
+          INSERT INTO accounts (name, type)
+          SELECT $1::varchar, $2::varchar
+          WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = $1::varchar AND parent_id IS NULL)
+        `, [name, type]);
+      }
+    } catch (err) {
+      console.log('Note: Seed parent accounts error:', err.message);
     }
 
     console.log('Database tables initialized successfully');

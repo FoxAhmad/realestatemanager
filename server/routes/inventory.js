@@ -15,7 +15,7 @@ router.get('/', auth, async (req, res) => {
     let result;
     if (seeAll) {
       result = await db.query(`
-        SELECT i.*, u.name as assigned_to_name,
+        SELECT i.*, u.name as assigned_to_name, bp.name as project_name,
                COALESCE(SUM(CASE WHEN d.status != 'deal_not_done' THEN d.inventory_quantity_used ELSE 0 END), 0) as used_quantity,
                (SELECT plot_type FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as plot_type,
                (SELECT plot_category FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as plot_category,
@@ -23,20 +23,25 @@ router.get('/', auth, async (req, res) => {
         FROM inventory i
         LEFT JOIN users u ON i.assigned_to = u.id
         LEFT JOIN deals d ON i.id = d.inventory_id
-        GROUP BY i.id, u.name
+        LEFT JOIN balance_projects bp ON i.project_id = bp.id
+        GROUP BY i.id, u.name, bp.name
         ORDER BY i.created_at DESC
       `);
-      
+
       // Fetch all plot assignments with details for each inventory item
       for (let item of result.rows) {
         const plotsResult = await db.query(`
-          SELECT 
+          SELECT
             ip.id as plot_id,
             ip.plot_number,
             ip.status as plot_status,
             ip.size,
             ip.plot_category,
             ip.plot_type,
+            ip.block,
+            ip.membership_no,
+            ip.registration_no,
+            ip.form_number,
             u.id as assigned_to_id,
             u.name as assigned_to_name
           FROM inventory_plots ip
@@ -44,7 +49,7 @@ router.get('/', auth, async (req, res) => {
           WHERE ip.inventory_id = $1
           ORDER BY ip.plot_number ASC
         `, [item.id]);
-        
+
         item.plots = plotsResult.rows;
       }
     } else {
@@ -53,12 +58,12 @@ router.get('/', auth, async (req, res) => {
       // 1. Directly assigned to them (status assigned/paid/sold)
       // 2. OR has plots assigned to them (regardless of inventory status)
       result = await db.query(`
-        SELECT DISTINCT i.*, u.name as assigned_to_name,
+        SELECT DISTINCT i.*, u.name as assigned_to_name, bp.name as project_name,
                COALESCE(SUM(CASE WHEN d.status != 'deal_not_done' THEN d.inventory_quantity_used ELSE 0 END), 0) as used_quantity,
                (SELECT plot_type FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as plot_type,
                (SELECT plot_category FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as plot_category,
                (SELECT size FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as size,
-               CASE 
+               CASE
                  WHEN i.assigned_to = $1 THEN true
                  WHEN EXISTS (SELECT 1 FROM inventory_plots ip WHERE ip.inventory_id = i.id AND ip.assigned_to = $1) THEN true
                  ELSE false
@@ -66,9 +71,10 @@ router.get('/', auth, async (req, res) => {
         FROM inventory i
         LEFT JOIN users u ON i.assigned_to = u.id
         LEFT JOIN deals d ON i.id = d.inventory_id
+        LEFT JOIN balance_projects bp ON i.project_id = bp.id
         WHERE (i.assigned_to = $1 AND i.status IN ('assigned', 'paid', 'sold'))
            OR EXISTS (SELECT 1 FROM inventory_plots ip WHERE ip.inventory_id = i.id AND ip.assigned_to = $1 AND ip.status IN ('assigned', 'paid'))
-        GROUP BY i.id, u.name
+        GROUP BY i.id, u.name, bp.name
         ORDER BY i.created_at DESC
       `, [req.user.id]);
       
@@ -172,24 +178,26 @@ router.get('/:id', auth, async (req, res) => {
     let result;
     if (req.user.role === 'admin') {
       result = await db.query(`
-        SELECT i.*, u.name as assigned_to_name,
+        SELECT i.*, u.name as assigned_to_name, bp.name as project_name,
                COUNT(ip.id) as plot_count
         FROM inventory i
         LEFT JOIN users u ON i.assigned_to = u.id
         LEFT JOIN inventory_plots ip ON i.id = ip.inventory_id
+        LEFT JOIN balance_projects bp ON i.project_id = bp.id
         WHERE i.id = $1
-        GROUP BY i.id, u.name
+        GROUP BY i.id, u.name, bp.name
       `, [req.params.id]);
     } else {
       // Salespersons can only view inventory assigned to them
       result = await db.query(`
-        SELECT i.*, u.name as assigned_to_name,
+        SELECT i.*, u.name as assigned_to_name, bp.name as project_name,
                COUNT(ip.id) as plot_count
         FROM inventory i
         LEFT JOIN users u ON i.assigned_to = u.id
         LEFT JOIN inventory_plots ip ON i.id = ip.inventory_id
+        LEFT JOIN balance_projects bp ON i.project_id = bp.id
         WHERE i.id = $1 AND i.assigned_to = $2
-        GROUP BY i.id, u.name
+        GROUP BY i.id, u.name, bp.name
       `, [req.params.id, req.user.id]);
     }
 
@@ -219,7 +227,7 @@ const parsePlotNumbers = (plotNumbersInput) => {
 // Create inventory (Admin and Accountant)
 router.post('/', auth, adminAndAccountantOnly, async (req, res) => {
   try {
-    const { category, address, price, quantity, plot_numbers, plot_type, plot_category, size } = req.body;
+    const { category, address, price, quantity, plot_numbers, plot_type, plot_category, size, project_id, block, membership_no, registration_no, form_number } = req.body;
 
     if (!category || !address || !price) {
       return res.status(400).json({ message: 'Category, address, and price are required' });
@@ -244,10 +252,10 @@ router.post('/', auth, adminAndAccountantOnly, async (req, res) => {
 
     // Create inventory record
     const result = await db.query(`
-      INSERT INTO inventory (category, address, price, quantity, status, plot_numbers_input)
-      VALUES ($1, $2, $3, $4, 'available', $5)
+      INSERT INTO inventory (category, address, price, quantity, status, plot_numbers_input, project_id)
+      VALUES ($1, $2, $3, $4, 'available', $5, $6)
       RETURNING *
-    `, [category, address, price, qty, plotNumbersInput || null]);
+    `, [category, address, price, qty, plotNumbersInput || null, project_id || null]);
 
     const inventoryId = result.rows[0].id;
 
@@ -255,17 +263,17 @@ router.post('/', auth, adminAndAccountantOnly, async (req, res) => {
     if (parsedPlotNumbers.length > 0) {
       for (const plotNumber of parsedPlotNumbers) {
         await db.query(`
-          INSERT INTO inventory_plots (inventory_id, plot_number, status, plot_type, plot_category, size)
-          VALUES ($1, $2, 'available', $3, $4, $5)
-        `, [inventoryId, plotNumber, plot_type || 'R', plot_category || 'standard', size || null]);
+          INSERT INTO inventory_plots (inventory_id, plot_number, status, plot_type, plot_category, size, block, membership_no, registration_no, form_number)
+          VALUES ($1, $2, 'available', $3, $4, $5, $6, $7, $8, $9)
+        `, [inventoryId, plotNumber, plot_type || 'R', plot_category || 'standard', size || null, block || null, membership_no || null, registration_no || null, form_number || null]);
       }
     } else {
       // If no plot numbers provided, create placeholder plots based on quantity
       for (let i = 1; i <= qty; i++) {
         await db.query(`
-          INSERT INTO inventory_plots (inventory_id, plot_number, status, plot_type, plot_category, size)
-          VALUES ($1, $2, 'available', $3, $4, $5)
-        `, [inventoryId, `${category}-${i}`, plot_type || 'R', plot_category || 'standard', size || null]);
+          INSERT INTO inventory_plots (inventory_id, plot_number, status, plot_type, plot_category, size, block, membership_no, registration_no, form_number)
+          VALUES ($1, $2, 'available', $3, $4, $5, $6, $7, $8, $9)
+        `, [inventoryId, `${category}-${i}`, plot_type || 'R', plot_category || 'standard', size || null, block || null, membership_no || null, registration_no || null, form_number || null]);
       }
     }
 
@@ -290,22 +298,23 @@ router.post('/', auth, adminAndAccountantOnly, async (req, res) => {
 // Update inventory (Admin and Accountant)
 router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
   try {
-    const { category, address, price, quantity, status, assigned_to, plot_numbers, merge_ids, plot_type, plot_category, size } = req.body;
+    const { category, address, price, quantity, status, assigned_to, plot_numbers, merge_ids, plot_type, plot_category, size, project_id, block, membership_no, registration_no, form_number } = req.body;
 
     await db.query('BEGIN');
 
     // 1. Update the main record
     const result = await db.query(`
-      UPDATE inventory 
+      UPDATE inventory
       SET category = COALESCE($1, category),
           address = COALESCE($2, address),
           price = COALESCE($3, price),
           quantity = COALESCE($4, quantity),
           status = COALESCE($5, status),
-          assigned_to = COALESCE($6, assigned_to)
-      WHERE id = $7
+          assigned_to = COALESCE($6, assigned_to),
+          project_id = COALESCE($7, project_id)
+      WHERE id = $8
       RETURNING *
-    `, [category, address, price, quantity ? parseInt(quantity) : null, status, assigned_to || null, req.params.id]);
+    `, [category, address, price, quantity ? parseInt(quantity) : null, status, assigned_to || null, project_id || null, req.params.id]);
 
     if (result.rows.length === 0) {
       await db.query('ROLLBACK');
@@ -313,16 +322,20 @@ router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
     }
 
     const inventoryId = req.params.id;
-    
+
     // 1.5 Update global plot fields for all plots in this inventory item if provided
-    if (plot_type || plot_category || size) {
+    if (plot_type || plot_category || size || block || membership_no || registration_no || form_number) {
       await db.query(`
-        UPDATE inventory_plots 
+        UPDATE inventory_plots
         SET plot_type = COALESCE($1, plot_type),
             plot_category = COALESCE($2, plot_category),
-            size = COALESCE($3, size)
-        WHERE inventory_id = $4
-      `, [plot_type, plot_category, size, inventoryId]);
+            size = COALESCE($3, size),
+            block = COALESCE($4, block),
+            membership_no = COALESCE($5, membership_no),
+            registration_no = COALESCE($6, registration_no),
+            form_number = COALESCE($7, form_number)
+        WHERE inventory_id = $8
+      `, [plot_type, plot_category, size, block, membership_no, registration_no, form_number, inventoryId]);
     }
 
     // 2. Handle Mercury/Merge if merge_ids provided
@@ -419,22 +432,26 @@ router.delete('/:id', auth, adminAndAccountantOnly, async (req, res) => {
 // Update specific plot (Admin and Accountant)
 router.put('/plots/:plotId', auth, adminAndAccountantOnly, async (req, res) => {
   try {
-    const { plot_number, plot_category, plot_type, size } = req.body;
-    
-    // Add validation 
+    const { plot_number, plot_category, plot_type, size, block, membership_no, registration_no, form_number } = req.body;
+
+    // Add validation
     if (!plot_number) {
       return res.status(400).json({ message: 'Plot number is required' });
     }
 
     const result = await db.query(`
-      UPDATE inventory_plots 
+      UPDATE inventory_plots
       SET plot_number = COALESCE($1, plot_number),
           plot_category = COALESCE($2, plot_category),
           plot_type = COALESCE($3, plot_type),
-          size = COALESCE($4, size)
-      WHERE id = $5
+          size = COALESCE($4, size),
+          block = $5,
+          membership_no = $6,
+          registration_no = $7,
+          form_number = $8
+      WHERE id = $9
       RETURNING *
-    `, [plot_number, plot_category, plot_type, size, req.params.plotId]);
+    `, [plot_number, plot_category, plot_type, size, block || null, membership_no || null, registration_no || null, form_number || null, req.params.plotId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Plot not found' });
@@ -445,6 +462,48 @@ router.put('/plots/:plotId', auth, adminAndAccountantOnly, async (req, res) => {
     if (error.code === '23505') { // Unique constraint violation
       return res.status(400).json({ message: 'Duplicate plot number found.' });
     }
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get the deal (if any) a specific plot is used in, with payment summary
+router.get('/plots/:plotId/deal', auth, async (req, res) => {
+  try {
+    const dealResult = await db.query(`
+      SELECT d.id, d.status, d.property_type, d.original_price, d.sale_price,
+             d.demand_price, d.remaining_price, d.created_at,
+             c.name as customer_name, c.phone_number as customer_phone,
+             u.name as dealer_name
+      FROM deal_plots dp
+      INNER JOIN deals d ON dp.deal_id = d.id
+      LEFT JOIN customers c ON d.customer_id = c.id
+      LEFT JOIN users u ON d.dealer_id = u.id
+      WHERE dp.plot_id = $1
+      ORDER BY d.created_at DESC
+      LIMIT 1
+    `, [req.params.plotId]);
+
+    if (dealResult.rows.length === 0) {
+      return res.json({ deal: null });
+    }
+
+    const deal = dealResult.rows[0];
+
+    const paidResult = await db.query(
+      `SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE deal_id = $1`,
+      [deal.id]
+    );
+    const totalPaid = parseFloat(paidResult.rows[0].total_paid || 0);
+    const salePrice = parseFloat(deal.sale_price || 0);
+
+    res.json({
+      deal: {
+        ...deal,
+        total_paid: totalPaid,
+        remaining_balance: salePrice - totalPaid
+      }
+    });
+  } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

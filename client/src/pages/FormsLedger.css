@@ -1,0 +1,146 @@
+.forms-price-strip {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.forms-price-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: var(--white);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+}
+
+.forms-price-chip .label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.forms-price-chip .value {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.forms-price-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  max-width: 320px;
+}
+
+.forms-dealer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.forms-dealer-card {
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.forms-dealer-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.forms-dealer-row:hover {
+  background: rgba(84, 105, 212, 0.04);
+}
+
+.forms-dealer-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(84,105,212,0.12), rgba(84,105,212,0.06));
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.forms-dealer-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.forms-dealer-name {
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+.forms-dealer-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.forms-dealer-count,
+.forms-dealer-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  min-width: 100px;
+}
+
+.forms-dealer-count .count-val {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.forms-dealer-count .count-label,
+.forms-dealer-value .value-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.forms-dealer-value .value-val {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--success);
+}
+
+.forms-dealer-history {
+  padding: 0 1.5rem 1.5rem;
+  border-top: 1px solid rgba(0,0,0,0.05);
+  background: #f8fafc;
+}
+
+.forms-dealer-history .premium-table {
+  margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .forms-dealer-row {
+    flex-wrap: wrap;
+  }
+
+  .forms-dealer-count,
+  .forms-dealer-value {
+    align-items: flex-start;
+    min-width: 0;
+  }
+}

@@ -2,6 +2,49 @@ const express = require('express');
 const router = express.Router();
 const { auth } = require('../middleware/auth');
 const db = require('../config/database');
+const ledgerService = require('../services/ledgerService');
+
+// Best-effort mirror of an investor repayment into the ledger (Loans Payable > investor).
+// This is a reflection for visibility, not the source of truth -- investors/inventory_payments
+// stay authoritative for paid_amount/remaining_balance, so a mirror failure is logged and
+// swallowed rather than failing the payment itself.
+async function mirrorInvestorPayment({ investorName, investorId, amount, paymentDate, inventoryPaymentId, reverse }) {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const accMap = await ledgerService.getAccountMap();
+    const subAccountId = await ledgerService.findOrCreateSubAccount(client, {
+      name: investorName,
+      type: 'Liability',
+      parentName: 'Loans Payable'
+    });
+
+    const lines = reverse
+      ? [{ account_id: accMap.CASH_BANK, debit: amount }, { account_id: subAccountId, credit: amount }]
+      : [{ account_id: subAccountId, debit: amount }, { account_id: accMap.CASH_BANK, credit: amount }];
+
+    const transId = await ledgerService.createTransaction(client, {
+      date: paymentDate,
+      description: `${reverse ? 'Reversal of repayment to' : 'Repayment to'} investor: ${investorName}`,
+      type: reverse ? 'LOAN_TAKEN' : 'LOAN_REPAID',
+      refId: investorId,
+      lines
+    });
+
+    if (inventoryPaymentId) {
+      await client.query('UPDATE inventory_payments SET ledger_transaction_id = $1 WHERE id = $2', [transId, inventoryPaymentId]);
+    }
+
+    await client.query('COMMIT');
+    return transId;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Ledger mirror failed for inventory payment', inventoryPaymentId, err.message);
+    return null;
+  } finally {
+    client.release();
+  }
+}
 
 // Get all inventory payments (Admin sees all, Salespersons see only their own)
 router.get('/', auth, async (req, res) => {
@@ -186,7 +229,7 @@ router.post('/', auth, async (req, res) => {
 
       // Update investor balance
       const investorResult = await db.query(
-        'SELECT paid_amount, total_invested FROM investors WHERE id = $1',
+        'SELECT name, paid_amount, total_invested FROM investors WHERE id = $1',
         [invPayment.investor_id]
       );
 
@@ -201,6 +244,16 @@ router.post('/', auth, async (req, res) => {
           SET paid_amount = $1, remaining_balance = $2
           WHERE id = $3
         `, [newPaidAmount, remainingBalance, invPayment.investor_id]);
+
+        const mirroredTransId = await mirrorInvestorPayment({
+          investorName: investorResult.rows[0].name,
+          investorId: invPayment.investor_id,
+          amount: parseFloat(invPayment.amount),
+          paymentDate: payment_date,
+          inventoryPaymentId: result.rows[0].id,
+          reverse: false
+        });
+        if (mirroredTransId) result.rows[0].ledger_transaction_id = mirroredTransId;
       }
     }
 
@@ -341,7 +394,7 @@ router.delete('/:id', auth, async (req, res) => {
     // Update investor balance if payment had investor_id
     if (payment.investor_id) {
       const investorResult = await db.query(
-        'SELECT paid_amount, total_invested FROM investors WHERE id = $1',
+        'SELECT name, paid_amount, total_invested FROM investors WHERE id = $1',
         [payment.investor_id]
       );
 
@@ -356,6 +409,15 @@ router.delete('/:id', auth, async (req, res) => {
           SET paid_amount = $1, remaining_balance = $2
           WHERE id = $3
         `, [newPaidAmount, remainingBalance, payment.investor_id]);
+
+        await mirrorInvestorPayment({
+          investorName: investorResult.rows[0].name,
+          investorId: payment.investor_id,
+          amount: parseFloat(payment.amount),
+          paymentDate: payment.payment_date,
+          inventoryPaymentId: null,
+          reverse: true
+        });
       }
     }
 

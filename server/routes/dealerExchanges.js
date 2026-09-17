@@ -5,6 +5,47 @@ const path = require('path');
 const { auth } = require('../middleware/auth');
 const db = require('../config/database');
 const supabase = require('../config/supabase');
+const ledgerService = require('../services/ledgerService');
+
+// Best-effort mirror of a mutual exchange into the ledger: no company cash moves (this is a
+// direct dealer-to-dealer settlement), so it posts as a TRANSFER between the two dealers'
+// existing Dealer Finance (account 9) sub-balances, keyed by user_id -- sender's wallet claim
+// decreases, receiver's increases. dealer_exchanges stays the source of truth; a mirror
+// failure is logged and swallowed rather than failing the exchange itself.
+async function postDealerExchangeTransfer({ senderId, receiverId, amount, date, detail }) {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const accMap = await ledgerService.getAccountMap();
+    const transId = await ledgerService.createTransaction(client, {
+      date: date || new Date(),
+      description: detail || `Mutual exchange: dealer ${senderId} to dealer ${receiverId}`,
+      type: 'TRANSFER',
+      lines: [
+        { account_id: accMap.DEALER_FINANCE, user_id: senderId, debit: amount },
+        { account_id: accMap.DEALER_FINANCE, user_id: receiverId, credit: amount }
+      ]
+    });
+    await client.query('COMMIT');
+    return transId;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Ledger mirror failed for dealer exchange', senderId, '->', receiverId, err.message);
+    return null;
+  } finally {
+    client.release();
+  }
+}
+
+async function deleteMirroredTransaction(transactionId) {
+  if (!transactionId) return;
+  try {
+    // transaction_lines has ON DELETE CASCADE on transaction_id, so this removes both lines too.
+    await db.query('DELETE FROM transactions WHERE id = $1', [transactionId]);
+  } catch (err) {
+    console.error('Failed to remove mirrored ledger transaction', transactionId, err.message);
+  }
+}
 
 // Configure multer for memory storage
 const upload = multer({
@@ -217,6 +258,14 @@ router.post('/', auth, upload.single('proof_file'), async (req, res) => {
       RETURNING *
     `, [senderId, recipientId, amount, exchange_date, detail || null, proofFile]);
 
+    const transId = await postDealerExchangeTransfer({
+      senderId, receiverId: recipientId, amount: parseFloat(amount), date: exchange_date, detail
+    });
+    if (transId) {
+      await db.query('UPDATE dealer_exchanges SET ledger_transaction_id = $1 WHERE id = $2', [transId, result.rows[0].id]);
+      result.rows[0].ledger_transaction_id = transId;
+    }
+
     res.status(201).json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -245,8 +294,9 @@ const resolveBaseUser = (req, existing) => {
 /**
  * PUT /api/dealer-exchanges/:id
  * Edit an exchange. Management may edit any row; a dealer only rows they are party to.
- * Exchanges are standalone rows (no ledger lines), so there is nothing to unwind —
- * the net balances in /balances are recomputed from these rows on every read.
+ * Exchanges are standalone rows — the net balances in /balances are recomputed from
+ * these rows on every read — but each one is mirrored into the ledger as a TRANSFER;
+ * editing one deletes and recreates that mirrored transaction with the new values.
  */
 router.put('/:id', auth, upload.single('proof_file'), async (req, res) => {
   try {
@@ -308,6 +358,15 @@ router.put('/:id', auth, upload.single('proof_file'), async (req, res) => {
        RETURNING *
     `, [senderId, recipientId, amount, exchange_date, detail || null, proofFile, req.params.id]);
 
+    await deleteMirroredTransaction(existing.ledger_transaction_id);
+    const transId = await postDealerExchangeTransfer({
+      senderId, receiverId: recipientId, amount: parseFloat(amount), date: exchange_date, detail
+    });
+    if (transId) {
+      await db.query('UPDATE dealer_exchanges SET ledger_transaction_id = $1 WHERE id = $2', [transId, req.params.id]);
+      result.rows[0].ledger_transaction_id = transId;
+    }
+
     res.json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -321,7 +380,7 @@ router.put('/:id', auth, upload.single('proof_file'), async (req, res) => {
 router.delete('/:id', auth, async (req, res) => {
   try {
     const existingRes = await db.query(
-      'SELECT sender_id, receiver_id FROM dealer_exchanges WHERE id = $1',
+      'SELECT sender_id, receiver_id, ledger_transaction_id FROM dealer_exchanges WHERE id = $1',
       [req.params.id]
     );
     if (existingRes.rows.length === 0) {
@@ -332,6 +391,7 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(403).json({ message: 'You can only delete exchanges you are part of' });
     }
 
+    await deleteMirroredTransaction(existingRes.rows[0].ledger_transaction_id);
     await db.query('DELETE FROM dealer_exchanges WHERE id = $1', [req.params.id]);
     res.json({ message: 'Exchange deleted' });
   } catch (error) {

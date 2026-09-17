@@ -2,6 +2,41 @@ const express = require('express');
 const router = express.Router();
 const { auth } = require('../middleware/auth');
 const db = require('../config/database');
+const ledgerService = require('../services/ledgerService');
+
+// Best-effort mirror of new investor capital into the ledger (Loans Payable > investor).
+// total_invested is a lump-sum field with no per-event history, so only its increase at
+// each save is mirrored -- a value edited down and back up will not reconstruct a clean
+// ledger history. Investors stays the source of truth; this is a reflection for visibility.
+async function mirrorInvestorCapitalIncrease({ investorName, investorId, delta, date }) {
+  if (!(delta > 0)) return;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const accMap = await ledgerService.getAccountMap();
+    const subAccountId = await ledgerService.findOrCreateSubAccount(client, {
+      name: investorName,
+      type: 'Liability',
+      parentName: 'Loans Payable'
+    });
+    await ledgerService.createTransaction(client, {
+      date: date || new Date(),
+      description: `Capital received from investor: ${investorName}`,
+      type: 'LOAN_TAKEN',
+      refId: investorId,
+      lines: [
+        { account_id: accMap.CASH_BANK, debit: delta },
+        { account_id: subAccountId, credit: delta }
+      ]
+    });
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Ledger mirror failed for investor capital', investorId, err.message);
+  } finally {
+    client.release();
+  }
+}
 
 // Get all investors (Admin sees only their own, Salespersons see only their own)
 router.get('/', auth, async (req, res) => {
@@ -57,6 +92,12 @@ router.post('/', auth, async (req, res) => {
       RETURNING *
     `, [req.user.id, name, phone || null, address || null, totalInvested, paidAmount, remainingBalance]);
 
+    await mirrorInvestorCapitalIncrease({
+      investorName: name,
+      investorId: result.rows[0].id,
+      delta: totalInvested
+    });
+
     res.status(201).json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -94,6 +135,13 @@ router.put('/:id', auth, async (req, res) => {
       WHERE id = $7 AND salesperson_id = $8
       RETURNING *
     `, [name, phone, address, totalInvested, paidAmount, remainingBalance, req.params.id, req.user.id]);
+
+    const previousTotalInvested = parseFloat(checkResult.rows[0].total_invested || 0);
+    await mirrorInvestorCapitalIncrease({
+      investorName: result.rows[0].name,
+      investorId: result.rows[0].id,
+      delta: totalInvested - previousTotalInvested
+    });
 
     res.json(result.rows[0]);
   } catch (error) {

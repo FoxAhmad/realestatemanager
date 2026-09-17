@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { FaArrowLeft, FaPlus, FaTrash, FaFileInvoiceDollar, FaUser, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaArrowLeft, FaPlus, FaTrash, FaFileInvoiceDollar, FaFileContract, FaUser, FaMapMarkerAlt, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './DealDetail.css';
 
@@ -22,24 +22,25 @@ const DealDetail = () => {
   const [adjustments, setAdjustments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [expandedAdjustments, setExpandedAdjustments] = useState({});
   const [dealers, setDealers] = useState([]);
   const [defaultCost, setDefaultCost] = useState(20000);
   const [defaultCustomerValue, setDefaultCustomerValue] = useState(40000);
-  const [paymentForm, setPaymentForm] = useState({
+  const emptyPaymentForm = {
     amount: '',
     payment_type: 'installment',
     payment_date: new Date().toISOString().split('T')[0],
     notes: '',
-  });
-  const [adjustmentForm, setAdjustmentForm] = useState({
-    user_id: '',
-    quantity: 1,
-    customer_price: 40000,
-    cost_price: 20000,
-    adjustment_date: new Date().toISOString().split('T')[0],
-    notes: '',
-  });
+    instrument: 'cash',
+    instrument_number: '',
+    voucher_no: '',
+    lps_amount: '',
+    apply_adjustment: false,
+    adjustment_user_id: '',
+    adjustment_quantity: 1,
+    adjustment_price: 40000,
+  };
+  const [paymentForm, setPaymentForm] = useState(emptyPaymentForm);
 
   const fetchDealDetails = useCallback(async () => {
     try {
@@ -69,11 +70,10 @@ const DealDetail = () => {
         setDefaultCustomerValue(val);
       }
 
-      setAdjustmentForm(prev => ({
+      setPaymentForm(prev => ({
         ...prev,
-        user_id: dealRes.data.dealer_id, // Default to deal's dealer
-        cost_price: cost * (prev.quantity || 1),
-        customer_price: val * (prev.quantity || 1)
+        adjustment_user_id: prev.adjustment_user_id || dealRes.data.dealer_id, // Default to deal's dealer
+        adjustment_price: prev.adjustment_quantity ? val * prev.adjustment_quantity : val
       }));
 
       // Fetch dealers
@@ -90,26 +90,39 @@ const DealDetail = () => {
     fetchDealDetails();
   }, [fetchDealDetails]);
 
-  const ledgerEntries = useMemo(() => ([
-    ...adjustments.map((a) => ({
-      id: `adj-${a.id}`,
-      _kind: 'adjustment',
-      _raw: a,
-      date: a.transaction_date,
-      type: 'Adjustment',
-      amount: parseFloat(a.customer_price || 0),
-      notes: a.description || a.notes || '',
-    })),
-    ...payments.map((p) => ({
-      id: `pay-${p.id}`,
-      _kind: 'payment',
-      _raw: p,
-      date: p.payment_date,
-      type: p.payment_type,
-      amount: parseFloat(p.amount || 0),
-      notes: p.notes || '',
-    })),
-  ]), [adjustments, payments]);
+  const ledgerEntries = useMemo(() => {
+    const adjustmentsByPayment = {};
+    const unlinkedAdjustments = [];
+    adjustments.forEach((a) => {
+      if (a.payment_id) {
+        adjustmentsByPayment[a.payment_id] = a;
+      } else {
+        unlinkedAdjustments.push(a);
+      }
+    });
+
+    return [
+      ...unlinkedAdjustments.map((a) => ({
+        id: `adj-${a.id}`,
+        _kind: 'adjustment',
+        _raw: a,
+        date: a.transaction_date,
+        type: 'Adjustment',
+        amount: parseFloat(a.customer_price || 0),
+        notes: a.description || a.notes || '',
+      })),
+      ...payments.map((p) => ({
+        id: `pay-${p.id}`,
+        _kind: 'payment',
+        _raw: p,
+        _adjustment: adjustmentsByPayment[p.id] || null,
+        date: p.payment_date,
+        type: p.payment_type,
+        amount: parseFloat(p.amount || 0),
+        notes: p.notes || '',
+      })),
+    ];
+  }, [adjustments, payments]);
 
   const {
     search, setSearch,
@@ -123,15 +136,30 @@ const DealDetail = () => {
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/payments', { ...paymentForm, deal_id: id });
+      const {
+        apply_adjustment, adjustment_user_id, adjustment_quantity, adjustment_price,
+        ...paymentPayload
+      } = paymentForm;
+
+      const paymentRes = await api.post('/payments', { ...paymentPayload, deal_id: id });
+
+      if (apply_adjustment) {
+        const qty = parseInt(adjustment_quantity) || 1;
+        await api.post('/balance-transactions/adjust-deal', {
+          deal_id: id,
+          user_id: adjustment_user_id || deal.dealer_id,
+          quantity: qty,
+          customer_price: adjustment_price || (qty * defaultCustomerValue),
+          cost_price: qty * defaultCost,
+          date: paymentForm.payment_date,
+          notes: `Adjustment applied with ${paymentForm.payment_type.replace('_', ' ')} payment`,
+          payment_id: paymentRes.data.id,
+        });
+      }
+
       fetchDealDetails();
       setShowPaymentModal(false);
-      setPaymentForm({
-        amount: '',
-        payment_type: 'installment',
-        payment_date: new Date().toISOString().split('T')[0],
-        notes: '',
-      });
+      setPaymentForm({ ...emptyPaymentForm, adjustment_user_id: deal.dealer_id, adjustment_price: defaultCustomerValue });
     } catch (error) {
       console.error('Error recording payment:', error);
       alert(error.response?.data?.message || 'Error recording payment');
@@ -147,34 +175,6 @@ const DealDetail = () => {
     }
   };
 
-  const handleAdjustmentSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = { ...adjustmentForm, deal_id: id };
-      // If date is today, add current time for proper sorting
-      if (payload.adjustment_date === new Date().toISOString().split('T')[0]) {
-        const now = new Date();
-        payload.date = `${payload.adjustment_date}T${now.toTimeString().split(' ')[0]}`;
-      } else {
-        payload.date = payload.adjustment_date;
-      }
-
-      await api.post('/balance-transactions/adjust-deal', payload);
-      fetchDealDetails();
-      setShowAdjustmentModal(false);
-      setAdjustmentForm({
-        user_id: deal.dealer_id,
-        quantity: 1,
-        customer_price: defaultCustomerValue,
-        cost_price: defaultCost,
-        adjustment_date: new Date().toISOString().split('T')[0],
-        notes: '',
-      });
-    } catch (error) {
-      alert(error.response?.data?.message || 'Error recording adjustment');
-    }
-  };
-
   const handlePaymentDelete = async (paymentId) => {
     if (window.confirm('Are you sure you want to delete this payment record?')) {
       try {
@@ -183,6 +183,18 @@ const DealDetail = () => {
       } catch (error) {
         console.error('Error deleting payment:', error);
         alert('Error deleting payment');
+      }
+    }
+  };
+
+  const handleAdjustmentDelete = async (transactionId) => {
+    if (window.confirm('Are you sure you want to delete this adjustment record?')) {
+      try {
+        await api.delete(`/balance-transactions/${transactionId}`);
+        fetchDealDetails();
+      } catch (error) {
+        console.error('Error deleting adjustment:', error);
+        alert('Error deleting adjustment');
       }
     }
   };
@@ -308,14 +320,9 @@ const DealDetail = () => {
             <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Ledger Entries / Payments</h2>
             <div style={{ display: 'flex', gap: '1rem' }}>
               {(isAdmin || isAccountant) && (
-                <>
-                  <button className="premium-btn premium-btn-secondary" onClick={() => setShowAdjustmentModal(true)}>
-                    <FaPlus /> Add Adjustment
-                  </button>
-                  <button className="premium-btn premium-btn-primary" onClick={() => setShowPaymentModal(true)}>
-                    <FaPlus /> Post Payment
-                  </button>
-                </>
+                <button className="premium-btn premium-btn-primary" onClick={() => setShowPaymentModal(true)}>
+                  <FaPlus /> Post Payment
+                </button>
               )}
             </div>
           </div>
@@ -368,20 +375,50 @@ const DealDetail = () => {
                       )}
                     </div>
                     {(isAdmin || isAccountant) && (
-                      <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} onClick={() => handlePaymentDelete(a.id)}>
+                      <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} onClick={() => handleAdjustmentDelete(a.id)}>
                         <FaTrash />
                       </button>
                     )}
                   </div>
                 ))}
-                {filteredLedgerEntries.filter((e) => e._kind === 'payment').map(({ _raw: p }) => (
-                  <div key={p.id} className="payment-item">
-                    <div className="payment-main">
-                      <div className="payment-type">{p.payment_type.toUpperCase()}</div>
-                      <div className="payment-date">{new Date(p.payment_date).toLocaleDateString()}</div>
+                {filteredLedgerEntries.filter((e) => e._kind === 'payment').map(({ _raw: p, _adjustment }) => (
+                  <React.Fragment key={p.id}>
+                  <div className="payment-item">
+                    <div className="payment-main" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      {_adjustment && (
+                        <button
+                          type="button"
+                          className="expand-btn"
+                          title="View linked adjustment"
+                          onClick={() => setExpandedAdjustments(prev => ({ ...prev, [p.id]: !prev[p.id] }))}
+                        >
+                          {expandedAdjustments[p.id] ? <FaChevronUp /> : <FaChevronDown />}
+                        </button>
+                      )}
+                      <div>
+                        <div className="payment-type">{p.payment_type.replace('_', ' ').toUpperCase()}</div>
+                        <div className="payment-date">{new Date(p.payment_date).toLocaleDateString()}</div>
+                      </div>
                     </div>
                     <div className="payment-val" style={{ textAlign: 'right' }}>
                       <div className="payment-amount">Rs. {parseFloat(p.amount).toLocaleString()}</div>
+                      {_adjustment && (
+                        <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#b45309' }}>
+                          Total incl. Adjustment: Rs. {(parseFloat(p.amount) + parseFloat(_adjustment.customer_price || 0)).toLocaleString()}
+                        </div>
+                      )}
+                      {(p.instrument || p.instrument_number || p.voucher_no) && (
+                        <div className="payment-notes" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          {p.instrument ? p.instrument.replace('_', ' ').toUpperCase() : ''}
+                          {p.instrument_number ? ` # ${p.instrument_number}` : ''}
+                          {p.voucher_no ? ` · ${p.voucher_no}` : ''}
+                        </div>
+                      )}
+                      {parseFloat(p.lps_amount || 0) > 0 && (
+                        <div className="payment-notes" style={{ fontSize: '0.7rem', color: 'var(--danger)' }}>
+                          LPS: Rs. {parseFloat(p.lps_amount).toLocaleString()}
+                        </div>
+                      )}
                       {p.notes && <div className="payment-notes">{p.notes}</div>}
                     </div>
                     {(isAdmin || isAccountant) && (
@@ -390,6 +427,37 @@ const DealDetail = () => {
                       </button>
                     )}
                   </div>
+                  {_adjustment && expandedAdjustments[p.id] && (
+                    <div className="linked-entries-detail">
+                      <h4><FaFileContract color="#ffc107" /> Linked Adjustment Form</h4>
+                      <div className="linked-grid">
+                        <div className="linked-item-card">
+                          <div className="linked-item-header">
+                            <span className="date">{new Date(_adjustment.transaction_date).toLocaleDateString()}</span>
+                            {_adjustment.quantity > 1 && (
+                              <span className="dealer-badge" style={{ fontSize: '0.95rem', padding: '0.25rem 0.65rem' }}>
+                                Qty: {_adjustment.quantity}
+                              </span>
+                            )}
+                          </div>
+                          <div className="linked-item-body">
+                            <span className="amount">Rs. {parseFloat(_adjustment.customer_price).toLocaleString()}</span>
+                            {_adjustment.user_name && <p>{_adjustment.user_name}</p>}
+                          </div>
+                          {(isAdmin || isAccountant) && (
+                            <button
+                              className="premium-btn premium-btn-danger"
+                              style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', marginTop: '0.75rem' }}
+                              onClick={() => handleAdjustmentDelete(_adjustment.id)}
+                            >
+                              <FaTrash size={10} /> Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  </React.Fragment>
                 ))}
               </>
             )}
@@ -417,10 +485,17 @@ const DealDetail = () => {
                   <label>Type</label>
                   <select
                     value={paymentForm.payment_type}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, payment_type: e.target.value })}
+                    onChange={(e) => setPaymentForm({
+                      ...paymentForm,
+                      payment_type: e.target.value,
+                      apply_adjustment: e.target.value === 'installment' ? paymentForm.apply_adjustment : false,
+                    })}
                   >
-                    <option value="installment">Installment</option>
                     <option value="down_payment">Booking / Down Payment</option>
+                    <option value="installment">Installment</option>
+                    <option value="excess_area">Excess Area</option>
+                    <option value="possession_fee">Possession Fee</option>
+                    <option value="form_fee">Form Fee</option>
                     <option value="other">Other</option>
                   </select>
                 </div>
@@ -434,6 +509,52 @@ const DealDetail = () => {
                   />
                 </div>
               </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                <div className="form-group">
+                  <label>Instrument Type</label>
+                  <select
+                    value={paymentForm.instrument}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, instrument: e.target.value })}
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="pay_order">Pay Order</option>
+                    <option value="bank_transfer">Bank Transfer / Online</option>
+                    <option value="cdn">Cross Cheque / CDN</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Instrument / Cheque No.</label>
+                  <input
+                    type="text"
+                    value={paymentForm.instrument_number}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, instrument_number: e.target.value })}
+                    placeholder="e.g. 9540"
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                <div className="form-group">
+                  <label>Receipt / Voucher No.</label>
+                  <input
+                    type="text"
+                    value={paymentForm.voucher_no}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, voucher_no: e.target.value })}
+                    placeholder="e.g. RCVD # 9540"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>LPS Charged</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={paymentForm.lps_amount}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, lps_amount: e.target.value })}
+                    placeholder="Late payment surcharge, if any"
+                  />
+                </div>
+              </div>
               <div className="form-group">
                 <label>Transaction Notes</label>
                 <textarea
@@ -442,100 +563,85 @@ const DealDetail = () => {
                   rows="3"
                 />
               </div>
+
+              {paymentForm.payment_type === 'installment' && (
+                <div
+                  style={{
+                    marginTop: '0.5rem',
+                    border: paymentForm.apply_adjustment ? '1px solid #ffc107' : '1px solid #e5e7eb',
+                    background: paymentForm.apply_adjustment ? '#fffbea' : '#fafafa',
+                    borderRadius: '10px',
+                    padding: '1rem',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      style={{ width: '1.1rem', height: '1.1rem', accentColor: '#ffc107' }}
+                      checked={paymentForm.apply_adjustment}
+                      onChange={(e) => setPaymentForm({ ...paymentForm, apply_adjustment: e.target.checked })}
+                    />
+                    <FaFileContract color="#ffc107" />
+                    <span style={{ fontWeight: 700 }}>Apply an Adjustment Form against this installment</span>
+                  </label>
+
+                  {paymentForm.apply_adjustment && (
+                    <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed #ffc107' }}>
+                      <div className="form-group">
+                        <label>Select Dealer *</label>
+                        <select
+                          value={paymentForm.adjustment_user_id}
+                          onChange={(e) => setPaymentForm({ ...paymentForm, adjustment_user_id: e.target.value })}
+                          required
+                          className="form-control"
+                        >
+                          <option value="">Select Dealer</option>
+                          {dealers.map(d => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                        <div className="form-group">
+                          <label>Quantity (Number of Forms) *</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={paymentForm.adjustment_quantity}
+                            onChange={(e) => {
+                              const qty = parseInt(e.target.value) || 1;
+                              setPaymentForm({
+                                ...paymentForm,
+                                adjustment_quantity: qty,
+                                adjustment_price: qty * defaultCustomerValue,
+                              });
+                            }}
+                            required
+                          />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label>Price (Total Credit) *</label>
+                          <input
+                            type="number"
+                            value={paymentForm.adjustment_price}
+                            onChange={(e) => setPaymentForm({ ...paymentForm, adjustment_price: e.target.value })}
+                            required
+                          />
+                          <small style={{ color: 'var(--text-muted)' }}>Unit: Rs. {defaultCustomerValue.toLocaleString()}</small>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="modal-actions">
                 <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowPaymentModal(false)}>
                   Cancel
                 </button>
                 <button type="submit" className="premium-btn premium-btn-primary">
                   Confirm Payment
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {showAdjustmentModal && (
-        <div className="modal-overlay" onClick={() => setShowAdjustmentModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Add Adjustment Form</h2>
-            <form onSubmit={handleAdjustmentSubmit}>
-              <div className="form-group">
-                <label>Select Dealer *</label>
-                <select
-                  value={adjustmentForm.user_id}
-                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, user_id: e.target.value })}
-                  required
-                  className="form-control"
-                >
-                  <option value="">Select Dealer</option>
-                  {dealers.map(d => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Quantity (Number of Forms) *</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={adjustmentForm.quantity}
-                  onChange={(e) => {
-                    const qty = parseInt(e.target.value) || 1;
-                    setAdjustmentForm({
-                      ...adjustmentForm,
-                      quantity: qty,
-                      customer_price: qty * defaultCustomerValue,
-                      cost_price: qty * defaultCost
-                    });
-                  }}
-                  required
-                />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                <div className="form-group">
-                  <label>Price (Total Credit) *</label>
-                  <input
-                    type="number"
-                    value={adjustmentForm.customer_price}
-                    onChange={(e) => setAdjustmentForm({ ...adjustmentForm, customer_price: e.target.value })}
-                    required
-                  />
-                  <small style={{ color: 'var(--text-muted)' }}>Unit: Rs. {defaultCustomerValue.toLocaleString()}</small>
-                </div>
-                {/* <div className="form-group">
-                    <label>Cost Price (Total Deduction) *</label>
-                    <input
-                    type="number"
-                    value={adjustmentForm.cost_price}
-                    onChange={(e) => setAdjustmentForm({ ...adjustmentForm, cost_price: e.target.value })}
-                    required
-                    />
-                    <small style={{ color: 'var(--text-muted)' }}>Unit: Rs. {defaultCost.toLocaleString()}</small>
-                </div> */}
-              </div>
-              <div className="form-group">
-                <label>Date</label>
-                <input
-                  type="date"
-                  value={adjustmentForm.adjustment_date}
-                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, adjustment_date: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Notes</label>
-                <textarea
-                  value={adjustmentForm.notes}
-                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, notes: e.target.value })}
-                  rows="2"
-                />
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowAdjustmentModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="premium-btn premium-btn-primary">
-                  Apply Adjustment
                 </button>
               </div>
             </form>

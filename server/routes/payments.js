@@ -10,16 +10,18 @@ router.get('/', auth, async (req, res) => {
     let result;
     if (req.user.role === 'admin') {
       result = await db.query(`
-        SELECT p.*, d.dealer_id, d.sale_price
+        SELECT p.*, d.dealer_id, d.sale_price, c.name as customer_name
         FROM payments p
         LEFT JOIN deals d ON p.deal_id = d.id
+        LEFT JOIN customers c ON d.customer_id = c.id
         ORDER BY p.payment_date DESC
       `);
     } else {
       result = await db.query(`
-        SELECT p.*, d.dealer_id, d.sale_price
+        SELECT p.*, d.dealer_id, d.sale_price, c.name as customer_name
         FROM payments p
         LEFT JOIN deals d ON p.deal_id = d.id
+        LEFT JOIN customers c ON d.customer_id = c.id
         WHERE d.dealer_id = $1
         ORDER BY p.payment_date DESC
       `, [req.user.id]);
@@ -47,7 +49,10 @@ router.get('/deal/:dealId', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   const client = await db.connect();
   try {
-    const { deal_id, payment_type, amount, payment_date, notes } = req.body;
+    const {
+      deal_id, payment_type, amount, payment_date, notes,
+      instrument, instrument_number, voucher_no, lps_amount
+    } = req.body;
 
     if (!deal_id || !payment_type || !amount || !payment_date) {
       client.release();
@@ -57,8 +62,13 @@ router.post('/', auth, async (req, res) => {
     await client.query('BEGIN');
 
     const result = await client.query(
-      'INSERT INTO payments (deal_id, payment_type, amount, payment_date, notes) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [deal_id, payment_type, amount, payment_date, notes || null]
+      `INSERT INTO payments
+        (deal_id, payment_type, amount, payment_date, notes, instrument, instrument_number, voucher_no, lps_amount)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [
+        deal_id, payment_type, amount, payment_date, notes || null,
+        instrument || null, instrument_number || null, voucher_no || null, lps_amount || 0
+      ]
     );
 
     // Process double-entry accounting split
@@ -81,11 +91,21 @@ router.post('/', auth, async (req, res) => {
 // Update payment
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { payment_type, amount, payment_date, notes } = req.body;
+    const {
+      payment_type, amount, payment_date, notes,
+      instrument, instrument_number, voucher_no, lps_amount
+    } = req.body;
 
     const result = await db.query(
-      'UPDATE payments SET payment_type = $1, amount = $2, payment_date = $3, notes = $4 WHERE id = $5 RETURNING *',
-      [payment_type, amount, payment_date, notes, req.params.id]
+      `UPDATE payments
+       SET payment_type = $1, amount = $2, payment_date = $3, notes = $4,
+           instrument = $5, instrument_number = $6, voucher_no = $7, lps_amount = $8
+       WHERE id = $9 RETURNING *`,
+      [
+        payment_type, amount, payment_date, notes,
+        instrument || null, instrument_number || null, voucher_no || null, lps_amount || 0,
+        req.params.id
+      ]
     );
 
     if (result.rows.length === 0) {

@@ -14,6 +14,32 @@ const upload = multer({
 });
 
 /**
+ * GET /balance-transactions/forms/summary
+ * Per-dealer net Forms count/balance on the Advance for Certificate account (8).
+ * Only returns dealers who currently hold at least 1 form.
+ */
+router.get('/forms/summary', auth, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT
+        u.id as dealer_id,
+        u.name as dealer_name,
+        SUM(CASE WHEN tl.credit > 0 THEN tl.quantity ELSE -tl.quantity END) as forms_held,
+        SUM(tl.credit - tl.debit) as balance
+      FROM transaction_lines tl
+      JOIN users u ON tl.user_id = u.id
+      WHERE tl.account_id = 8 AND tl.user_id IS NOT NULL
+      GROUP BY u.id, u.name
+      HAVING SUM(CASE WHEN tl.credit > 0 THEN tl.quantity ELSE -tl.quantity END) > 0
+      ORDER BY u.name ASC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+/**
  * Get all transactions for a specific account
  * Optionally filter by dealer (user_id)
  */
@@ -22,7 +48,7 @@ router.get('/:accountId', auth, async (req, res) => {
     const { userId, deal_id, project_id } = req.query;
     let query = `
       SELECT t.*, tl.debit, tl.credit, tl.quantity, tl.plot_info, tl.customer_info, u.name as user_name, tl.user_id, c.name as customer_name, tl.customer_id, a.name as account_name,
-             da.customer_price, da.cost_price, da.id as adjustment_id, tl.id as line_id,
+             da.customer_price, da.cost_price, da.id as adjustment_id, da.payment_id, tl.id as line_id,
              tl.project_id, bp.name as project_name,
              (
                 SELECT JSON_AGG(JSON_BUILD_OBJECT(
@@ -232,7 +258,7 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
 router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
     const client = await db.connect();
     try {
-      const { deal_id, customer_price, cost_price, quantity, date, notes } = req.body;
+      const { deal_id, customer_price, cost_price, quantity, date, notes, payment_id } = req.body;
       if (!deal_id || !customer_price || !cost_price) {
         return res.status(400).json({ message: 'Missing required fields' });
       }
@@ -274,9 +300,9 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
         [transId, accMap.ACCOUNTS_RECEIVABLE, dealerId, 0, customer_price] // CREDIT for reduction of Asset
       );
       await client.query(
-        `INSERT INTO deal_adjustments (deal_id, transaction_id, customer_price, cost_price, quantity, adjustment_date, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [deal_id, transId, customer_price, cost_price, quantity || 1, date || new Date(), notes]
+        `INSERT INTO deal_adjustments (deal_id, transaction_id, customer_price, cost_price, quantity, adjustment_date, notes, payment_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [deal_id, transId, customer_price, cost_price, quantity || 1, date || new Date(), notes, payment_id || null]
       );
       await client.query('COMMIT');
       res.status(201).json({ message: 'Adjustment recorded' });

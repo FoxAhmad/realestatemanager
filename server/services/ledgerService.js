@@ -20,11 +20,41 @@ const ledgerService = {
     };
   },
 
-  createTransaction: async (client, { date, description, type, refId, lines }) => {
+  // Looks up (or creates) a named sub-account nested under one of the seeded
+  // parent accounts (e.g. "Loans Receivable" -> "Loans Receivable > Ahmad's Cousin").
+  // Must be called with the same `client` the caller is already using inside its
+  // own BEGIN/COMMIT, so a brand-new sub-account and its first transaction commit
+  // (or roll back) together.
+  findOrCreateSubAccount: async (client, { name, type, parentName }) => {
+    const parent = await client.query(
+      'SELECT id FROM accounts WHERE name = $1 AND parent_id IS NULL',
+      [parentName]
+    );
+    if (!parent.rows.length) {
+      throw new Error(`Parent account "${parentName}" not seeded`);
+    }
+    const parentId = parent.rows[0].id;
+
+    const existing = await client.query(
+      'SELECT id FROM accounts WHERE name = $1 AND parent_id = $2',
+      [name, parentId]
+    );
+    if (existing.rows.length) return existing.rows[0].id;
+
+    const inserted = await client.query(
+      'INSERT INTO accounts (name, type, parent_id) VALUES ($1, $2, $3) RETURNING id',
+      [name, type, parentId]
+    );
+    return inserted.rows[0].id;
+  },
+
+  createTransaction: async (client, { date, description, type, refId, lines, voucherNo, instrument, instrumentNumber, proofFile }) => {
     // Note: 'client' must be passed in so this happens within an existing DB transaction
     const transRes = await client.query(
-      'INSERT INTO transactions (transaction_date, description, reference_type, reference_id) VALUES ($1, $2, $3, $4) RETURNING id',
-      [date || new Date(), description, type, refId]
+      `INSERT INTO transactions
+        (transaction_date, description, reference_type, reference_id, voucher_no, instrument, instrument_number, proof_file)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [date || new Date(), description, type, refId, voucherNo || null, instrument || null, instrumentNumber || null, proofFile || null]
     );
     const transId = transRes.rows[0].id;
 

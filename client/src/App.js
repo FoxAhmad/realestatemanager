@@ -18,6 +18,7 @@ import Payments from './pages/Payments';
 import Leads from './pages/Leads';
 import DealerExchanges from './pages/DealerExchanges';
 import ManageBalances from './pages/ManageBalances';
+import FormsLedger from './pages/FormsLedger';
 import LoansAndInvestments from './pages/LoansAndInvestments';
 import Layout from './components/Layout';
 import './App.css';
@@ -52,6 +53,7 @@ function App() {
             <Route path="leads" element={<Leads />} />
             <Route path="dealer-exchanges" element={<DealerExchanges />} />
             <Route path="manage-balances" element={<ManageBalances />} />
+            <Route path="forms-ledger" element={<FormsLedger />} />
             <Route path="loans-and-investments" element={<LoansAndInvestments />} />
           </Route>
         </Routes>

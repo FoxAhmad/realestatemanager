@@ -8,10 +8,29 @@ const ledgerService = require('../services/ledgerService');
 const supabase = require('../config/supabase');
 
 // Configure multer for memory storage
-const upload = multer({ 
+const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }
 });
+
+// Shared proof-of-payment upload, used by the loan/investment/owner-transaction endpoints below
+async function uploadProofFile(file) {
+  if (!file) return null;
+  const fileExt = path.extname(file.originalname);
+  const fileName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${fileExt}`;
+
+  const { error: uploadError } = await supabase
+    .storage
+    .from('proofs')
+    .upload(fileName, file.buffer, { contentType: file.mimetype, upsert: false });
+
+  if (uploadError) {
+    throw new Error('Failed to upload proof image: ' + uploadError.message);
+  }
+
+  const { data: publicUrlData } = supabase.storage.from('proofs').getPublicUrl(fileName);
+  return publicUrlData.publicUrl;
+}
 
 // Get finance summary
 router.get('/summary', auth, async (req, res) => {
@@ -339,6 +358,283 @@ router.get('/by-dealer', auth, adminAndAccountantOnly, async (req, res) => {
     `, [accMap.DEALER_FINANCE]);
 
     res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// ── Loans / Investments / Owner Equity ──────────────────────────────────────
+// Where surplus cash goes after it lands in Cash/Bank: lent out, invested,
+// borrowed, or drawn out by the owner. Each sub-account (per person/venture)
+// is created on demand via ledgerService.findOrCreateSubAccount.
+
+// Give or take a loan
+router.post('/loans', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { direction, counterparty_name, amount, date, description, voucher_no, instrument, instrument_number } = req.body;
+
+    if (!amount || !counterparty_name || !['given', 'taken'].includes(direction)) {
+      return res.status(400).json({ message: 'direction (given|taken), counterparty_name and amount are required' });
+    }
+    const val = parseFloat(amount);
+    if (!(val > 0)) {
+      return res.status(400).json({ message: 'amount must be greater than 0' });
+    }
+
+    const proofFile = await uploadProofFile(req.file);
+    const accMap = await ledgerService.getAccountMap();
+
+    await client.query('BEGIN');
+
+    let lines, refType, subAccountId;
+    if (direction === 'given') {
+      subAccountId = await ledgerService.findOrCreateSubAccount(client, {
+        name: counterparty_name, type: 'Asset', parentName: 'Loans Receivable'
+      });
+      lines = [
+        { account_id: subAccountId, debit: val },
+        { account_id: accMap.CASH_BANK, credit: val }
+      ];
+      refType = 'LOAN_DISBURSED';
+    } else {
+      subAccountId = await ledgerService.findOrCreateSubAccount(client, {
+        name: counterparty_name, type: 'Liability', parentName: 'Loans Payable'
+      });
+      lines = [
+        { account_id: accMap.CASH_BANK, debit: val },
+        { account_id: subAccountId, credit: val }
+      ];
+      refType = 'LOAN_TAKEN';
+    }
+
+    const transId = await ledgerService.createTransaction(client, {
+      date: date || new Date(),
+      description: description || `${direction === 'given' ? 'Loan given to' : 'Loan taken from'} ${counterparty_name}`,
+      type: refType,
+      refId: subAccountId,
+      lines,
+      voucherNo: voucher_no,
+      instrument,
+      instrumentNumber: instrument_number,
+      proofFile
+    });
+
+    await client.query('COMMIT');
+    res.status(201).json({ message: 'Loan recorded', transaction_id: transId, account_id: subAccountId });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ message: 'Server error', error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Repay a loan (either a loan we gave being paid back to us, or a loan we took being repaid by us)
+router.post('/loans/:account_id/repay', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
+  const client = await db.connect();
+  try {
+    const accountId = parseInt(req.params.account_id);
+    const { amount, date, description, voucher_no, instrument, instrument_number } = req.body;
+
+    const val = parseFloat(amount);
+    if (!(val > 0)) {
+      return res.status(400).json({ message: 'amount must be greater than 0' });
+    }
+
+    const accRes = await db.query(
+      'SELECT a.id, a.name, p.name as parent_name FROM accounts a JOIN accounts p ON a.parent_id = p.id WHERE a.id = $1',
+      [accountId]
+    );
+    if (!accRes.rows.length || !['Loans Receivable', 'Loans Payable'].includes(accRes.rows[0].parent_name)) {
+      return res.status(400).json({ message: 'account_id must be a Loans Receivable or Loans Payable sub-account' });
+    }
+    const isReceivable = accRes.rows[0].parent_name === 'Loans Receivable';
+
+    const proofFile = await uploadProofFile(req.file);
+    const accMap = await ledgerService.getAccountMap();
+
+    await client.query('BEGIN');
+
+    const lines = isReceivable
+      ? [{ account_id: accMap.CASH_BANK, debit: val }, { account_id: accountId, credit: val }]
+      : [{ account_id: accountId, debit: val }, { account_id: accMap.CASH_BANK, credit: val }];
+    const refType = isReceivable ? 'LOAN_REPAYMENT' : 'LOAN_REPAID';
+
+    const transId = await ledgerService.createTransaction(client, {
+      date: date || new Date(),
+      description: description || `${isReceivable ? 'Repayment received from' : 'Loan repaid to'} ${accRes.rows[0].name}`,
+      type: refType,
+      refId: accountId,
+      lines,
+      voucherNo: voucher_no,
+      instrument,
+      instrumentNumber: instrument_number,
+      proofFile
+    });
+
+    await client.query('COMMIT');
+    res.status(201).json({ message: 'Repayment recorded', transaction_id: transId });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ message: 'Server error', error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+// List every open loan sub-account with its running balance
+router.get('/loans', auth, adminAndAccountantOnly, async (req, res) => {
+  try {
+    const buildList = async (parentName) => {
+      const parent = await db.query('SELECT id FROM accounts WHERE name = $1 AND parent_id IS NULL', [parentName]);
+      if (!parent.rows.length) return [];
+      const subs = await db.query('SELECT id, name FROM accounts WHERE parent_id = $1 ORDER BY name', [parent.rows[0].id]);
+      return Promise.all(subs.rows.map(async (acc) => ({
+        account_id: acc.id,
+        name: acc.name,
+        balance: await ledgerService.calculateBalance(acc.id)
+      })));
+    };
+
+    const [receivable, payable] = await Promise.all([
+      buildList('Loans Receivable'),
+      buildList('Loans Payable')
+    ]);
+
+    res.json({ receivable, payable });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Make or return an investment
+router.post('/investments', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { direction, venture_name, amount, date, description, voucher_no, instrument, instrument_number } = req.body;
+
+    if (!amount || !venture_name || !['made', 'return'].includes(direction)) {
+      return res.status(400).json({ message: 'direction (made|return), venture_name and amount are required' });
+    }
+    const val = parseFloat(amount);
+    if (!(val > 0)) {
+      return res.status(400).json({ message: 'amount must be greater than 0' });
+    }
+
+    const proofFile = await uploadProofFile(req.file);
+    const accMap = await ledgerService.getAccountMap();
+
+    await client.query('BEGIN');
+
+    const subAccountId = await ledgerService.findOrCreateSubAccount(client, {
+      name: venture_name, type: 'Asset', parentName: 'Investments'
+    });
+
+    const lines = direction === 'made'
+      ? [{ account_id: subAccountId, debit: val }, { account_id: accMap.CASH_BANK, credit: val }]
+      : [{ account_id: accMap.CASH_BANK, debit: val }, { account_id: subAccountId, credit: val }];
+    const refType = direction === 'made' ? 'INVESTMENT_MADE' : 'INVESTMENT_RETURN';
+
+    const transId = await ledgerService.createTransaction(client, {
+      date: date || new Date(),
+      description: description || `${direction === 'made' ? 'Invested in' : 'Return from'} ${venture_name}`,
+      type: refType,
+      refId: subAccountId,
+      lines,
+      voucherNo: voucher_no,
+      instrument,
+      instrumentNumber: instrument_number,
+      proofFile
+    });
+
+    await client.query('COMMIT');
+    res.status(201).json({ message: 'Investment entry recorded', transaction_id: transId, account_id: subAccountId });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ message: 'Server error', error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+// List every venture invested in, with its running balance
+router.get('/investments', auth, adminAndAccountantOnly, async (req, res) => {
+  try {
+    const parent = await db.query("SELECT id FROM accounts WHERE name = 'Investments' AND parent_id IS NULL");
+    if (!parent.rows.length) return res.json([]);
+
+    const subs = await db.query('SELECT id, name FROM accounts WHERE parent_id = $1 ORDER BY name', [parent.rows[0].id]);
+    const result = await Promise.all(subs.rows.map(async (acc) => ({
+      account_id: acc.id,
+      name: acc.name,
+      balance: await ledgerService.calculateBalance(acc.id)
+    })));
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Owner draws profit out, or puts capital back in
+router.post('/owner-transactions', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { direction, amount, date, description, voucher_no, instrument, instrument_number } = req.body;
+
+    if (!amount || !['drawing', 'contribution'].includes(direction)) {
+      return res.status(400).json({ message: 'direction (drawing|contribution) and amount are required' });
+    }
+    const val = parseFloat(amount);
+    if (!(val > 0)) {
+      return res.status(400).json({ message: 'amount must be greater than 0' });
+    }
+
+    const ownerAccRes = await db.query("SELECT id FROM accounts WHERE name = 'Owner Equity / Drawings' AND parent_id IS NULL");
+    if (!ownerAccRes.rows.length) {
+      return res.status(500).json({ message: 'Owner Equity / Drawings account not seeded' });
+    }
+    const ownerAccountId = ownerAccRes.rows[0].id;
+
+    const proofFile = await uploadProofFile(req.file);
+    const accMap = await ledgerService.getAccountMap();
+
+    await client.query('BEGIN');
+
+    const lines = direction === 'drawing'
+      ? [{ account_id: ownerAccountId, debit: val }, { account_id: accMap.CASH_BANK, credit: val }]
+      : [{ account_id: accMap.CASH_BANK, debit: val }, { account_id: ownerAccountId, credit: val }];
+    const refType = direction === 'drawing' ? 'OWNER_DRAWING' : 'OWNER_CONTRIBUTION';
+
+    const transId = await ledgerService.createTransaction(client, {
+      date: date || new Date(),
+      description: description || (direction === 'drawing' ? 'Owner drawing' : 'Owner capital contribution'),
+      type: refType,
+      lines,
+      voucherNo: voucher_no,
+      instrument,
+      instrumentNumber: instrument_number,
+      proofFile
+    });
+
+    await client.query('COMMIT');
+    res.status(201).json({ message: 'Owner transaction recorded', transaction_id: transId });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ message: 'Server error', error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Current Owner Equity / Drawings balance (negative = net drawn out, positive = net contributed)
+router.get('/owner-balance', auth, adminAndAccountantOnly, async (req, res) => {
+  try {
+    const ownerAccRes = await db.query("SELECT id FROM accounts WHERE name = 'Owner Equity / Drawings' AND parent_id IS NULL");
+    if (!ownerAccRes.rows.length) return res.json({ balance: 0 });
+    const balance = await ledgerService.calculateBalance(ownerAccRes.rows[0].id);
+    res.json({ balance });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

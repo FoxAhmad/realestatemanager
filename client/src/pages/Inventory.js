@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import {
+  FaChevronDown, FaChevronUp, FaCheckCircle, FaFolder, FaFolderOpen,
+  FaEye, FaArrowLeft, FaTrash, FaPlus
+} from 'react-icons/fa';
 import './Inventory.css';
 
 const INVENTORY_CATEGORY_LABELS = {
@@ -12,6 +16,7 @@ const INVENTORY_CATEGORY_LABELS = {
 
 const INVENTORY_COLUMNS = [
   { key: 'id', label: 'ID', type: 'text' },
+  { key: 'project_name', label: 'Project', type: 'text' },
   { key: 'category', label: 'Category', type: 'enum', formatOption: (v) => INVENTORY_CATEGORY_LABELS[v] || v },
   { key: 'size', label: 'Type/Size', type: 'text', accessor: (r) => [r.plot_type, r.plot_category, r.size].filter(Boolean).join(' ') },
   { key: 'address', label: 'Address', type: 'text' },
@@ -29,9 +34,16 @@ const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [managePlotsModal, setManagePlotsModal] = useState(null);
+  const [view, setView] = useState('projects'); // 'projects' | 'plots'
+  const [selectedProjectKey, setSelectedProjectKey] = useState(null); // 'unassigned' | String(project.id)
   const [editingPlotId, setEditingPlotId] = useState(null);
-  const [plotEditForm, setPlotEditForm] = useState({ plot_number: '', plot_category: 'standard', plot_type: 'R', size: '' });
+  const [plotEditForm, setPlotEditForm] = useState({
+    plot_number: '', plot_category: 'standard', plot_type: 'R', size: '',
+    block: '', membership_no: '', registration_no: '', form_number: ''
+  });
+  const [balanceProjects, setBalanceProjects] = useState([]);
+  const [dealInfo, setDealInfo] = useState({});
+  const [expandedPlotRows, setExpandedPlotRows] = useState({});
   const [formData, setFormData] = useState({
     category: 'plot',
     address: '',
@@ -40,9 +52,9 @@ const Inventory = () => {
     plot_numbers: '',
     plot_type: 'R',
     plot_category: 'standard',
-    size: ''
+    size: '',
+    project_id: ''
   });
-  const [availablePlots, setAvailablePlots] = useState([]);
   const [selectedPlots, setSelectedPlots] = useState([]);
   const [assignmentPayment, setAssignmentPayment] = useState({
     amount_paid: '',
@@ -70,6 +82,7 @@ const Inventory = () => {
 
   useEffect(() => {
     fetchInventory();
+    fetchBalanceProjects();
     if (canEdit) {
       fetchSalespersons();
       // Admins and Accountants can also assign to themselves and pay, so fetch investors
@@ -105,6 +118,50 @@ const Inventory = () => {
       setSalespersons(response.data);
     } catch (error) {
       console.error('Error fetching salespersons:', error);
+    }
+  };
+
+  const fetchBalanceProjects = async () => {
+    try {
+      const response = await api.get('/balance-projects');
+      setBalanceProjects(response.data);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  };
+
+  const handleAddProjectQuick = async () => {
+    const name = window.prompt('New project name (e.g. Union Town):');
+    if (!name || !name.trim()) return;
+    try {
+      const response = await api.post('/balance-projects', { name: name.trim() });
+      setBalanceProjects(prev => [...prev, response.data].sort((a, b) => a.name.localeCompare(b.name)));
+      setFormData(prev => ({ ...prev, project_id: response.data.id }));
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error creating project');
+    }
+  };
+
+  const handleDeleteProjectQuick = async (proj) => {
+    if (!window.confirm(`Delete project "${proj.name}"? Inventory in this project will become unassigned.`)) return;
+    try {
+      await api.delete(`/balance-projects/${proj.id}`);
+      setBalanceProjects(prev => prev.filter(p => p.id !== proj.id));
+      fetchInventory();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error deleting project');
+    }
+  };
+
+  const toggleDealRow = async (plotId) => {
+    setExpandedPlotRows(prev => ({ ...prev, [plotId]: !prev[plotId] }));
+    if (dealInfo[plotId] !== undefined) return;
+    setDealInfo(prev => ({ ...prev, [plotId]: 'loading' }));
+    try {
+      const response = await api.get(`/inventory/plots/${plotId}/deal`);
+      setDealInfo(prev => ({ ...prev, [plotId]: response.data.deal }));
+    } catch (error) {
+      setDealInfo(prev => ({ ...prev, [plotId]: null }));
     }
   };
 
@@ -146,15 +203,16 @@ const Inventory = () => {
       fetchInventory();
       setShowModal(false);
       setEditingItem(null);
-      setFormData({ 
-        category: 'plot', 
-        address: '', 
-        price: '', 
-        quantity: 1, 
+      setFormData({
+        category: 'plot',
+        address: '',
+        price: '',
+        quantity: 1,
         plot_numbers: '',
         plot_type: 'R',
         plot_category: 'standard',
-        size: ''
+        size: '',
+        project_id: ''
       });
     } catch (error) {
       console.error('Error saving inventory:', error);
@@ -173,21 +231,9 @@ const Inventory = () => {
       plot_type: item.plot_type || 'R',
       plot_category: item.plot_category || 'standard',
       size: item.size || '',
+      project_id: item.project_id || '',
     });
     setShowModal(true);
-  };
-
-  const fetchPlots = async (inventoryId, availableOnly = false) => {
-    try {
-      const url = availableOnly
-        ? `/inventory/${inventoryId}/plots?available_only=true`
-        : `/inventory/${inventoryId}/plots`;
-      const response = await api.get(url);
-      setAvailablePlots(response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching plots:', error);
-    }
   };
 
   const handleUpdatePlot = async (plotId) => {
@@ -195,11 +241,7 @@ const Inventory = () => {
       await api.put(`/inventory/plots/${plotId}`, plotEditForm);
       alert('Plot updated successfully');
       setEditingPlotId(null);
-      // Refresh plots for the manage modal
-      if (managePlotsModal) {
-         fetchPlots(managePlotsModal.id);
-      }
-      // Refresh main inventory list
+      // Refresh main inventory list (plots are embedded in it)
       fetchInventory();
     } catch (error) {
       alert(error.response?.data?.message || 'Error updating plot');
@@ -393,11 +435,132 @@ const Inventory = () => {
     return Object.values(groups).sort((a, b) => Math.max(...b.ids) - Math.max(...a.ids));
   };
 
+  const getProjectKey = (item) => (item.project_id ? String(item.project_id) : 'unassigned');
+
+  const getProjectSummaries = () => {
+    const stats = {};
+    inventory.forEach(item => {
+      const key = getProjectKey(item);
+      if (!stats[key]) stats[key] = { plotCount: 0, totalPrice: 0, listingCount: 0 };
+      const plots = [...(item.plots || []), ...(item.assigned_plots || [])];
+      const plotCount = plots.length || parseInt(item.quantity || 0);
+      stats[key].plotCount += plotCount;
+      stats[key].totalPrice += parseFloat(item.price || 0);
+      stats[key].listingCount += 1;
+    });
+
+    const projectCards = balanceProjects.map(p => ({
+      id: p.id,
+      key: String(p.id),
+      name: p.name,
+      description: p.description,
+      isGeneral: false,
+      ...(stats[String(p.id)] || { plotCount: 0, totalPrice: 0, listingCount: 0 })
+    }));
+
+    const unassigned = {
+      id: null,
+      key: 'unassigned',
+      name: 'No Project',
+      description: 'Inventory not yet assigned to a project',
+      isGeneral: true,
+      ...(stats.unassigned || { plotCount: 0, totalPrice: 0, listingCount: 0 })
+    };
+
+    return { projectCards, unassigned };
+  };
+
+  const getPlotsForProject = (key) => {
+    const rows = [];
+    inventory.forEach(item => {
+      if (getProjectKey(item) !== key) return;
+      const plots = [...(item.plots || []), ...(item.assigned_plots || [])];
+      plots.forEach(p => {
+        rows.push({
+          ...p,
+          id: p.plot_id || p.id,
+          status: p.plot_status || p.status,
+          _item: item,
+        });
+      });
+    });
+    return rows.sort((a, b) => (a.plot_number || '').localeCompare(b.plot_number || ''));
+  };
+
+  const renderProjectCard = (proj) => (
+    <div key={proj.key} className={`project-card glass-card ${proj.isGeneral ? 'project-card-general' : ''}`}>
+      <div className="project-card-icon">
+        {proj.isGeneral ? <FaFolder /> : <FaFolderOpen />}
+      </div>
+      <div className="project-card-body">
+        <div className="project-card-name">{proj.name}</div>
+        {proj.description && <div className="project-card-desc">{proj.description}</div>}
+        <div className="project-card-stats">
+          <div className="project-stat">
+            <span className="stat-label">Plots</span>
+            <span className="stat-val">{proj.plotCount}</span>
+          </div>
+          <div className="project-stat">
+            <span className="stat-label">Base Price Total</span>
+            <span className="stat-val">Rs. {proj.totalPrice.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+      <div className="project-card-actions">
+        <button
+          className="project-view-btn"
+          onClick={() => { setSelectedProjectKey(proj.key); setView('plots'); }}
+        >
+          <FaEye /> View Plots
+        </button>
+        {!proj.isGeneral && canEdit && (
+          <div className="project-edit-actions">
+            <button className="project-icon-btn delete" onClick={() => handleDeleteProjectQuick(proj)} title="Delete project">
+              <FaTrash />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   if (loading) {
     return <div className="inventory-loading">Loading inventory...</div>;
   }
 
-  const groupedInventory = getGroupedInventory(filteredInventory);
+  if (view === 'projects') {
+    const { projectCards, unassigned } = getProjectSummaries();
+    return (
+      <div className="premium-page">
+        <div className="premium-page-header">
+          <div>
+            <h1 className="premium-page-title">Inventory Control</h1>
+            <p>Select a project to manage its plots.</p>
+          </div>
+          <div className="header-actions">
+            {canEdit && (
+              <button className="premium-btn premium-btn-primary" onClick={handleAddProjectQuick}>
+                <FaPlus /> New Project
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="projects-grid">
+          {renderProjectCard(unassigned)}
+          {projectCards.map(proj => renderProjectCard(proj))}
+        </div>
+      </div>
+    );
+  }
+
+  const selectedProjectSummary = (() => {
+    const { projectCards, unassigned } = getProjectSummaries();
+    return selectedProjectKey === 'unassigned' ? unassigned : (projectCards.find(p => p.key === selectedProjectKey) || unassigned);
+  })();
+
+  const itemsInSelectedProject = filteredInventory.filter(item => getProjectKey(item) === selectedProjectKey);
+  const groupedInventory = getGroupedInventory(itemsInSelectedProject);
+  const plotsInSelectedProject = getPlotsForProject(selectedProjectKey);
 
   return (
     <div className="premium-page">
@@ -412,7 +575,11 @@ const Inventory = () => {
               className="premium-btn premium-btn-primary"
               onClick={() => {
                 setEditingItem(null);
-                setFormData({ category: 'plot', address: '', price: '', plot_numbers: '', quantity: 1 });
+                setFormData({
+                  category: 'plot', address: '', price: '', plot_numbers: '', quantity: 1,
+                  plot_type: 'R', plot_category: 'standard', size: '',
+                  project_id: selectedProjectSummary.id || ''
+                });
                 setShowModal(true);
               }}
             >
@@ -420,6 +587,18 @@ const Inventory = () => {
             </button>
           )}
         </div>
+      </div>
+
+      <div className="project-breadcrumb">
+        <button className="back-to-projects-btn" onClick={() => { setView('projects'); setSelectedProjectKey(null); }}>
+          <FaArrowLeft /> All Projects
+        </button>
+        <span className="breadcrumb-sep">/</span>
+        <span className="breadcrumb-project">
+          {selectedProjectSummary.isGeneral
+            ? <><FaFolder style={{ marginRight: '0.5rem', color: 'var(--text-muted)' }} />{selectedProjectSummary.name}</>
+            : <><FaFolderOpen style={{ marginRight: '0.5rem', color: 'var(--primary)' }} />{selectedProjectSummary.name}</>}
+        </span>
       </div>
 
       <div className="glass-card">
@@ -456,7 +635,7 @@ const Inventory = () => {
             {groupedInventory.length === 0 ? (
               <tr>
                 <td colSpan={canEdit ? 11 : 10} className="empty-state">
-                  No inventory found
+                  No listings in this project yet
                 </td>
               </tr>
             ) : (
@@ -558,16 +737,6 @@ const Inventory = () => {
                                Edit
                              </button>
                              <button
-                               className="premium-btn premium-btn-secondary"
-                               style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-                               onClick={async () => {
-                                 setManagePlotsModal(item);
-                                 await fetchPlots(item.ids[0]);
-                               }}
-                             >
-                               Plots
-                             </button>
-                             <button
                                className="premium-btn premium-btn-danger"
                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                                onClick={() => {
@@ -609,10 +778,203 @@ const Inventory = () => {
       </div>
     </div>
 
+    <div className="glass-card" style={{ marginTop: '1.5rem' }}>
+      <div style={{ padding: '1.5rem 1.5rem 0' }}>
+        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>
+          Plots in {selectedProjectSummary.name}
+        </h3>
+      </div>
+      <div className="premium-table-container">
+        <table className="premium-table">
+          <thead>
+            <tr>
+              <th style={{ width: '40px' }}></th>
+              <th>Plot #</th>
+              <th>Listing / Address</th>
+              <th>Block</th>
+              <th>Factor</th>
+              <th>Type</th>
+              <th>Status</th>
+              {canEdit && <th>Size</th>}
+              {canEdit && <th>Membership #</th>}
+              {canEdit && <th>Actions</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {plotsInSelectedProject.length === 0 ? (
+              <tr>
+                <td colSpan={canEdit ? 10 : 7} className="empty-state">No plots in this project yet</td>
+              </tr>
+            ) : (
+              plotsInSelectedProject.map(plot => {
+                const hasPossibleDeal = plot.status !== 'available';
+                const isExpanded = !!expandedPlotRows[plot.id];
+                const deal = dealInfo[plot.id];
+                const colSpan = canEdit ? 10 : 7;
+
+                return (
+                  <React.Fragment key={plot.id}>
+                    <tr>
+                      {editingPlotId === plot.id ? (
+                        <>
+                          <td></td>
+                          <td>
+                            <input
+                              type="text"
+                              value={plotEditForm.plot_number}
+                              onChange={e => setPlotEditForm({...plotEditForm, plot_number: e.target.value})}
+                            />
+                            <input
+                              type="text"
+                              value={plotEditForm.registration_no}
+                              onChange={e => setPlotEditForm({...plotEditForm, registration_no: e.target.value})}
+                              placeholder="Registration #"
+                              style={{ marginTop: '0.25rem', fontSize: '0.75rem' }}
+                            />
+                            <input
+                              type="text"
+                              value={plotEditForm.form_number}
+                              onChange={e => setPlotEditForm({...plotEditForm, form_number: e.target.value})}
+                              placeholder="Form # / Code"
+                              style={{ marginTop: '0.25rem', fontSize: '0.75rem' }}
+                            />
+                          </td>
+                          <td>{plot._item.address}</td>
+                          <td>
+                            <input
+                              type="text"
+                              value={plotEditForm.block}
+                              onChange={e => setPlotEditForm({...plotEditForm, block: e.target.value})}
+                              placeholder="e.g. E"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              value={plotEditForm.plot_category}
+                              onChange={e => setPlotEditForm({...plotEditForm, plot_category: e.target.value})}
+                              placeholder="e.g. Corner"
+                            />
+                          </td>
+                          <td>
+                            <select
+                              value={plotEditForm.plot_type}
+                              onChange={e => setPlotEditForm({...plotEditForm, plot_type: e.target.value})}
+                            >
+                              <option value="R">Residential (R)</option>
+                              <option value="C">Commercial (C)</option>
+                            </select>
+                          </td>
+                          <td>{plot.status}</td>
+                          <td>
+                            <input
+                              type="text"
+                              value={plotEditForm.size}
+                              onChange={e => setPlotEditForm({...plotEditForm, size: e.target.value})}
+                              placeholder="e.g. 3.33 Marla"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              value={plotEditForm.membership_no}
+                              onChange={e => setPlotEditForm({...plotEditForm, membership_no: e.target.value})}
+                              placeholder="Membership #"
+                            />
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <button className="premium-btn premium-btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => handleUpdatePlot(plot.id)}>Save</button>
+                              <button className="premium-btn premium-btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => setEditingPlotId(null)}>Cancel</button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td>
+                            {hasPossibleDeal && (
+                              <button className="expand-btn" onClick={() => toggleDealRow(plot.id)} title="View linked deal">
+                                {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
+                              </button>
+                            )}
+                          </td>
+                          <td>{plot.plot_number}</td>
+                          <td>{plot._item.address}</td>
+                          <td>{plot.block || '-'}</td>
+                          <td>{plot.plot_category?.replace('_', ' ') || 'Standard'}</td>
+                          <td>{plot.plot_type || 'R'}</td>
+                          <td>{plot.status}</td>
+                          {canEdit && <td>{plot.size || '-'}</td>}
+                          {canEdit && <td>{plot.membership_no || '-'}</td>}
+                          {canEdit && (
+                            <td>
+                              <button
+                                className="premium-btn premium-btn-secondary"
+                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                                onClick={() => {
+                                  setEditingPlotId(plot.id);
+                                  setPlotEditForm({
+                                    plot_number: plot.plot_number || '',
+                                    plot_category: plot.plot_category || 'standard',
+                                    plot_type: plot.plot_type || 'R',
+                                    size: plot.size || '',
+                                    block: plot.block || '',
+                                    membership_no: plot.membership_no || '',
+                                    registration_no: plot.registration_no || '',
+                                    form_number: plot.form_number || ''
+                                  });
+                                }}
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          )}
+                        </>
+                      )}
+                    </tr>
+                    {isExpanded && hasPossibleDeal && (
+                      <tr className="expanded-details-row">
+                        <td colSpan={colSpan}>
+                          <div className="linked-entries-detail">
+                            <h4><FaCheckCircle color="var(--success)" /> Linked Deal</h4>
+                            {deal === 'loading' && <p>Loading...</p>}
+                            {deal === null && <p>No deal found for this plot.</p>}
+                            {deal && deal !== 'loading' && (
+                              <div className="linked-grid">
+                                <div className="linked-item-card">
+                                  <div className="linked-item-header">
+                                    <span className="date">{new Date(deal.created_at).toLocaleDateString()}</span>
+                                    <span className="dealer-badge">{deal.status}</span>
+                                  </div>
+                                  <div className="linked-item-body">
+                                    <span className="amount">Rs. {parseFloat(deal.sale_price || 0).toLocaleString()}</span>
+                                    <p>{deal.customer_name || 'Unnamed Customer'}{deal.dealer_name ? ` · ${deal.dealer_name}` : ''}</p>
+                                    <div className="entry-details-sub">
+                                      <span>Paid: Rs. {parseFloat(deal.total_paid || 0).toLocaleString()}</span>
+                                      <span>Remaining: Rs. {parseFloat(deal.remaining_balance || 0).toLocaleString()}</span>
+                                    </div>
+                                  </div>
+                                  <a href={`/deals/${deal.id}`} className="proof-link small">View Full Deal</a>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingItem ? 'Edit Inventory' : 'Add Inventory'}</h2>
+            <h2>{editingItem ? 'Edit Inventory' : 'Add Inventory'} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>— {selectedProjectSummary.name}</span></h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label>Category *</label>
@@ -968,107 +1330,6 @@ const Inventory = () => {
         </div>
       )}
 
-      {/* Manage Plots Modal */}
-      {managePlotsModal && (
-        <div className="modal-overlay" onClick={() => setManagePlotsModal(null)}>
-          <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-            <h2>Manage Plots for {managePlotsModal.address}</h2>
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }} className="premium-table-container">
-              <table className="premium-table">
-                <thead>
-                  <tr>
-                    <th>Plot #</th>
-                    <th>Category</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    {canEdit && <th>Size</th>}
-                    {canEdit && <th>Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {availablePlots.map(plot => (
-                    <tr key={plot.id}>
-                      {editingPlotId === plot.id ? (
-                        <>
-                          <td>
-                            <input 
-                              type="text" 
-                              value={plotEditForm.plot_number} 
-                              onChange={e => setPlotEditForm({...plotEditForm, plot_number: e.target.value})} 
-                            />
-                          </td>
-                          <td>
-                            <input 
-                              type="text" 
-                              value={plotEditForm.plot_category} 
-                              onChange={e => setPlotEditForm({...plotEditForm, plot_category: e.target.value})} 
-                              placeholder="Category"
-                            />
-                          </td>
-                          <td>
-                            <select 
-                              value={plotEditForm.plot_type}
-                              onChange={e => setPlotEditForm({...plotEditForm, plot_type: e.target.value})}
-                            >
-                              <option value="R">Residential (R)</option>
-                              <option value="C">Commercial (C)</option>
-                            </select>
-                          </td>
-                          <td>
-                            <input 
-                              type="text" 
-                              value={plotEditForm.size} 
-                              onChange={e => setPlotEditForm({...plotEditForm, size: e.target.value})} 
-                              placeholder="e.g. 5 Marla"
-                            />
-                          </td>
-                          <td>{plot.status}</td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '0.4rem' }}>
-                              <button className="premium-btn premium-btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => handleUpdatePlot(plot.id)}>Save</button>
-                              <button className="premium-btn premium-btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => setEditingPlotId(null)}>Cancel</button>
-                            </div>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td>{plot.plot_number}</td>
-                          <td>{plot.plot_category?.replace('_', ' ') || 'Standard'}</td>
-                          <td>{plot.plot_type || 'R'}</td>
-                          <td>{plot.status}</td>
-                          {canEdit && <td>{plot.size || '-'}</td>}
-                          {canEdit && (
-                            <td>
-                              <button 
-                               className="premium-btn premium-btn-secondary"
-                               style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-                               onClick={() => {
-                                 setEditingPlotId(plot.id);
-                                 setPlotEditForm({
-                                   plot_number: plot.plot_number || '',
-                                   plot_category: plot.plot_category || 'standard',
-                                   plot_type: plot.plot_type || 'R',
-                                   size: plot.size || ''
-                                 });
-                               }}
-                             >
-                               Edit
-                             </button>
-                            </td>
-                          )}
-                        </>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="modal-actions" style={{marginTop: '1.5rem'}}>
-              <button className="premium-btn premium-btn-secondary" onClick={() => setManagePlotsModal(null)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

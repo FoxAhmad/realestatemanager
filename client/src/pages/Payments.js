@@ -8,6 +8,9 @@ const PAYMENT_TYPE_LABELS = {
   booking: 'Booking / Down Payment',
   down_payment: 'Booking / Down Payment',
   installment: 'Instalment Plans',
+  excess_area: 'Excess Area',
+  possession_fee: 'Possession Fee',
+  form_fee: 'Form Fee',
   other: 'General / Others',
 };
 
@@ -17,6 +20,8 @@ const PAYMENT_COLUMNS = [
   { key: 'deal_id', label: 'Asset / Deal', type: 'text' },
   { key: 'customer_name', label: 'Associate', type: 'text' },
   { key: 'amount', label: 'Voucher Amount', type: 'currency' },
+  { key: 'instrument', label: 'Instrument', type: 'text' },
+  { key: 'lps_amount', label: 'LPS', type: 'currency' },
 ];
 
 const Payments = () => {
@@ -30,7 +35,7 @@ const Payments = () => {
 
   const fetchPayments = async () => {
     try {
-      const response = await api.get('/deals/payments/all');
+      const response = await api.get('/payments');
       setPayments(response.data);
     } catch (error) {
       console.error('Error fetching payments:', error);
@@ -42,7 +47,7 @@ const Payments = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Delete this payment record permanently?')) {
       try {
-        await api.delete(`/deals/payments/${id}`);
+        await api.delete(`/payments/${id}`);
         fetchPayments();
       } catch (error) {
         console.error('Error deleting payment:', error);
@@ -110,13 +115,15 @@ const Payments = () => {
                 <th>Asset / Deal</th>
                 <th>Associate</th>
                 <th style={{ textAlign: 'right' }}>Voucher Amount</th>
+                <th>Instrument / Receipt</th>
+                <th style={{ textAlign: 'right' }}>LPS</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="empty-state">
+                  <td colSpan="8" className="empty-state">
                     No financial records match the current criteria
                   </td>
                 </tr>
@@ -126,11 +133,11 @@ const Payments = () => {
                     <td style={{ fontWeight: 600 }}>{new Date(p.payment_date).toLocaleDateString()}</td>
                     <td>
                       <span className={`premium-badge ${
-                        (p.payment_type === 'booking' || p.payment_type === 'down_payment') ? 'premium-badge-primary' : 
-                        p.payment_type === 'installment' ? 'premium-badge-info' : 
+                        (p.payment_type === 'booking' || p.payment_type === 'down_payment') ? 'premium-badge-primary' :
+                        p.payment_type === 'installment' ? 'premium-badge-info' :
                         'premium-badge-neutral'
                       }`}>
-                        {(p.payment_type || 'other').toUpperCase()}
+                        {(PAYMENT_TYPE_LABELS[p.payment_type] || p.payment_type || 'other').toUpperCase()}
                       </span>
                     </td>
                     <td>
@@ -141,6 +148,14 @@ const Payments = () => {
                     <td style={{ fontWeight: 600 }}>{p.customer_name}</td>
                     <td className="amount-cell" style={{ textAlign: 'right' }}>
                       Rs. {parseFloat(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                    <td style={{ fontSize: '0.8rem' }}>
+                      {p.instrument ? p.instrument.replace('_', ' ').toUpperCase() : '-'}
+                      {p.instrument_number ? ` # ${p.instrument_number}` : ''}
+                      {p.voucher_no ? ` · ${p.voucher_no}` : ''}
+                    </td>
+                    <td className="amount-cell" style={{ textAlign: 'right' }}>
+                      {parseFloat(p.lps_amount || 0) > 0 ? `Rs. ${parseFloat(p.lps_amount).toLocaleString()}` : '-'}
                     </td>
                     <td>
                       <button

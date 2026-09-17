@@ -126,27 +126,6 @@
   width: 80px;
 }
 
-.sidebar-header {
-  padding: 2rem 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  margin-bottom: 1rem;
-}
-
-.sidebar.closed .sidebar-header span {
-  display: none;
-}
-
-.sidebar-header span {
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: rgba(255,255,255,0.4);
-}
-
 .sidebar-toggle-btn {
   position: absolute;
   right: -15px;
@@ -172,7 +151,7 @@
 }
 
 .sidebar-nav {
-  padding: 0 0.75rem;
+  padding: 1.25rem 0.75rem 0;
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;

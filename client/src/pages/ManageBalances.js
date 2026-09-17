@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import api from '../services/api';
 import {
-  FaPlus, FaSearch, FaHistory, FaCog, FaFilePdf,
-  FaWallet, FaCertificate, FaPiggyBank, FaTimes, FaExternalLinkAlt,
+  FaPlus, FaSearch, FaHistory, FaFilePdf,
+  FaWallet, FaPiggyBank, FaTimes, FaExternalLinkAlt,
   FaChevronDown, FaChevronUp, FaCheckCircle, FaUser, FaMapMarkerAlt,
   FaEdit, FaArrowLeft, FaFolder, FaFolderOpen, FaTrash, FaEye,
   FaBuilding, FaExchangeAlt, FaUsers, FaListAlt
@@ -50,17 +50,14 @@ const ManageBalances = () => {
   const [projects, setProjects] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [dealers, setDealers] = useState([]);
-  const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [projectsLoading, setProjectsLoading] = useState(true);
 
   // ── UI State ─────────────────────────────────────────────────────────────────
   const [showModal, setShowModal] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProject, setEditingProject] = useState(null); // null = new, obj = edit
   const [projectForm, setProjectForm] = useState({ name: '', description: '' });
-  const [adjustmentCost, setAdjustmentCost] = useState(20000);
   const [expandedRows, setExpandedRows] = useState({});
   const [deletingId, setDeletingId] = useState(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -86,21 +83,17 @@ const ManageBalances = () => {
     amount: '', type: 'add',
     date: new Date().toISOString().split('T')[0],
     description: '', voucher_no: '', instrument: 'Cash',
-    instrument_number: '', user_id: '', proof_file: null,
-    quantity: 1, plot_info: '', customer_info: '', is_random: false
+    instrument_number: '', user_id: '', proof_file: null
   });
 
   const accounts = [
     { id: 3, name: 'Dealer Advances', icon: <FaWallet />, color: '#007bff' },
-    { id: 8, name: 'Advance for Certificate', icon: <FaCertificate />, color: '#ffc107' },
     { id: 4, name: 'Savings Deposits', icon: <FaPiggyBank />, color: '#28a745' }
   ];
 
   // ── Fetch Helpers ─────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchDealers();
-    fetchCustomers();
-    fetchSettings();
   }, []);
 
   useEffect(() => {
@@ -140,10 +133,7 @@ const ManageBalances = () => {
   useEffect(() => {
     if (formData.type === 'deduct' && selectedFinanceEntries.length > 0) {
       setSelectedFinanceEntries([]);
-      setFormData(prev => ({
-        ...prev, amount: '', quantity: 1,
-        description: prev.is_random ? 'Random Certificate Use' : ''
-      }));
+      setFormData(prev => ({ ...prev, amount: '', description: '' }));
     }
   }, [formData.type]);
 
@@ -184,26 +174,11 @@ const ManageBalances = () => {
     } catch (err) { console.error('Error fetching dealers:', err); }
   };
 
-  const fetchCustomers = async () => {
-    try {
-      const res = await api.get('/customers');
-      setCustomers(res.data);
-    } catch (err) { console.error('Error fetching customers:', err); }
-  };
-
   const fetchAvailableFinance = async (userId) => {
     try {
       const res = await api.get(`/finance/entries?userId=${userId}&unlinkedOnly=true`);
       setAvailableFinanceEntries(res.data);
     } catch (err) { console.error('Error fetching finance entries:', err); }
-  };
-
-  const fetchSettings = async () => {
-    try {
-      const res = await api.get('/settings');
-      const costSetting = res.data.find(s => s.setting_key === 'ADJUSTMENT_FORM_DEFAULT_COST');
-      if (costSetting) setAdjustmentCost(costSetting.setting_value);
-    } catch (err) { console.error('Error fetching settings:', err); }
   };
 
   // ── Project Actions ───────────────────────────────────────────────────────────
@@ -278,15 +253,12 @@ const ManageBalances = () => {
     setSelectedFinanceEntries(newSelected);
     const total = newSelected.reduce((sum, e) => sum + parseFloat(e.credit), 0);
     if (total > 0) {
-      setFormData(prev => {
-        const qty = activeTab === 8 ? (Math.round(total / adjustmentCost) || 1) : 1;
-        return {
-          ...prev, amount: total.toString(), quantity: qty,
-          description: `Transfer from Finance: ${newSelected.map(e => e.description).join(', ')}`
-        };
-      });
+      setFormData(prev => ({
+        ...prev, amount: total.toString(),
+        description: `Transfer from Finance: ${newSelected.map(e => e.description).join(', ')}`
+      }));
     } else {
-      setFormData(prev => ({ ...prev, amount: '', quantity: 1, description: '' }));
+      setFormData(prev => ({ ...prev, amount: '', description: '' }));
     }
   };
 
@@ -333,21 +305,11 @@ const ManageBalances = () => {
   const resetForm = () => {
     setFormData({
       instrument: 'Cash', instrument_number: '', user_id: '',
-      proof_file: null, quantity: 1, plot_info: '', customer_info: '', is_random: false,
+      proof_file: null,
       amount: '', type: 'add', date: new Date().toISOString().split('T')[0],
       description: '', voucher_no: ''
     });
     setSelectedFinanceEntries([]);
-  };
-
-  const updateAdjustmentCost = async () => {
-    try {
-      await api.put('/settings/ADJUSTMENT_FORM_DEFAULT_COST', { value: adjustmentCost });
-      setShowSettings(false);
-      alert('Setting updated successfully');
-    } catch (err) {
-      alert('Failed to update setting: ' + (err.response?.data?.message || err.message));
-    }
   };
 
   const handleEditClick = (transaction) => {
@@ -466,18 +428,9 @@ const ManageBalances = () => {
     return sum + (parseFloat(t.credit) - parseFloat(t.debit));
   }, 0);
 
-  const totalQuantity = activeTab === 8 ? transactions.reduce((sum, t) => {
-    const q = parseInt(t.quantity) || 0;
-    if (parseFloat(t.credit) > 0) return sum + q;
-    if (parseFloat(t.debit) > 0) return sum - q;
-    return sum;
-  }, 0) : null;
-
-  const entities = activeTab === 8 ? [...dealers, ...customers] : dealers;
-
   // Shared with the PDF exports so printed shares can never drift from the cards.
   const dealerBalances = buildDealerLedgers({
-    transactions, entities, activeTab, adjustmentCost
+    transactions, entities: dealers, activeTab
   });
 
   // ── PDF Exports ───────────────────────────────────────────────────────────────
@@ -489,7 +442,7 @@ const ManageBalances = () => {
     projectName: selectedProject ? selectedProject.name : null,
     preparedBy: user?.name || user?.email || '—',
     totalBalance,
-    totalQuantity
+    totalQuantity: null
   });
 
   const runExport = (builder) => {
@@ -504,17 +457,10 @@ const ManageBalances = () => {
 
   // ── Render: Project Card ──────────────────────────────────────────────────────
   const renderProjectCard = (proj, isGeneral = false) => {
-    // Balance and entry count are tab-specific so numbers match what you see inside
-    const balance = isGeneral ? null : (
-      activeTab === 3 ? parseFloat(proj.advances_balance || 0) :
-      activeTab === 8 ? parseFloat(proj.certificate_balance || 0) :
-      parseFloat(proj.total_balance || 0)
-    );
-    const entries = isGeneral ? '—' : (
-      activeTab === 3 ? parseInt(proj.advances_count || 0) :
-      activeTab === 8 ? parseInt(proj.certificate_count || 0) :
-      parseInt(proj.entry_count || 0)
-    );
+    // Only account 3 (Dealer Advances) uses the projects view, so balance/count
+    // always come from the advances-specific aggregates.
+    const balance = isGeneral ? null : parseFloat(proj.advances_balance || 0);
+    const entries = isGeneral ? '—' : parseInt(proj.advances_count || 0);
 
     return (
       <div
@@ -612,11 +558,6 @@ const ManageBalances = () => {
                 </div>
               )}
             </div>
-          )}
-          {isAdminOrAccountant && (
-            <button className="premium-btn premium-btn-secondary" onClick={() => setShowSettings(true)}>
-              <FaCog /> Settings
-            </button>
           )}
           {view === 'projects' && activeTab !== 4 && isAdminOrAccountant && (
             <button className="premium-btn premium-btn-primary" onClick={openNewProjectModal}>
@@ -718,9 +659,9 @@ const ManageBalances = () => {
                 <FaHistory />
               </div>
               <div className="card-info">
-                <h3>{activeTab === 8 ? 'Total Forms' : 'Recent Transactions'}</h3>
+                <h3>Recent Transactions</h3>
                 <div className="amount">
-                  {activeTab === 8 ? `${totalQuantity} Certificates` : `${transactions.length} Records`}
+                  {transactions.length} Records
                 </div>
               </div>
             </div>
@@ -733,14 +674,8 @@ const ManageBalances = () => {
                 <div key={db.id} className="dealer-balance-card glass-card">
                   <div className="dealer-name">{db.name}</div>
                   <div className="dealer-stats">
-                    {activeTab === 8 && (
-                      <div className="stat">
-                        <label>Forms</label>
-                        <span className="val">{db.quantity}</span>
-                      </div>
-                    )}
                     <div className="stat">
-                      <label>{activeTab === 8 ? 'Value' : 'Balance'}</label>
+                      <label>Balance</label>
                       <span className={`val ${db.balance >= 0 ? 'text-success' : 'text-danger'}`}>
                         Rs. {db.balance.toLocaleString()}
                       </span>
@@ -774,7 +709,7 @@ const ManageBalances = () => {
                     <th style={{ width: '40px' }}></th>
                     <th>Date</th>
                     <th>Voucher #</th>
-                    <th>{activeTab === 8 ? 'Details & Narration' : 'Narration & Proof'}</th>
+                    <th>Narration & Proof</th>
                     <th>Dealer / Ref</th>
                     <th className="amount-col">Debit</th>
                     <th className="amount-col">Credit</th>
@@ -809,7 +744,7 @@ const ManageBalances = () => {
                               {t.voucher_no && <span className="voucher-badge">{t.voucher_no}</span>}
                               <div className="instrument-tag">{t.instrument} {t.instrument_number}</div>
                             </td>
-                            <td className="td-wrap" data-label={activeTab === 8 ? 'Details & Narration' : 'Narration & Proof'}>
+                            <td className="td-wrap" data-label="Narration & Proof">
                               <div style={{ fontWeight: 600 }}>
                                 {t.description}
                                 {t.quantity && <span className="qty-badge"> (Qty: {t.quantity})</span>}
@@ -991,64 +926,18 @@ const ManageBalances = () => {
                   <select
                     name="type" className="form-control"
                     value={formData.type} onChange={handleInputChange}
-                    disabled={formData.is_random}
                   >
                     <option value="add">Credit (Increase Balance)</option>
                     <option value="deduct">Debit (Decrease Balance)</option>
                   </select>
                 </div>
-                {activeTab === 8 && (
-                  <div className="form-group">
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox" name="is_random" checked={formData.is_random}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setFormData(prev => ({
-                            ...prev, is_random: checked,
-                            type: checked ? 'deduct' : prev.type,
-                            description: checked ? 'Random Certificate Use' : prev.description
-                          }));
-                        }}
-                      />
-                      Random Entry (External Plot/Customer)
-                    </label>
-                  </div>
-                )}
-                {activeTab === 8 && (
-                  <div className="form-group">
-                    <label>Quantity (Number of Forms)</label>
-                    <input
-                      type="number" name="quantity" className="form-control" min="1"
-                      value={formData.quantity}
-                      onChange={(e) => {
-                        const qty = parseInt(e.target.value) || 1;
-                        setFormData(prev => ({ ...prev, quantity: qty, amount: (qty * adjustmentCost).toString() }));
-                      }}
-                    />
-                  </div>
-                )}
                 <div className="form-group">
                   <label>Amount (Rs.)</label>
                   <input
                     type="number" name="amount" className="form-control" required
                     value={formData.amount} onChange={handleInputChange}
-                    readOnly={activeTab === 8}
                   />
-                  {activeTab === 8 && <small>Calculated based on quantity</small>}
                 </div>
-                {formData.is_random && (
-                  <div className="form-row-2">
-                    <div className="form-group">
-                      <label>Customer Name</label>
-                      <input type="text" name="customer_info" className="form-control" required={formData.is_random} value={formData.customer_info} onChange={handleInputChange} />
-                    </div>
-                    <div className="form-group">
-                      <label>Plot Details</label>
-                      <input type="text" name="plot_info" className="form-control" required={formData.is_random} value={formData.plot_info} onChange={handleInputChange} />
-                    </div>
-                  </div>
-                )}
                 <div className="form-group">
                   <label>Voucher Number</label>
                   <input type="text" name="voucher_no" className="form-control" value={formData.voucher_no} onChange={handleInputChange} />
@@ -1120,33 +1009,6 @@ const ManageBalances = () => {
                 <button type="submit" className="premium-btn premium-btn-primary">Save & Link Transaction</button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── Settings Modal ── */}
-      {showSettings && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2>Global Settings</h2>
-              <button onClick={() => setShowSettings(false)} className="close-modal-btn"><FaTimes /></button>
-            </div>
-            <div className="form-group">
-              <label>Adjustment Form Default Cost (Rs.)</label>
-              <input
-                type="number" className="form-control"
-                value={adjustmentCost}
-                onChange={(e) => setAdjustmentCost(e.target.value)}
-              />
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                This is the amount deducted from your Certificate balance when an adjustment is added to a deal.
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowSettings(false)}>Cancel</button>
-              <button type="button" className="premium-btn premium-btn-primary" onClick={updateAdjustmentCost}>Update Setting</button>
-            </div>
           </div>
         </div>
       )}
