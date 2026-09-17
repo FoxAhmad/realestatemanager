@@ -100,8 +100,8 @@ const Ledger = () => {
                   // For now simple list
                   return (
                     <tr key={line.id} className={isCredit ? 'tx-line-credit' : 'tx-line-debit'}>
-                      <td>{new Date(line.transaction_date).toLocaleDateString()}</td>
-                      <td>
+                      <td data-label="Date">{new Date(line.transaction_date).toLocaleDateString()}</td>
+                      <td data-label="Voucher #">
                         {line.voucher_no && <div className="voucher-badge">{line.voucher_no}</div>}
                         <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '0.7rem' }}>
                           TX-{line.transaction_id.toString().padStart(5, '0')}
@@ -112,14 +112,14 @@ const Ledger = () => {
                           </div>
                         )}
                       </td>
-                      <td className={isCredit ? 'credit-account' : ''}>
+                      <td data-label="Account & Description" className={isCredit ? 'credit-account' : ''}>
                         <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{line.account_name}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{line.description}</div>
                       </td>
-                      <td className="amount-col" style={{ color: '#dc3545', fontWeight: 600 }}>
+                      <td data-label="Debit" className="amount-col" style={{ color: '#dc3545', fontWeight: 600 }}>
                         {!isCredit ? parseFloat(line.debit).toLocaleString() : '-'}
                       </td>
-                      <td className="amount-col" style={{ color: '#28a745', fontWeight: 600 }}>
+                      <td data-label="Credit" className="amount-col" style={{ color: '#28a745', fontWeight: 600 }}>
                         {isCredit ? parseFloat(line.credit).toLocaleString() : '-'}
                       </td>
                     </tr>

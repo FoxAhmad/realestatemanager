@@ -226,10 +226,10 @@ const Deals = () => {
               ) : (
                 filteredDeals.map((deal) => (
                   <tr key={deal.id}>
-                    <td>#{deal.id}</td>
-                    <td style={{ fontWeight: '700' }}>{deal.customer_name}</td>
-                    <td>{deal.dealer_name}</td>
-                    <td>
+                    <td data-label="Deal ID">#{deal.id}</td>
+                    <td data-label="Customer Name" style={{ fontWeight: '700' }}>{deal.customer_name}</td>
+                    <td data-label="Salesperson">{deal.dealer_name}</td>
+                    <td data-label="Asset Details">
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{deal.inventory_address}</span>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -240,10 +240,10 @@ const Deals = () => {
                         </span>
                       </div>
                     </td>
-                    <td style={{ color: 'var(--text-muted)' }}>Rs. {parseFloat(deal.original_price || 0).toLocaleString()}</td>
-                    <td style={{ fontWeight: '700' }}>Rs. {parseFloat(deal.sale_price || 0).toLocaleString()}</td>
-                    <td>{getStatusBadge(deal.status)}</td>
-                    <td>
+                    <td data-label="Base Price" style={{ color: 'var(--text-muted)' }}>Rs. {parseFloat(deal.original_price || 0).toLocaleString()}</td>
+                    <td data-label="Sale Price" style={{ fontWeight: '700' }}>Rs. {parseFloat(deal.sale_price || 0).toLocaleString()}</td>
+                    <td data-label="Status">{getStatusBadge(deal.status)}</td>
+                    <td data-label="Actions">
                       <button
                         className="premium-btn premium-btn-secondary"
                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}

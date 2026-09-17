@@ -196,11 +196,11 @@ const FormsLedger = () => {
                           <tbody>
                             {history.map(h => (
                               <tr key={h.line_id}>
-                                <td>{new Date(h.transaction_date).toLocaleDateString()}</td>
-                                <td>{h.description}</td>
-                                <td>{h.quantity}</td>
-                                <td style={{ color: 'var(--success)' }}>{parseFloat(h.credit) > 0 ? parseFloat(h.credit).toLocaleString() : '-'}</td>
-                                <td style={{ color: 'var(--danger)' }}>{parseFloat(h.debit) > 0 ? parseFloat(h.debit).toLocaleString() : '-'}</td>
+                                <td data-label="Date">{new Date(h.transaction_date).toLocaleDateString()}</td>
+                                <td data-label="Description">{h.description}</td>
+                                <td data-label="Qty">{h.quantity}</td>
+                                <td data-label="Credit" style={{ color: 'var(--success)' }}>{parseFloat(h.credit) > 0 ? parseFloat(h.credit).toLocaleString() : '-'}</td>
+                                <td data-label="Debit" style={{ color: 'var(--danger)' }}>{parseFloat(h.debit) > 0 ? parseFloat(h.debit).toLocaleString() : '-'}</td>
                               </tr>
                             ))}
                           </tbody>

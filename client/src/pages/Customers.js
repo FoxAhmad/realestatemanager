@@ -163,16 +163,16 @@ const Customers = () => {
               ) : (
                 filteredCustomers.map((customer) => (
                   <tr key={customer.id}>
-                    <td style={{ fontWeight: '700' }}>{customer.name}</td>
-                    <td>{customer.cnic || '-'}</td>
-                    <td>
+                    <td data-label="Customer Name" style={{ fontWeight: '700' }}>{customer.name}</td>
+                    <td data-label="Identity (CNIC)">{customer.cnic || '-'}</td>
+                    <td data-label="Contact Details">
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span>{customer.phone_number || '-'}</span>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{customer.email}</span>
                       </div>
                     </td>
-                    <td>{customer.address || '-'}</td>
-                    <td>
+                    <td data-label="Address">{customer.address || '-'}</td>
+                    <td data-label="Status">
                       <span className={`premium-badge ${customer.status === 'successful' ? 'premium-badge-success' :
                           customer.status === 'unsuccessful' ? 'premium-badge-danger' :
                             'premium-badge-warning'
@@ -180,14 +180,14 @@ const Customers = () => {
                         {customer.status || 'potential'}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Source">
                       {customer.source === 'lead_conversion' ? (
                         <span className="premium-badge premium-badge-info">Converted Lead</span>
                       ) : (
                         <span className="premium-badge premium-badge-neutral">Walk-in</span>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Actions">
                       <div className="action-buttons">
                         <button
                           className="premium-btn premium-btn-secondary"

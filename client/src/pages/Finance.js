@@ -404,7 +404,7 @@ const Finance = () => {
 
                     return filteredLedgerEntries.map((entry, idx) => (
                       <tr key={`${entry.id}_${idx}`}>
-                        <td>
+                        <td data-label="Date">
                           {new Date(entry.transaction_date).toLocaleDateString()}
                           {entry.other_date && (
                             <div style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>
@@ -413,11 +413,11 @@ const Finance = () => {
                           )}
                         </td>
                         {isAccountant && (
-                          <td style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                          <td data-label="Dealer" style={{ fontWeight: 700, color: 'var(--primary)' }}>
                             {entry.user_name || 'System'}
                           </td>
                         )}
-                        <td>
+                        <td data-label="Reference">
                           {Array.from(entry.vouchers).filter(Boolean).map((v, i) => (
                             <span key={i} className="voucher-badge" style={{ marginRight: '4px' }}>{v}</span>
                           ))}
@@ -425,7 +425,7 @@ const Finance = () => {
                             <div key={`inst_${i}`} className="instrument-tag" style={{ marginTop: '4px' }}>{inst}</div>
                           ))}
                         </td>
-                        <td>
+                        <td data-label="Description & Proof">
                           <div style={{ fontWeight: 600 }}>
                             {Array.from(entry.descriptions).map((desc, i) => (
                               <div key={`desc_${i}`} style={{ marginBottom: entry.descriptions.size > 1 ? '4px' : '0' }}>
@@ -446,17 +446,17 @@ const Finance = () => {
                             </div>
                           ))}
                         </td>
-                        <td className="amount-col" style={{ color: '#28a745', fontWeight: 600 }}>
+                        <td data-label="Credit (In)" className="amount-col" style={{ color: '#28a745', fontWeight: 600 }}>
                           {entry.credit > 0 ? entry.credit.toLocaleString() : '-'}
                         </td>
-                        <td className="amount-col" style={{ color: '#dc3545', fontWeight: 600 }}>
+                        <td data-label="Debit (Out)" className="amount-col" style={{ color: '#dc3545', fontWeight: 600 }}>
                           {entry.debit > 0 ? entry.debit.toLocaleString() : '-'}
                         </td>
-                        <td className="amount-col" style={{ fontWeight: 800 }}>
+                        <td data-label="Balance" className="amount-col" style={{ fontWeight: 800 }}>
                           {entry.runningBal.toLocaleString()}
                         </td>
                         {canManage && (
-                          <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <td data-label="Actions" style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                             <button
                               onClick={() => handleEditClick(entry)}
                               title="Edit Entry"
@@ -503,9 +503,9 @@ const Finance = () => {
                       ) : (
                         monthlyStats.map((stat, i) => (
                           <tr key={i}>
-                            <td style={{ fontWeight: '700' }}>{new Date(stat.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</td>
-                            <td>Rs. {parseFloat(stat.revenue).toLocaleString()}</td>
-                            <td style={{ color: 'var(--success)', fontWeight: '700' }}>Rs. {parseFloat(stat.profit).toLocaleString()}</td>
+                            <td data-label="Period" style={{ fontWeight: '700' }}>{new Date(stat.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</td>
+                            <td data-label="Revenue">Rs. {parseFloat(stat.revenue).toLocaleString()}</td>
+                            <td data-label="Net Profit" style={{ color: 'var(--success)', fontWeight: '700' }}>Rs. {parseFloat(stat.profit).toLocaleString()}</td>
                           </tr>
                         ))
                       )}
@@ -548,9 +548,9 @@ const Finance = () => {
                         ) : (
                           filteredDealerStats.map((stat, i) => (
                             <tr key={i}>
-                              <td style={{ fontWeight: '700' }}>{stat.dealer_name}</td>
-                              <td>Rs. {parseFloat(stat.total_revenue).toLocaleString()}</td>
-                              <td style={{ color: 'var(--primary)', fontWeight: '700' }}>Rs. {parseFloat(stat.wallet_balance).toLocaleString()}</td>
+                              <td data-label="Salesperson" style={{ fontWeight: '700' }}>{stat.dealer_name}</td>
+                              <td data-label="Volume">Rs. {parseFloat(stat.total_revenue).toLocaleString()}</td>
+                              <td data-label="Wallet" style={{ color: 'var(--primary)', fontWeight: '700' }}>Rs. {parseFloat(stat.wallet_balance).toLocaleString()}</td>
                             </tr>
                           ))
                         )}

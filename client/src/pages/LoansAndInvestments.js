@@ -274,8 +274,8 @@ const LoansAndInvestments = () => {
                 )}
                 {filteredLoansReceivable.map(row => (
                   <tr key={row.account_id}>
-                    <td>{row.name}</td>
-                    <td>
+                    <td data-label="Name">{row.name}</td>
+                    <td data-label="Outstanding">
                       <span className={`li-balance ${parseFloat(row.balance) > 0 ? 'positive' : 'zero'}`}>
                         Rs. {parseFloat(row.balance).toLocaleString()}
                       </span>
@@ -319,8 +319,8 @@ const LoansAndInvestments = () => {
                 )}
                 {filteredLoansPayable.map(row => (
                   <tr key={row.account_id}>
-                    <td>{row.name}</td>
-                    <td>
+                    <td data-label="Name">{row.name}</td>
+                    <td data-label="Outstanding">
                       <span className={`li-balance ${parseFloat(row.balance) > 0 ? 'positive' : 'zero'}`}>
                         Rs. {parseFloat(row.balance).toLocaleString()}
                       </span>
@@ -367,8 +367,8 @@ const LoansAndInvestments = () => {
               )}
               {filteredInvestments.map(row => (
                 <tr key={row.account_id}>
-                  <td>{row.name}</td>
-                  <td>
+                  <td data-label="Venture">{row.name}</td>
+                  <td data-label="Outstanding">
                     <span className={`li-balance ${parseFloat(row.balance) > 0 ? 'positive' : 'zero'}`}>
                       Rs. {parseFloat(row.balance).toLocaleString()}
                     </span>

@@ -228,20 +228,20 @@ const Leads = () => {
               ) : (
                 filteredLeads.map((lead) => (
                   <tr key={lead.id}>
-                    <td style={{ fontWeight: '700' }}>{lead.name}</td>
-                    <td>
+                    <td data-label="Lead Name" style={{ fontWeight: '700' }}>{lead.name}</td>
+                    <td data-label="Contact info">
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span>{lead.phone_number}</span>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{lead.email}</span>
                       </div>
                     </td>
-                    <td><span className="premium-badge premium-badge-neutral">{(lead.source || 'other').replace('_', ' ')}</span></td>
-                    <td>{lead.interest_area || '-'}</td>
-                    <td>{getStatusBadge(lead.status)}</td>
+                    <td data-label="Source"><span className="premium-badge premium-badge-neutral">{(lead.source || 'other').replace('_', ' ')}</span></td>
+                    <td data-label="Interest">{lead.interest_area || '-'}</td>
+                    <td data-label="Status">{getStatusBadge(lead.status)}</td>
                     {(isAdmin || isAccountant) && (
-                      <td>{lead.assigned_to_name || <span style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>Unassigned</span>}</td>
+                      <td data-label="Assigned To">{lead.assigned_to_name || <span style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>Unassigned</span>}</td>
                     )}
-                    <td>
+                    <td data-label="Actions">
                       <div className="action-buttons">
                         {(isAdmin || isAccountant) && (
                           <button

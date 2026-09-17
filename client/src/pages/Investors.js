@@ -164,15 +164,15 @@ const Investors = () => {
               ) : (
                 filteredInvestors.map((investor) => (
                   <tr key={investor.id}>
-                    <td style={{ fontWeight: '700' }}>{investor.name}</td>
-                    <td>{investor.cnic}</td>
-                    <td>{investor.contact_number}</td>
-                    <td>
+                    <td data-label="Partner Name" style={{ fontWeight: '700' }}>{investor.name}</td>
+                    <td data-label="Identity (CNIC)">{investor.cnic}</td>
+                    <td data-label="Communication">{investor.contact_number}</td>
+                    <td data-label="Current Balance">
                       <span className={parseFloat(investor.balance) >= 0 ? 'balance-positive' : 'balance-negative'}>
                         Rs. {parseFloat(investor.balance || 0).toLocaleString()}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Actions">
                       <div className="action-buttons">
                         <button
                           className="premium-btn premium-btn-secondary"

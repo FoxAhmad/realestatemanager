@@ -646,16 +646,16 @@ const Inventory = () => {
 
                 return (
                   <tr key={item.ids.join('-')}>
-                    <td>{item.ids.join(', ')}</td>
-                    <td>{getCategoryLabel(item.category)}</td>
-                    <td>
+                    <td data-label="ID">{item.ids.join(', ')}</td>
+                    <td data-label="Category">{getCategoryLabel(item.category)}</td>
+                    <td data-label="Details">
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
                         <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--primary)' }}>{item.plot_type || 'R'}</span>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.plot_category || 'Standard'}</span>
                         <span style={{ fontSize: '0.75rem' }}>{item.size || '-'}</span>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Address & Plots">
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                         <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{item.address}</span>
                         {plots.length > 0 && (
@@ -684,11 +684,11 @@ const Inventory = () => {
                         )}
                       </div>
                     </td>
-                    <td style={{ fontWeight: '700' }}>Rs. {parseFloat(item.price || 0).toLocaleString()}</td>
-                    <td>{item.total_quantity}</td>
-                    <td>{getStatusBadge(item.status, item)}</td>
+                    <td data-label="Price" style={{ fontWeight: '700' }}>Rs. {parseFloat(item.price || 0).toLocaleString()}</td>
+                    <td data-label="Qty">{item.total_quantity}</td>
+                    <td data-label="Status">{getStatusBadge(item.status, item)}</td>
                     {canEdit && (
-                      <td>
+                      <td data-label="Assigned To">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                           {item.assigned_to_name && (
                             <span>{item.assigned_to_name}</span>
@@ -717,7 +717,7 @@ const Inventory = () => {
                         </div>
                       </td>
                     )}
-                    <td>
+                    <td data-label="Actions">
                       <div className="action-buttons">
                         {canEdit ? (
                           <>
@@ -818,7 +818,7 @@ const Inventory = () => {
                       {editingPlotId === plot.id ? (
                         <>
                           <td></td>
-                          <td>
+                          <td data-label="Plot #">
                             <input
                               type="text"
                               value={plotEditForm.plot_number}
@@ -839,8 +839,8 @@ const Inventory = () => {
                               style={{ marginTop: '0.25rem', fontSize: '0.75rem' }}
                             />
                           </td>
-                          <td>{plot._item.address}</td>
-                          <td>
+                          <td data-label="Listing / Address">{plot._item.address}</td>
+                          <td data-label="Block">
                             <input
                               type="text"
                               value={plotEditForm.block}
@@ -848,7 +848,7 @@ const Inventory = () => {
                               placeholder="e.g. E"
                             />
                           </td>
-                          <td>
+                          <td data-label="Factor">
                             <input
                               type="text"
                               value={plotEditForm.plot_category}
@@ -856,7 +856,7 @@ const Inventory = () => {
                               placeholder="e.g. Corner"
                             />
                           </td>
-                          <td>
+                          <td data-label="Type">
                             <select
                               value={plotEditForm.plot_type}
                               onChange={e => setPlotEditForm({...plotEditForm, plot_type: e.target.value})}
@@ -865,8 +865,8 @@ const Inventory = () => {
                               <option value="C">Commercial (C)</option>
                             </select>
                           </td>
-                          <td>{plot.status}</td>
-                          <td>
+                          <td data-label="Status">{plot.status}</td>
+                          <td data-label="Size">
                             <input
                               type="text"
                               value={plotEditForm.size}
@@ -874,7 +874,7 @@ const Inventory = () => {
                               placeholder="e.g. 3.33 Marla"
                             />
                           </td>
-                          <td>
+                          <td data-label="Membership #">
                             <input
                               type="text"
                               value={plotEditForm.membership_no}
@@ -882,7 +882,7 @@ const Inventory = () => {
                               placeholder="Membership #"
                             />
                           </td>
-                          <td>
+                          <td data-label="Actions">
                             <div style={{ display: 'flex', gap: '0.4rem' }}>
                               <button className="premium-btn premium-btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => handleUpdatePlot(plot.id)}>Save</button>
                               <button className="premium-btn premium-btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => setEditingPlotId(null)}>Cancel</button>
@@ -898,16 +898,16 @@ const Inventory = () => {
                               </button>
                             )}
                           </td>
-                          <td>{plot.plot_number}</td>
-                          <td>{plot._item.address}</td>
-                          <td>{plot.block || '-'}</td>
-                          <td>{plot.plot_category?.replace('_', ' ') || 'Standard'}</td>
-                          <td>{plot.plot_type || 'R'}</td>
-                          <td>{plot.status}</td>
-                          {canEdit && <td>{plot.size || '-'}</td>}
-                          {canEdit && <td>{plot.membership_no || '-'}</td>}
+                          <td data-label="Plot #">{plot.plot_number}</td>
+                          <td data-label="Listing / Address">{plot._item.address}</td>
+                          <td data-label="Block">{plot.block || '-'}</td>
+                          <td data-label="Factor">{plot.plot_category?.replace('_', ' ') || 'Standard'}</td>
+                          <td data-label="Type">{plot.plot_type || 'R'}</td>
+                          <td data-label="Status">{plot.status}</td>
+                          {canEdit && <td data-label="Size">{plot.size || '-'}</td>}
+                          {canEdit && <td data-label="Membership #">{plot.membership_no || '-'}</td>}
                           {canEdit && (
-                            <td>
+                            <td data-label="Actions">
                               <button
                                 className="premium-btn premium-btn-secondary"
                                 style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}

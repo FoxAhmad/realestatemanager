@@ -213,14 +213,14 @@ const DealerExchanges = () => {
 
   const renderExchangeRow = (ex, { nested = false } = {}) => (
     <tr key={ex.id} className={nested ? 'mutual-subrow' : undefined}>
-      <td>{new Date(ex.exchange_date).toLocaleDateString()}</td>
-      <td style={{ fontWeight: 700 }}>{ex.sender_name}</td>
-      <td style={{ fontWeight: 700 }}>{ex.receiver_name}</td>
-      <td>{ex.detail || ex.description}</td>
-      <td style={{ fontWeight: 800, color: 'var(--primary)' }}>
+      <td data-label="Date">{new Date(ex.exchange_date).toLocaleDateString()}</td>
+      <td data-label="Sender" style={{ fontWeight: 700 }}>{ex.sender_name}</td>
+      <td data-label="Receiver" style={{ fontWeight: 700 }}>{ex.receiver_name}</td>
+      <td data-label="Reference / Detail">{ex.detail || ex.description}</td>
+      <td data-label="Amount" style={{ fontWeight: 800, color: 'var(--primary)' }}>
         Rs. {parseFloat(ex.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
       </td>
-      <td>
+      <td data-label="Proof">
         {ex.proof_file ? (
           <a
             href={ex.proof_file.startsWith('http') ? ex.proof_file : `${process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000'}${ex.proof_file}`}
@@ -235,7 +235,7 @@ const DealerExchanges = () => {
           <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
         )}
       </td>
-      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+      <td data-label="Actions" style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
         {canModify(ex) ? (
           <>
             <button
@@ -349,8 +349,8 @@ const DealerExchanges = () => {
                         className="mutual-group-row"
                         onClick={() => togglePairGroup(group.pairKey)}
                       >
-                        <td>—</td>
-                        <td style={{ fontWeight: 700 }}>
+                        <td data-label="Date">—</td>
+                        <td data-label="Sender" style={{ fontWeight: 700 }}>
                           <span className="mutual-group-toggle">
                             {isExpanded ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
                           </span>
@@ -359,13 +359,13 @@ const DealerExchanges = () => {
                             {group.entries.length} entries
                           </span>
                         </td>
-                        <td style={{ fontWeight: 700 }}>{group.partyB}</td>
-                        <td>—</td>
-                        <td style={{ fontWeight: 800, color: 'var(--primary)' }}>
+                        <td data-label="Receiver" style={{ fontWeight: 700 }}>{group.partyB}</td>
+                        <td data-label="Reference / Detail">—</td>
+                        <td data-label="Amount" style={{ fontWeight: 800, color: 'var(--primary)' }}>
                           Rs. {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
-                        <td>—</td>
-                        <td>—</td>
+                        <td data-label="Proof">—</td>
+                        <td data-label="Actions">—</td>
                       </tr>
                       {isExpanded && group.entries.map((ex) => renderExchangeRow(ex, { nested: true }))}
                     </React.Fragment>

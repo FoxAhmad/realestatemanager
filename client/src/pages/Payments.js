@@ -130,8 +130,8 @@ const Payments = () => {
               ) : (
                 filteredPayments.map((p) => (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 600 }}>{new Date(p.payment_date).toLocaleDateString()}</td>
-                    <td>
+                    <td data-label="Date" style={{ fontWeight: 600 }}>{new Date(p.payment_date).toLocaleDateString()}</td>
+                    <td data-label="Classification">
                       <span className={`premium-badge ${
                         (p.payment_type === 'booking' || p.payment_type === 'down_payment') ? 'premium-badge-primary' :
                         p.payment_type === 'installment' ? 'premium-badge-info' :
@@ -140,24 +140,24 @@ const Payments = () => {
                         {(PAYMENT_TYPE_LABELS[p.payment_type] || p.payment_type || 'other').toUpperCase()}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Asset / Deal">
                       <button className="link-button" onClick={() => navigate(`/deals/${p.deal_id}`)}>
                         Deal Archive #{p.deal_id}
                       </button>
                     </td>
-                    <td style={{ fontWeight: 600 }}>{p.customer_name}</td>
-                    <td className="amount-cell" style={{ textAlign: 'right' }}>
+                    <td data-label="Associate" style={{ fontWeight: 600 }}>{p.customer_name}</td>
+                    <td data-label="Voucher Amount" className="amount-cell" style={{ textAlign: 'right' }}>
                       Rs. {parseFloat(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
-                    <td style={{ fontSize: '0.8rem' }}>
+                    <td data-label="Instrument / Receipt" style={{ fontSize: '0.8rem' }}>
                       {p.instrument ? p.instrument.replace('_', ' ').toUpperCase() : '-'}
                       {p.instrument_number ? ` # ${p.instrument_number}` : ''}
                       {p.voucher_no ? ` · ${p.voucher_no}` : ''}
                     </td>
-                    <td className="amount-cell" style={{ textAlign: 'right' }}>
+                    <td data-label="LPS" className="amount-cell" style={{ textAlign: 'right' }}>
                       {parseFloat(p.lps_amount || 0) > 0 ? `Rs. ${parseFloat(p.lps_amount).toLocaleString()}` : '-'}
                     </td>
-                    <td>
+                    <td data-label="Actions">
                       <button
                         className="premium-btn premium-btn-danger"
                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
