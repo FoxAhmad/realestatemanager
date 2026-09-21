@@ -35,6 +35,7 @@ const Deals = () => {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingDealId, setEditingDealId] = useState(null);
   const [formData, setFormData] = useState({
     customer_id: '',
     dealer_id: '',
@@ -161,6 +162,54 @@ const Deals = () => {
     return response.data.id;
   };
 
+  const emptyFormData = {
+    customer_id: '',
+    dealer_id: '',
+    inventory_id: '',
+    plot_id: '',
+    property_type: '',
+    original_price: '',
+    sale_price: '',
+    demand_price: '',
+    installments: '',
+    notes: '',
+  };
+
+  const closeDealModal = () => {
+    setShowModal(false);
+    setEditingDealId(null);
+    setFormData(emptyFormData);
+    setCustomerInput('');
+    setDealerInput('');
+    setAvailablePlots([]);
+  };
+
+  const handleEditDeal = (deal) => {
+    setEditingDealId(deal.id);
+    setCustomerInput(deal.customer_name || '');
+    setDealerInput(deal.dealer_name || '');
+    setFormData({
+      ...emptyFormData,
+      inventory_id: deal.inventory_id || '',
+      property_type: deal.property_type || '',
+      original_price: deal.original_price || '',
+      sale_price: deal.sale_price || '',
+      demand_price: deal.demand_price || '',
+    });
+    setShowModal(true);
+  };
+
+  const handleDeleteDeal = async (id) => {
+    if (!window.confirm('Delete this deal? Its payments and adjustments will be removed too, and the plot will become available again.')) return;
+    try {
+      await api.delete(`/deals/${id}`);
+      fetchDeals();
+    } catch (error) {
+      console.error('Error deleting deal:', error);
+      alert(error.response?.data?.message || 'Error deleting deal');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -176,26 +225,23 @@ const Deals = () => {
         return;
       }
 
-      await api.post('/deals', { ...formData, customer_id: customerId, dealer_id: dealerId });
+      if (editingDealId) {
+        await api.put(`/deals/${editingDealId}`, {
+          customer_id: customerId,
+          dealer_id: dealerId,
+          property_type: formData.property_type,
+          original_price: formData.original_price,
+          sale_price: formData.sale_price,
+          demand_price: formData.demand_price,
+        });
+      } else {
+        await api.post('/deals', { ...formData, customer_id: customerId, dealer_id: dealerId });
+      }
       fetchDeals();
-      setShowModal(false);
-      setFormData({
-        customer_id: '',
-        dealer_id: '',
-        inventory_id: '',
-        plot_id: '',
-        property_type: '',
-        original_price: '',
-        sale_price: '',
-        demand_price: '',
-        installments: '',
-        notes: '',
-      });
-      setCustomerInput('');
-      setDealerInput('');
+      closeDealModal();
     } catch (error) {
-      console.error('Error creating deal:', error);
-      alert(error.response?.data?.message || 'Error creating deal');
+      console.error('Error saving deal:', error);
+      alert(error.response?.data?.message || 'Error saving deal');
     }
   };
 
@@ -222,7 +268,7 @@ const Deals = () => {
         {(isAdmin || isAccountant) && (
           <button
             className="premium-btn premium-btn-primary"
-            onClick={() => setShowModal(true)}
+            onClick={() => { setEditingDealId(null); setShowModal(true); }}
           >
             + Create New Deal
           </button>
@@ -286,13 +332,33 @@ const Deals = () => {
                     <td data-label="Sale Price" style={{ fontWeight: '700' }}>Rs. {parseFloat(deal.sale_price || 0).toLocaleString()}</td>
                     <td data-label="Status">{getStatusBadge(deal.status)}</td>
                     <td data-label="Actions">
-                      <button
-                        className="premium-btn premium-btn-secondary"
-                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-                        onClick={() => navigate(`/deals/${deal.id}`)}
-                      >
-                        View Profile
-                      </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', minWidth: '110px' }}>
+                        <button
+                          className="premium-btn premium-btn-secondary"
+                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                          onClick={() => navigate(`/deals/${deal.id}`)}
+                        >
+                          View Profile
+                        </button>
+                        {(isAdmin || isAccountant) && (
+                          <button
+                            className="premium-btn premium-btn-secondary"
+                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                            onClick={() => handleEditDeal(deal)}
+                          >
+                            Edit Deal
+                          </button>
+                        )}
+                        {(isAdmin || isAccountant) && (
+                          <button
+                            className="premium-btn premium-btn-danger"
+                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                            onClick={() => handleDeleteDeal(deal.id)}
+                          >
+                            Delete Deal
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -303,9 +369,9 @@ const Deals = () => {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={closeDealModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Initiate New Property Deal</h2>
+            <h2>{editingDealId ? 'Edit Deal' : 'Initiate New Property Deal'}</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label>Customer *</label>
@@ -347,35 +413,45 @@ const Deals = () => {
                 </small>
               </div>
 
-              <div className="form-row">
+              {editingDealId ? (
                 <div className="form-group">
-                  <label>Inventory Asset *</label>
-                  <select
-                    value={formData.inventory_id}
-                    onChange={handleInventoryChange}
-                    required
-                  >
-                    <option value="">Choose asset...</option>
-                    {inventory.map((i) => (
-                      <option key={i.id} value={i.id}>{i.category} - {i.address}</option>
-                    ))}
-                  </select>
+                  <label>Inventory Asset / Plot</label>
+                  <input type="text" value={inventory.find((i) => i.id === formData.inventory_id)?.address || 'Unchanged'} disabled />
+                  <small style={{ color: '#666', display: 'block', marginTop: '0.35rem' }}>
+                    The assigned plot isn't editable here - delete and recreate the deal to reassign it.
+                  </small>
                 </div>
+              ) : (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Inventory Asset *</label>
+                    <select
+                      value={formData.inventory_id}
+                      onChange={handleInventoryChange}
+                      required
+                    >
+                      <option value="">Choose asset...</option>
+                      {inventory.map((i) => (
+                        <option key={i.id} value={i.id}>{i.category} - {i.address}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="form-group">
-                  <label>Plot Number *</label>
-                  <select
-                    value={formData.plot_id}
-                    onChange={(e) => setFormData({ ...formData, plot_id: e.target.value })}
-                    required
-                  >
-                    <option value="">Choose plot...</option>
-                    {availablePlots.map((p) => (
-                      <option key={p.id} value={p.id}>{p.plot_number} ({p.plot_category})</option>
-                    ))}
-                  </select>
+                  <div className="form-group">
+                    <label>Plot Number *</label>
+                    <select
+                      value={formData.plot_id}
+                      onChange={(e) => setFormData({ ...formData, plot_id: e.target.value })}
+                      required
+                    >
+                      <option value="">Choose plot...</option>
+                      {availablePlots.map((p) => (
+                        <option key={p.id} value={p.id}>{p.plot_number} ({p.plot_category})</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="form-group">
                 <label>Property Type *</label>
@@ -449,16 +525,12 @@ const Deals = () => {
                 <button
                   type="button"
                   className="premium-btn premium-btn-secondary"
-                  onClick={() => {
-                    setShowModal(false);
-                    setCustomerInput('');
-                    setDealerInput('');
-                  }}
+                  onClick={closeDealModal}
                 >
                   Discard
                 </button>
                 <button type="submit" className="premium-btn premium-btn-primary">
-                  Finalize Deal
+                  {editingDealId ? 'Update Deal' : 'Finalize Deal'}
                 </button>
               </div>
             </form>

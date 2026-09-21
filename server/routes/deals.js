@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { auth, adminOnly, adminAndAccountantOnly } = require('../middleware/auth');
+const { auth, adminAndAccountantOnly } = require('../middleware/auth');
 const db = require('../config/database');
 
 // Get all deals
@@ -369,6 +369,7 @@ router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
 
     const {
       customer_id,
+      dealer_id,
       agency_id,
       inventory_id,
       property_type,
@@ -417,13 +418,13 @@ router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
     }
 
     await db.query(
-      `UPDATE deals SET 
-        customer_id = $1, inventory_id = $2, property_type = $3, status = $4, original_price = $5, 
-        sale_price = $6, profit = $7, profit_percentage = $8, demand_price = $9, 
-        difference_amount = $10, remaining_price = $11, remaining_price_time = $12, 
-        plot_info = $13, house_address = $14, house_info = $15, sale_price_location = $16, 
-        is_build = $17, admin_cash = $18, agency_id = $19
-       WHERE id = $20`,
+      `UPDATE deals SET
+        customer_id = $1, inventory_id = $2, property_type = $3, status = $4, original_price = $5,
+        sale_price = $6, profit = $7, profit_percentage = $8, demand_price = $9,
+        difference_amount = $10, remaining_price = $11, remaining_price_time = $12,
+        plot_info = $13, house_address = $14, house_info = $15, sale_price_location = $16,
+        is_build = $17, admin_cash = $18, agency_id = $19, dealer_id = $20
+       WHERE id = $21`,
       [
         customer_id !== undefined ? (customer_id || null) : currentDeal.customer_id,
         inventory_id !== undefined ? (inventory_id || null) : currentDeal.inventory_id,
@@ -444,6 +445,7 @@ router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
         is_build !== undefined ? is_build : currentDeal.is_build,
         admin_cash !== undefined ? admin_cash : currentDeal.admin_cash,
         agency_id !== undefined ? (agency_id || null) : currentDeal.agency_id,
+        dealer_id || currentDeal.dealer_id,
         req.params.id
       ]
     );
@@ -471,11 +473,20 @@ router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
 });
 
 // Delete deal (Admin only)
-router.delete('/:id', auth, adminOnly, async (req, res) => {
+router.delete('/:id', auth, adminAndAccountantOnly, async (req, res) => {
   try {
+    await db.query('BEGIN');
+    // Free up the plot(s) this deal was using so they can be sold again.
+    await db.query(`
+      UPDATE inventory_plots
+      SET status = 'available'
+      WHERE id IN (SELECT plot_id FROM deal_plots WHERE deal_id = $1)
+    `, [req.params.id]);
     await db.query('DELETE FROM deals WHERE id = $1', [req.params.id]);
+    await db.query('COMMIT');
     res.json({ message: 'Deal deleted successfully' });
   } catch (error) {
+    await db.query('ROLLBACK');
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
