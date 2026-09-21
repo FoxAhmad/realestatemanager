@@ -19,7 +19,11 @@ router.get('/', auth, async (req, res) => {
                COALESCE(SUM(CASE WHEN d.status != 'deal_not_done' THEN d.inventory_quantity_used ELSE 0 END), 0) as used_quantity,
                (SELECT plot_type FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as plot_type,
                (SELECT plot_category FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as plot_category,
-               (SELECT size FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as size
+               (SELECT size FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as size,
+               (SELECT block FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as block,
+               (SELECT membership_no FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as membership_no,
+               (SELECT registration_no FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as registration_no,
+               (SELECT form_number FROM inventory_plots WHERE inventory_id = i.id LIMIT 1) as form_number
         FROM inventory i
         LEFT JOIN users u ON i.assigned_to = u.id
         LEFT JOIN deals d ON i.id = d.inventory_id

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { FaArrowLeft, FaPlus, FaTrash, FaFileInvoiceDollar, FaFileContract, FaUser, FaMapMarkerAlt, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaArrowLeft, FaPlus, FaTrash, FaEdit, FaFileInvoiceDollar, FaFileContract, FaUser, FaMapMarkerAlt, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './DealDetail.css';
 
@@ -22,6 +22,7 @@ const DealDetail = () => {
   const [adjustments, setAdjustments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
   const [expandedAdjustments, setExpandedAdjustments] = useState({});
   const [dealers, setDealers] = useState([]);
   const [defaultCost, setDefaultCost] = useState(20000);
@@ -35,10 +36,12 @@ const DealDetail = () => {
     instrument_number: '',
     voucher_no: '',
     lps_amount: '',
+    installment_no: '',
     apply_adjustment: false,
     adjustment_user_id: '',
     adjustment_quantity: 1,
     adjustment_price: 40000,
+    adjustment_voucher_no: '',
   };
   const [paymentForm, setPaymentForm] = useState(emptyPaymentForm);
 
@@ -133,33 +136,105 @@ const DealDetail = () => {
     activeFilterCount,
   } = useTableFilters(ledgerEntries, LEDGER_COLUMNS);
 
+  // Group payment entries so every receipt against the same installment (or the
+  // same one-off type, e.g. all "Form Fee" lines) sits together instead of being
+  // interleaved by date. Groups are ordered by their natural place in the payment
+  // schedule: Down Payment, Form Fee, then installments in numeric order, then
+  // Excess Area / Possession Fee / Other.
+  const groupedPaymentEntries = useMemo(() => {
+    const groups = {};
+    filteredLedgerEntries
+      .filter((e) => e._kind === 'payment')
+      .forEach((entry) => {
+        const p = entry._raw;
+        const isNumberedInstallment = p.payment_type === 'installment' && p.installment_no;
+        const key = isNumberedInstallment ? `installment:${p.installment_no}` : `type:${p.payment_type}`;
+        if (!groups[key]) {
+          groups[key] = {
+            key,
+            label: isNumberedInstallment ? `${p.installment_no} Installment` : p.payment_type.replace('_', ' ').toUpperCase(),
+            entries: [],
+          };
+        }
+        groups[key].entries.push(entry);
+      });
+
+    const rankOf = (group) => {
+      const first = group.entries[0]._raw;
+      if (first.payment_type === 'down_payment') return -2;
+      if (first.payment_type === 'form_fee') return -1;
+      if (first.payment_type === 'installment' && first.installment_no) {
+        const n = parseInt(first.installment_no, 10);
+        return Number.isNaN(n) ? 500 : n;
+      }
+      if (first.payment_type === 'possession_fee') return 900;
+      if (first.payment_type === 'excess_area') return 950;
+      return 999;
+    };
+
+    return Object.values(groups)
+      .map((group) => ({
+        ...group,
+        entries: group.entries.slice().sort((a, b) => new Date(a.date) - new Date(b.date)),
+        total: group.entries.reduce((sum, e) => sum + e.amount, 0),
+      }))
+      .sort((a, b) => rankOf(a) - rankOf(b));
+  }, [filteredLedgerEntries]);
+
+  const handleEditPayment = (p) => {
+    setEditingPaymentId(p.id);
+    setPaymentForm({
+      ...emptyPaymentForm,
+      amount: p.amount,
+      payment_type: p.payment_type,
+      payment_date: p.payment_date ? p.payment_date.split('T')[0] : new Date().toISOString().split('T')[0],
+      notes: p.notes || '',
+      instrument: p.instrument || 'cash',
+      instrument_number: p.instrument_number || '',
+      voucher_no: p.voucher_no || '',
+      lps_amount: p.lps_amount || '',
+      installment_no: p.installment_no || '',
+    });
+    setShowPaymentModal(true);
+  };
+
+  const closePaymentModal = () => {
+    setShowPaymentModal(false);
+    setEditingPaymentId(null);
+    setPaymentForm({ ...emptyPaymentForm, adjustment_user_id: deal.dealer_id, adjustment_price: defaultCustomerValue });
+  };
+
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     try {
       const {
-        apply_adjustment, adjustment_user_id, adjustment_quantity, adjustment_price,
+        apply_adjustment, adjustment_user_id, adjustment_quantity, adjustment_price, adjustment_voucher_no,
         ...paymentPayload
       } = paymentForm;
 
-      const paymentRes = await api.post('/payments', { ...paymentPayload, deal_id: id });
+      if (editingPaymentId) {
+        await api.put(`/payments/${editingPaymentId}`, paymentPayload);
+      } else {
+        const paymentRes = await api.post('/payments', { ...paymentPayload, deal_id: id });
 
-      if (apply_adjustment) {
-        const qty = parseInt(adjustment_quantity) || 1;
-        await api.post('/balance-transactions/adjust-deal', {
-          deal_id: id,
-          user_id: adjustment_user_id || deal.dealer_id,
-          quantity: qty,
-          customer_price: adjustment_price || (qty * defaultCustomerValue),
-          cost_price: qty * defaultCost,
-          date: paymentForm.payment_date,
-          notes: `Adjustment applied with ${paymentForm.payment_type.replace('_', ' ')} payment`,
-          payment_id: paymentRes.data.id,
-        });
+        if (apply_adjustment) {
+          const qty = parseInt(adjustment_quantity) || 1;
+          await api.post('/balance-transactions/adjust-deal', {
+            deal_id: id,
+            user_id: adjustment_user_id || deal.dealer_id,
+            quantity: qty,
+            customer_price: adjustment_price || (qty * defaultCustomerValue),
+            cost_price: qty * defaultCost,
+            date: paymentForm.payment_date,
+            notes: `Adjustment applied with ${paymentForm.payment_type.replace('_', ' ')} payment`,
+            payment_id: paymentRes.data.id,
+            voucher_no: adjustment_voucher_no || null,
+          });
+        }
       }
 
       fetchDealDetails();
-      setShowPaymentModal(false);
-      setPaymentForm({ ...emptyPaymentForm, adjustment_user_id: deal.dealer_id, adjustment_price: defaultCustomerValue });
+      closePaymentModal();
     } catch (error) {
       console.error('Error recording payment:', error);
       alert(error.response?.data?.message || 'Error recording payment');
@@ -320,7 +395,7 @@ const DealDetail = () => {
             <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Ledger Entries / Payments</h2>
             <div style={{ display: 'flex', gap: '1rem' }}>
               {(isAdmin || isAccountant) && (
-                <button className="premium-btn premium-btn-primary" onClick={() => setShowPaymentModal(true)}>
+                <button className="premium-btn premium-btn-primary" onClick={() => { setEditingPaymentId(null); setShowPaymentModal(true); }}>
                   <FaPlus /> Post Payment
                 </button>
               )}
@@ -381,83 +456,108 @@ const DealDetail = () => {
                     )}
                   </div>
                 ))}
-                {filteredLedgerEntries.filter((e) => e._kind === 'payment').map(({ _raw: p, _adjustment }) => (
-                  <React.Fragment key={p.id}>
-                  <div className="payment-item">
-                    <div className="payment-main" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      {_adjustment && (
-                        <button
-                          type="button"
-                          className="expand-btn"
-                          title="View linked adjustment"
-                          onClick={() => setExpandedAdjustments(prev => ({ ...prev, [p.id]: !prev[p.id] }))}
-                        >
-                          {expandedAdjustments[p.id] ? <FaChevronUp /> : <FaChevronDown />}
-                        </button>
-                      )}
-                      <div>
-                        <div className="payment-type">{p.payment_type.replace('_', ' ').toUpperCase()}</div>
-                        <div className="payment-date">{new Date(p.payment_date).toLocaleDateString()}</div>
-                      </div>
+                {groupedPaymentEntries.map((group) => (
+                  <div key={group.key} className="ledger-group">
+                    <div className="ledger-group-header">
+                      <span className="ledger-group-label">{group.label}</span>
+                      <span className="ledger-group-total">
+                        Rs. {group.total.toLocaleString()} · {group.entries.length} {group.entries.length === 1 ? 'entry' : 'entries'}
+                      </span>
                     </div>
-                    <div className="payment-val" style={{ textAlign: 'right' }}>
-                      <div className="payment-amount">Rs. {parseFloat(p.amount).toLocaleString()}</div>
-                      {_adjustment && (
-                        <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#b45309' }}>
-                          Total incl. Adjustment: Rs. {(parseFloat(p.amount) + parseFloat(_adjustment.customer_price || 0)).toLocaleString()}
-                        </div>
-                      )}
-                      {(p.instrument || p.instrument_number || p.voucher_no) && (
-                        <div className="payment-notes" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                          {p.instrument ? p.instrument.replace('_', ' ').toUpperCase() : ''}
-                          {p.instrument_number ? ` # ${p.instrument_number}` : ''}
-                          {p.voucher_no ? ` · ${p.voucher_no}` : ''}
-                        </div>
-                      )}
-                      {parseFloat(p.lps_amount || 0) > 0 && (
-                        <div className="payment-notes" style={{ fontSize: '0.7rem', color: 'var(--danger)' }}>
-                          LPS: Rs. {parseFloat(p.lps_amount).toLocaleString()}
-                        </div>
-                      )}
-                      {p.notes && <div className="payment-notes">{p.notes}</div>}
-                    </div>
-                    {(isAdmin || isAccountant) && (
-                      <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} onClick={() => handlePaymentDelete(p.id)}>
-                        <FaTrash />
-                      </button>
-                    )}
-                  </div>
-                  {_adjustment && expandedAdjustments[p.id] && (
-                    <div className="linked-entries-detail">
-                      <h4><FaFileContract color="#ffc107" /> Linked Adjustment Form</h4>
-                      <div className="linked-grid">
-                        <div className="linked-item-card">
-                          <div className="linked-item-header">
-                            <span className="date">{new Date(_adjustment.transaction_date).toLocaleDateString()}</span>
-                            {_adjustment.quantity > 1 && (
-                              <span className="dealer-badge" style={{ fontSize: '0.95rem', padding: '0.25rem 0.65rem' }}>
-                                Qty: {_adjustment.quantity}
-                              </span>
+                    <div className="ledger-group-items">
+                      {group.entries.map(({ _raw: p, _adjustment }) => (
+                        <React.Fragment key={p.id}>
+                        <div className="payment-item">
+                          <div className="payment-main" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            {_adjustment && (
+                              <button
+                                type="button"
+                                className="expand-btn"
+                                title="View linked adjustment"
+                                onClick={() => setExpandedAdjustments(prev => ({ ...prev, [p.id]: !prev[p.id] }))}
+                              >
+                                {expandedAdjustments[p.id] ? <FaChevronUp /> : <FaChevronDown />}
+                              </button>
                             )}
+                            <div>
+                              <div className="payment-type">
+                                {p.payment_type.replace('_', ' ').toUpperCase()}
+                                {p.installment_no && ` · ${p.installment_no}`}
+                              </div>
+                              <div className="payment-date">{new Date(p.payment_date).toLocaleDateString()}</div>
+                            </div>
                           </div>
-                          <div className="linked-item-body">
-                            <span className="amount">Rs. {parseFloat(_adjustment.customer_price).toLocaleString()}</span>
-                            {_adjustment.user_name && <p>{_adjustment.user_name}</p>}
+                          <div className="payment-val" style={{ textAlign: 'right' }}>
+                            <div className="payment-amount">Rs. {parseFloat(p.amount).toLocaleString()}</div>
+                            {_adjustment && (
+                              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#b45309' }}>
+                                Total incl. Adjustment: Rs. {(parseFloat(p.amount) + parseFloat(_adjustment.customer_price || 0)).toLocaleString()}
+                              </div>
+                            )}
+                            {(p.instrument || p.instrument_number || p.voucher_no) && (
+                              <div className="payment-notes" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                {p.instrument ? p.instrument.replace('_', ' ').toUpperCase() : ''}
+                                {p.instrument_number ? ` # ${p.instrument_number}` : ''}
+                                {p.voucher_no ? ` · ${p.voucher_no}` : ''}
+                              </div>
+                            )}
+                            {parseFloat(p.lps_amount || 0) > 0 && (
+                              <div className="payment-notes" style={{ fontSize: '0.7rem', color: 'var(--danger)' }}>
+                                LPS: Rs. {parseFloat(p.lps_amount).toLocaleString()}
+                              </div>
+                            )}
+                            {p.notes && <div className="payment-notes">{p.notes}</div>}
                           </div>
                           {(isAdmin || isAccountant) && (
-                            <button
-                              className="premium-btn premium-btn-danger"
-                              style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', marginTop: '0.75rem' }}
-                              onClick={() => handleAdjustmentDelete(_adjustment.id)}
-                            >
-                              <FaTrash size={10} /> Remove
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button className="premium-btn premium-btn-secondary" style={{ padding: '0.5rem' }} title="Edit payment" onClick={() => handleEditPayment(p)}>
+                                <FaEdit />
+                              </button>
+                              <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} onClick={() => handlePaymentDelete(p.id)}>
+                                <FaTrash />
+                              </button>
+                            </div>
                           )}
                         </div>
-                      </div>
+                        {_adjustment && expandedAdjustments[p.id] && (
+                          <div className="linked-entries-detail">
+                            <h4><FaFileContract color="#ffc107" /> Linked Adjustment Form</h4>
+                            <div className="linked-grid">
+                              <div className="linked-item-card">
+                                <div className="linked-item-header">
+                                  <span className="date">{new Date(_adjustment.transaction_date).toLocaleDateString()}</span>
+                                  {_adjustment.quantity > 1 && (
+                                    <span className="dealer-badge" style={{ fontSize: '0.95rem', padding: '0.25rem 0.65rem' }}>
+                                      Qty: {_adjustment.quantity}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="linked-item-body">
+                                  <span className="amount">Rs. {parseFloat(_adjustment.customer_price).toLocaleString()}</span>
+                                  {_adjustment.user_name && <p>{_adjustment.user_name}</p>}
+                                  {_adjustment.voucher_no && (
+                                    <div className="payment-notes" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                      Form Receipt: {_adjustment.voucher_no}
+                                    </div>
+                                  )}
+                                </div>
+                                {(isAdmin || isAccountant) && (
+                                  <button
+                                    className="premium-btn premium-btn-danger"
+                                    style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', marginTop: '0.75rem' }}
+                                    onClick={() => handleAdjustmentDelete(_adjustment.id)}
+                                  >
+                                    <FaTrash size={10} /> Remove
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        </React.Fragment>
+                      ))}
                     </div>
-                  )}
-                  </React.Fragment>
+                  </div>
                 ))}
               </>
             )}
@@ -466,9 +566,9 @@ const DealDetail = () => {
       </div>
 
       {showPaymentModal && (
-        <div className="modal-overlay" onClick={() => setShowPaymentModal(false)}>
+        <div className="modal-overlay" onClick={closePaymentModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Record Transaction</h2>
+            <h2>{editingPaymentId ? 'Edit Transaction' : 'Record Transaction'}</h2>
             <form onSubmit={handlePaymentSubmit}>
               <div className="form-group">
                 <label>Payment Amount *</label>
@@ -509,6 +609,23 @@ const DealDetail = () => {
                   />
                 </div>
               </div>
+              {paymentForm.payment_type === 'installment' && (
+                <div className="form-group">
+                  <label>Installment #</label>
+                  <input
+                    type="text"
+                    list="installment-no-options"
+                    value={paymentForm.installment_no}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, installment_no: e.target.value })}
+                    placeholder="e.g. 1st, 2nd, 3rd..."
+                  />
+                  <datalist id="installment-no-options">
+                    {['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'].map((n) => (
+                      <option key={n} value={n} />
+                    ))}
+                  </datalist>
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                 <div className="form-group">
                   <label>Instrument Type</label>
@@ -536,7 +653,7 @@ const DealDetail = () => {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                 <div className="form-group">
-                  <label>Receipt / Voucher No.</label>
+                  <label>{paymentForm.apply_adjustment ? 'Cash Receipt / Voucher No.' : 'Receipt / Voucher No.'}</label>
                   <input
                     type="text"
                     value={paymentForm.voucher_no}
@@ -564,7 +681,12 @@ const DealDetail = () => {
                 />
               </div>
 
-              {paymentForm.payment_type === 'installment' && (
+              {editingPaymentId && (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  Adjustment forms are managed separately — use "Remove" on the linked form to change it.
+                </p>
+              )}
+              {!editingPaymentId && paymentForm.payment_type === 'installment' && (
                 <div
                   style={{
                     marginTop: '0.5rem',
@@ -631,17 +753,26 @@ const DealDetail = () => {
                           <small style={{ color: 'var(--text-muted)' }}>Unit: Rs. {defaultCustomerValue.toLocaleString()}</small>
                         </div>
                       </div>
+                      <div className="form-group" style={{ marginBottom: 0, marginTop: '1rem' }}>
+                        <label>Form Receipt / Voucher No.</label>
+                        <input
+                          type="text"
+                          value={paymentForm.adjustment_voucher_no}
+                          onChange={(e) => setPaymentForm({ ...paymentForm, adjustment_voucher_no: e.target.value })}
+                          placeholder="e.g. RCVD # 9541 (forms portion)"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
               <div className="modal-actions">
-                <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowPaymentModal(false)}>
+                <button type="button" className="premium-btn premium-btn-secondary" onClick={closePaymentModal}>
                   Cancel
                 </button>
                 <button type="submit" className="premium-btn premium-btn-primary">
-                  Confirm Payment
+                  {editingPaymentId ? 'Update Payment' : 'Confirm Payment'}
                 </button>
               </div>
             </form>

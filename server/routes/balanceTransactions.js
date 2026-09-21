@@ -258,17 +258,17 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), asyn
 router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
     const client = await db.connect();
     try {
-      const { deal_id, customer_price, cost_price, quantity, date, notes, payment_id } = req.body;
+      const { deal_id, customer_price, cost_price, quantity, date, notes, payment_id, voucher_no } = req.body;
       if (!deal_id || !customer_price || !cost_price) {
         return res.status(400).json({ message: 'Missing required fields' });
       }
       const accMap = await ledgerService.getAccountMap();
-      const certAccountId = 8; 
+      const certAccountId = 8;
       await client.query('BEGIN');
       const transRes = await client.query(
-        `INSERT INTO transactions (transaction_date, description, reference_type, reference_id) 
-         VALUES ($1, $2, $3, $4) RETURNING id`,
-        [date || new Date(), notes || `Adjustment Form for Deal #${deal_id}`, 'ADJUSTMENT', deal_id]
+        `INSERT INTO transactions (transaction_date, description, reference_type, reference_id, voucher_no)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [date || new Date(), notes || `Adjustment Form for Deal #${deal_id}`, 'ADJUSTMENT', deal_id, voucher_no || null]
       );
       const transId = transRes.rows[0].id;
       

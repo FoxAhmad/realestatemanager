@@ -53,7 +53,11 @@ const Inventory = () => {
     plot_type: 'R',
     plot_category: 'standard',
     size: '',
-    project_id: ''
+    project_id: '',
+    block: '',
+    membership_no: '',
+    registration_no: '',
+    form_number: ''
   });
   const [selectedPlots, setSelectedPlots] = useState([]);
   const [assignmentPayment, setAssignmentPayment] = useState({
@@ -212,7 +216,11 @@ const Inventory = () => {
         plot_type: 'R',
         plot_category: 'standard',
         size: '',
-        project_id: ''
+        project_id: '',
+        block: '',
+        membership_no: '',
+        registration_no: '',
+        form_number: ''
       });
     } catch (error) {
       console.error('Error saving inventory:', error);
@@ -232,6 +240,10 @@ const Inventory = () => {
       plot_category: item.plot_category || 'standard',
       size: item.size || '',
       project_id: item.project_id || '',
+      block: item.block || '',
+      membership_no: item.membership_no || '',
+      registration_no: item.registration_no || '',
+      form_number: item.form_number || '',
     });
     setShowModal(true);
   };
@@ -303,6 +315,7 @@ const Inventory = () => {
       assigned: <span className="premium-badge premium-badge-warning">Assigned</span>,
       paid: <span className="premium-badge premium-badge-info">Paid</span>,
       sold: <span className="premium-badge premium-badge-primary">Sold</span>,
+      used_in_deal: <span className="premium-badge premium-badge-primary">In Deal</span>,
     };
     return badges[status] || status;
   };
@@ -403,38 +416,6 @@ const Inventory = () => {
     }
   };
 
-  const getGroupedInventory = (items) => {
-    const groups = {};
-    items.forEach(item => {
-      const key = `${item.category}-${item.address}-${item.price}`;
-      if (!groups[key]) {
-        groups[key] = {
-          ...item,
-          ids: [item.id],
-          total_quantity: parseInt(item.quantity || 0),
-          all_plots: [...(item.plots || []), ...(item.assigned_plots || [])],
-          combined_plot_numbers: item.plot_numbers_input || ''
-        };
-      } else {
-        groups[key].ids.push(item.id);
-        groups[key].total_quantity += parseInt(item.quantity || 0);
-        
-        // Merge plots and ensure unique by plot_id or id
-        const newPlots = [...(item.plots || []), ...(item.assigned_plots || [])];
-        newPlots.forEach(p => {
-          if (!groups[key].all_plots.find(ap => (ap.id || ap.plot_id) === (p.id || p.plot_id))) {
-            groups[key].all_plots.push(p);
-          }
-        });
-
-        if (item.plot_numbers_input) {
-          groups[key].combined_plot_numbers += (groups[key].combined_plot_numbers ? ', ' : '') + item.plot_numbers_input;
-        }
-      }
-    });
-    return Object.values(groups).sort((a, b) => Math.max(...b.ids) - Math.max(...a.ids));
-  };
-
   const getProjectKey = (item) => (item.project_id ? String(item.project_id) : 'unassigned');
 
   const getProjectSummaries = () => {
@@ -470,10 +451,9 @@ const Inventory = () => {
     return { projectCards, unassigned };
   };
 
-  const getPlotsForProject = (key) => {
+  const getPlotsFromItems = (items) => {
     const rows = [];
-    inventory.forEach(item => {
-      if (getProjectKey(item) !== key) return;
+    items.forEach(item => {
       const plots = [...(item.plots || []), ...(item.assigned_plots || [])];
       plots.forEach(p => {
         rows.push({
@@ -559,8 +539,7 @@ const Inventory = () => {
   })();
 
   const itemsInSelectedProject = filteredInventory.filter(item => getProjectKey(item) === selectedProjectKey);
-  const groupedInventory = getGroupedInventory(itemsInSelectedProject);
-  const plotsInSelectedProject = getPlotsForProject(selectedProjectKey);
+  const plotsInSelectedProject = getPlotsFromItems(itemsInSelectedProject);
 
   return (
     <div className="premium-page">
@@ -578,7 +557,8 @@ const Inventory = () => {
                 setFormData({
                   category: 'plot', address: '', price: '', plot_numbers: '', quantity: 1,
                   plot_type: 'R', plot_category: 'standard', size: '',
-                  project_id: selectedProjectSummary.id || ''
+                  project_id: selectedProjectSummary.id || '',
+                  block: '', membership_no: '', registration_no: '', form_number: ''
                 });
                 setShowModal(true);
               }}
@@ -614,176 +594,8 @@ const Inventory = () => {
           onClearFilters={clearFilters}
           activeFilterCount={activeFilterCount}
           searchPlaceholder="Search inventory by address, category, status..."
-          resultCount={groupedInventory.length}
+          resultCount={plotsInSelectedProject.length}
         />
-        <div className="premium-table-container">
-          <table className="premium-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Category</th>
-                <th>Details</th>
-                <th>Address & Plots</th>
-                <th>Price</th>
-                <th>Qty</th>
-                <th>Status</th>
-                {canEdit && <th>Assigned To</th>}
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-            {groupedInventory.length === 0 ? (
-              <tr>
-                <td colSpan={canEdit ? 11 : 10} className="empty-state">
-                  No listings in this project yet
-                </td>
-              </tr>
-            ) : (
-              groupedInventory.map((item) => {
-                const plots = item.all_plots || [];
-                const hasMultiplePlots = plots.length > 1;
-                const isGrouped = item.ids.length > 1;
-
-                return (
-                  <tr key={item.ids.join('-')}>
-                    <td data-label="ID">{item.ids.join(', ')}</td>
-                    <td data-label="Category">{getCategoryLabel(item.category)}</td>
-                    <td data-label="Details">
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--primary)' }}>{item.plot_type || 'R'}</span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.plot_category || 'Standard'}</span>
-                        <span style={{ fontSize: '0.75rem' }}>{item.size || '-'}</span>
-                      </div>
-                    </td>
-                    <td data-label="Address & Plots">
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{item.address}</span>
-                        {plots.length > 0 && (
-                          <select
-                            className="plot-select"
-                            defaultValue=""
-                          >
-                            <option value="">View Plots ({plots.length})</option>
-                            {plots.map((plot) => (
-                              <option key={plot.id || plot.plot_id} value={plot.id || plot.plot_id}>
-                                {plot.plot_number} - {plot.plot_status || plot.status || 'Unsold'}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        {plots.length === 1 && !isAdmin && (
-                          <div style={{ fontSize: '0.75rem', color: '#666' }}>
-                            {plots[0].investors && plots[0].investors.length > 0 && (
-                              <div style={{ color: 'var(--success)' }}>
-                                Investors: {plots[0].investors.map(inv =>
-                                  `${inv.investor_name} (Rs. ${parseFloat(inv.amount_contributed || 0).toLocaleString()})`
-                                ).join(', ')}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td data-label="Price" style={{ fontWeight: '700' }}>Rs. {parseFloat(item.price || 0).toLocaleString()}</td>
-                    <td data-label="Qty">{item.total_quantity}</td>
-                    <td data-label="Status">{getStatusBadge(item.status, item)}</td>
-                    {canEdit && (
-                      <td data-label="Assigned To">
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                          {item.assigned_to_name && (
-                            <span>{item.assigned_to_name}</span>
-                          )}
-                          {(item.plot_assignments && item.plot_assignments.length > 0) || (item.unassigned_plots && item.unassigned_plots.length > 0) ? (
-                            <details style={{ cursor: 'pointer', fontSize: '0.875rem' }}>
-                              <summary style={{ color: '#007bff', textDecoration: 'underline' }}>
-                                Assignments ({item.plot_assignments?.length || 0})
-                              </summary>
-                              <div style={{ marginTop: '0.5rem', paddingLeft: '0.5rem', borderLeft: '2px solid #ddd', maxHeight: '150px', overflowY: 'auto' }}>
-                                {item.plot_assignments && item.plot_assignments.map((assignee) => (
-                                  <div key={assignee.id} style={{ marginBottom: '0.5rem' }}>
-                                    <div style={{ fontWeight: '500', fontSize: '0.8125rem' }}>
-                                      {assignee.name} ({assignee.plots.length})
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: '#666' }}>
-                                      {assignee.plots.map(p => p.plot_number).join(', ')}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </details>
-                          ) : (
-                            !item.assigned_to_name && <span>-</span>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                    <td data-label="Actions">
-                      <div className="action-buttons">
-                        {canEdit ? (
-                          <>
-                            <button
-                               className="premium-btn premium-btn-secondary"
-                               style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-                               onClick={() => {
-                                 const editData = {
-                                   ...item,
-                                   id: item.ids[0],
-                                   quantity: item.total_quantity,
-                                   plot_numbers_input: item.combined_plot_numbers
-                                 };
-                                 handleEdit(editData);
-                               }}
-                             >
-                               Edit
-                             </button>
-                             <button
-                               className="premium-btn premium-btn-danger"
-                               style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-                               onClick={() => {
-                                 if (isGrouped) {
-                                   if (window.confirm(`This will delete all ${item.ids.length} records in this group. Continue?`)) {
-                                     item.ids.forEach(id => handleDelete(id));
-                                   }
-                                 } else {
-                                   handleDelete(item.id);
-                                 }
-                               }}
-                             >
-                               Delete
-                             </button>
-                          </>
-                        ) : (
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            {(item.assigned_to === user?.id || (item.all_plots || []).some(p => p.assigned_to_id === user?.id || p.status === 'available')) && (
-                              <>
-                                <button
-                                  className="btn-primary"
-                                  style={{ fontSize: '0.8125rem' }}
-                                  onClick={() => handleOpenPaymentModal(item)}
-                                >
-                                  Pay
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div className="glass-card" style={{ marginTop: '1.5rem' }}>
-      <div style={{ padding: '1.5rem 1.5rem 0' }}>
-        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>
-          Plots in {selectedProjectSummary.name}
-        </h3>
-      </div>
       <div className="premium-table-container">
         <table className="premium-table">
           <thead>
@@ -797,20 +609,21 @@ const Inventory = () => {
               <th>Status</th>
               {canEdit && <th>Size</th>}
               {canEdit && <th>Membership #</th>}
-              {canEdit && <th>Actions</th>}
+              {canEdit && <th>Assigned To</th>}
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {plotsInSelectedProject.length === 0 ? (
               <tr>
-                <td colSpan={canEdit ? 10 : 7} className="empty-state">No plots in this project yet</td>
+                <td colSpan={canEdit ? 11 : 8} className="empty-state">No plots in this project yet</td>
               </tr>
             ) : (
               plotsInSelectedProject.map(plot => {
                 const hasPossibleDeal = plot.status !== 'available';
                 const isExpanded = !!expandedPlotRows[plot.id];
                 const deal = dealInfo[plot.id];
-                const colSpan = canEdit ? 10 : 7;
+                const colSpan = canEdit ? 11 : 8;
 
                 return (
                   <React.Fragment key={plot.id}>
@@ -865,7 +678,7 @@ const Inventory = () => {
                               <option value="C">Commercial (C)</option>
                             </select>
                           </td>
-                          <td data-label="Status">{plot.status}</td>
+                          <td data-label="Status">{getStatusBadge(plot.status)}</td>
                           <td data-label="Size">
                             <input
                               type="text"
@@ -882,6 +695,7 @@ const Inventory = () => {
                               placeholder="Membership #"
                             />
                           </td>
+                          <td data-label="Assigned To">{plot.assigned_to_name || '-'}</td>
                           <td data-label="Actions">
                             <div style={{ display: 'flex', gap: '0.4rem' }}>
                               <button className="premium-btn premium-btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => handleUpdatePlot(plot.id)}>Save</button>
@@ -899,36 +713,68 @@ const Inventory = () => {
                             )}
                           </td>
                           <td data-label="Plot #">{plot.plot_number}</td>
-                          <td data-label="Listing / Address">{plot._item.address}</td>
+                          <td data-label="Listing / Address">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                              <span>{plot._item.address}</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {getCategoryLabel(plot._item.category)} · Rs. {parseFloat(plot._item.price || 0).toLocaleString()}
+                              </span>
+                            </div>
+                          </td>
                           <td data-label="Block">{plot.block || '-'}</td>
                           <td data-label="Factor">{plot.plot_category?.replace('_', ' ') || 'Standard'}</td>
                           <td data-label="Type">{plot.plot_type || 'R'}</td>
-                          <td data-label="Status">{plot.status}</td>
+                          <td data-label="Status">{getStatusBadge(plot.status)}</td>
                           {canEdit && <td data-label="Size">{plot.size || '-'}</td>}
                           {canEdit && <td data-label="Membership #">{plot.membership_no || '-'}</td>}
-                          {canEdit && (
-                            <td data-label="Actions">
+                          {canEdit && <td data-label="Assigned To">{plot.assigned_to_name || '-'}</td>}
+                          <td data-label="Actions">
+                            {canEdit ? (
+                              <div className="action-buttons">
+                                <button
+                                  className="premium-btn premium-btn-secondary"
+                                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                                  onClick={() => {
+                                    setEditingPlotId(plot.id);
+                                    setPlotEditForm({
+                                      plot_number: plot.plot_number || '',
+                                      plot_category: plot.plot_category || 'standard',
+                                      plot_type: plot.plot_type || 'R',
+                                      size: plot.size || '',
+                                      block: plot.block || '',
+                                      membership_no: plot.membership_no || '',
+                                      registration_no: plot.registration_no || '',
+                                      form_number: plot.form_number || ''
+                                    });
+                                  }}
+                                >
+                                  Edit Plot
+                                </button>
+                                <button
+                                  className="premium-btn premium-btn-secondary"
+                                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                                  onClick={() => handleEdit(plot._item)}
+                                >
+                                  Edit Listing
+                                </button>
+                                <button
+                                  className="premium-btn premium-btn-danger"
+                                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                                  onClick={() => handleDelete(plot._item.id)}
+                                >
+                                  Delete Listing
+                                </button>
+                              </div>
+                            ) : (
                               <button
-                                className="premium-btn premium-btn-secondary"
-                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-                                onClick={() => {
-                                  setEditingPlotId(plot.id);
-                                  setPlotEditForm({
-                                    plot_number: plot.plot_number || '',
-                                    plot_category: plot.plot_category || 'standard',
-                                    plot_type: plot.plot_type || 'R',
-                                    size: plot.size || '',
-                                    block: plot.block || '',
-                                    membership_no: plot.membership_no || '',
-                                    registration_no: plot.registration_no || '',
-                                    form_number: plot.form_number || ''
-                                  });
-                                }}
+                                className="btn-primary"
+                                style={{ fontSize: '0.8125rem' }}
+                                onClick={() => handleOpenPaymentModal(plot._item, plot)}
                               >
-                                Edit
+                                Pay
                               </button>
-                            </td>
-                          )}
+                            )}
+                          </td>
                         </>
                       )}
                     </tr>
@@ -1072,6 +918,51 @@ const Inventory = () => {
                   placeholder="e.g. 5 Marla, 10 Marla"
                 />
               </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>Block</label>
+                  <input
+                    type="text"
+                    value={formData.block}
+                    onChange={(e) => setFormData({ ...formData, block: e.target.value })}
+                    placeholder="e.g. E"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Membership #</label>
+                  <input
+                    type="text"
+                    value={formData.membership_no}
+                    onChange={(e) => setFormData({ ...formData, membership_no: e.target.value })}
+                    placeholder="Membership #"
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>Registration #</label>
+                  <input
+                    type="text"
+                    value={formData.registration_no}
+                    onChange={(e) => setFormData({ ...formData, registration_no: e.target.value })}
+                    placeholder="Registration #"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Form # / Code</label>
+                  <input
+                    type="text"
+                    value={formData.form_number}
+                    onChange={(e) => setFormData({ ...formData, form_number: e.target.value })}
+                    placeholder="Form # / Code"
+                  />
+                </div>
+              </div>
+              {editingItem && (
+                <small style={{ color: '#666', display: 'block', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                  Block / Membership / Registration / Form # apply to every plot in this listing. Leave blank to keep each plot's existing value.
+                </small>
+              )}
                <div className="modal-actions">
                 <button
                   type="button"

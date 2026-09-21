@@ -213,6 +213,9 @@ const initDatabase = async () => {
       await db.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS instrument_number VARCHAR(100)`);
       await db.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS voucher_no VARCHAR(100)`);
       await db.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS lps_amount DECIMAL(15, 2) DEFAULT 0`);
+      // Which numbered installment this payment applies to (e.g. "1st", "2nd") - free text
+      // since not every payment is a numbered installment (down payment, excess area, etc).
+      await db.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS installment_no VARCHAR(20)`);
       await db.query(`ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_payment_type_check`);
       await db.query(`
         ALTER TABLE payments

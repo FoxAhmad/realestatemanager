@@ -49,6 +49,8 @@ const Deals = () => {
   });
 
   const [availablePlots, setAvailablePlots] = useState([]);
+  const [customerInput, setCustomerInput] = useState('');
+  const [dealerInput, setDealerInput] = useState('');
 
   const {
     search, setSearch,
@@ -133,10 +135,48 @@ const Deals = () => {
     }
   };
 
+  const resolveCustomerId = async () => {
+    const name = customerInput.trim();
+    if (!name) return null;
+    const existing = customers.find((c) => c.name.trim().toLowerCase() === name.toLowerCase());
+    if (existing) return existing.id;
+    const response = await api.post('/customers', { name });
+    setCustomers((prev) => [...prev, response.data]);
+    return response.data.id;
+  };
+
+  const resolveDealerId = async () => {
+    const name = dealerInput.trim();
+    if (!name) return null;
+    const existing = dealers.find((d) => d.name.trim().toLowerCase() === name.toLowerCase());
+    if (existing) return existing.id;
+
+    // No existing salesperson matches this name - create one on the fly so the
+    // typed name doesn't have to match a pre-registered account.
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || 'salesperson';
+    const email = `${slug}.${Date.now()}@placeholder.local`;
+    const password = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    const response = await api.post('/dealers', { name, email, password });
+    setDealers((prev) => [...prev, response.data]);
+    return response.data.id;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/deals', formData);
+      const dealerName = dealerInput.trim();
+      if (!dealerName) {
+        alert('Salesperson name is required');
+        return;
+      }
+      const dealerId = await resolveDealerId();
+      const customerId = await resolveCustomerId();
+      if (!customerId) {
+        alert('Customer name is required');
+        return;
+      }
+
+      await api.post('/deals', { ...formData, customer_id: customerId, dealer_id: dealerId });
       fetchDeals();
       setShowModal(false);
       setFormData({
@@ -151,6 +191,8 @@ const Deals = () => {
         installments: '',
         notes: '',
       });
+      setCustomerInput('');
+      setDealerInput('');
     } catch (error) {
       console.error('Error creating deal:', error);
       alert(error.response?.data?.message || 'Error creating deal');
@@ -266,31 +308,43 @@ const Deals = () => {
             <h2>Initiate New Property Deal</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Select Customer *</label>
-                <select
-                  value={formData.customer_id}
-                  onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                <label>Customer *</label>
+                <input
+                  type="text"
+                  list="deal-customer-names"
+                  value={customerInput}
+                  onChange={(e) => setCustomerInput(e.target.value)}
+                  placeholder="Type or select a customer name"
                   required
-                >
-                  <option value="">Choose a customer...</option>
+                />
+                <datalist id="deal-customer-names">
                   {customers.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name} - {c.cnic}</option>
+                    <option key={c.id} value={c.name} />
                   ))}
-                </select>
+                </datalist>
+                <small style={{ color: '#666', display: 'block', marginTop: '0.35rem' }}>
+                  Pick an existing customer, or type a new name to create one.
+                </small>
               </div>
 
               <div className="form-group">
-                <label>Assigned Salesperson *</label>
-                <select
-                  value={formData.dealer_id}
-                  onChange={(e) => setFormData({ ...formData, dealer_id: e.target.value })}
+                <label>Salesperson *</label>
+                <input
+                  type="text"
+                  list="deal-dealer-names"
+                  value={dealerInput}
+                  onChange={(e) => setDealerInput(e.target.value)}
+                  placeholder="Type or select a salesperson name"
                   required
-                >
-                  <option value="">Choose a salesperson...</option>
+                />
+                <datalist id="deal-dealer-names">
                   {dealers.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
+                    <option key={d.id} value={d.name} />
                   ))}
-                </select>
+                </datalist>
+                <small style={{ color: '#666', display: 'block', marginTop: '0.35rem' }}>
+                  Pick an existing salesperson, or type a new name to add one.
+                </small>
               </div>
 
               <div className="form-row">
@@ -395,7 +449,11 @@ const Deals = () => {
                 <button
                   type="button"
                   className="premium-btn premium-btn-secondary"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setCustomerInput('');
+                    setDealerInput('');
+                  }}
                 >
                   Discard
                 </button>

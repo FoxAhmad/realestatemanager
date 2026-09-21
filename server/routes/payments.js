@@ -51,7 +51,7 @@ router.post('/', auth, async (req, res) => {
   try {
     const {
       deal_id, payment_type, amount, payment_date, notes,
-      instrument, instrument_number, voucher_no, lps_amount
+      instrument, instrument_number, voucher_no, lps_amount, installment_no
     } = req.body;
 
     if (!deal_id || !payment_type || !amount || !payment_date) {
@@ -63,11 +63,11 @@ router.post('/', auth, async (req, res) => {
 
     const result = await client.query(
       `INSERT INTO payments
-        (deal_id, payment_type, amount, payment_date, notes, instrument, instrument_number, voucher_no, lps_amount)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        (deal_id, payment_type, amount, payment_date, notes, instrument, instrument_number, voucher_no, lps_amount, installment_no)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [
         deal_id, payment_type, amount, payment_date, notes || null,
-        instrument || null, instrument_number || null, voucher_no || null, lps_amount || 0
+        instrument || null, instrument_number || null, voucher_no || null, lps_amount || 0, installment_no || null
       ]
     );
 
@@ -93,17 +93,17 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const {
       payment_type, amount, payment_date, notes,
-      instrument, instrument_number, voucher_no, lps_amount
+      instrument, instrument_number, voucher_no, lps_amount, installment_no
     } = req.body;
 
     const result = await db.query(
       `UPDATE payments
        SET payment_type = $1, amount = $2, payment_date = $3, notes = $4,
-           instrument = $5, instrument_number = $6, voucher_no = $7, lps_amount = $8
-       WHERE id = $9 RETURNING *`,
+           instrument = $5, instrument_number = $6, voucher_no = $7, lps_amount = $8, installment_no = $9
+       WHERE id = $10 RETURNING *`,
       [
         payment_type, amount, payment_date, notes,
-        instrument || null, instrument_number || null, voucher_no || null, lps_amount || 0,
+        instrument || null, instrument_number || null, voucher_no || null, lps_amount || 0, installment_no || null,
         req.params.id
       ]
     );
