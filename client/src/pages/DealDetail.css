@@ -12,12 +12,24 @@
 
 .deal-detail-content {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2rem;
+}
+
+.detail-two-col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 2rem;
+  min-width: 0;
+}
+
+.detail-two-col > .glass-card {
+  min-width: 0;
 }
 
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
   gap: 1.5rem;
 }
 
@@ -43,7 +55,7 @@
 
 .payment-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
   padding: 1.5rem;
@@ -87,8 +99,10 @@
 
 .ledger-group-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
+  gap: 0.35rem 1rem;
   padding: 0 0.25rem 0.75rem;
 }
 
@@ -113,8 +127,10 @@
 
 .payment-item {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem 1rem;
   padding: 1.25rem;
   background: white;
   border-radius: 16px;
@@ -131,6 +147,12 @@
 .payment-info {
   display: flex;
   flex-direction: column;
+}
+
+.payment-main,
+.payment-val {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .payment-type {
@@ -189,17 +211,33 @@
   color: var(--text-main);
 }
 
+.profile-header-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  min-width: 0;
+}
+
 .profile-header-main {
   display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
-  gap: 1rem;
+  gap: 0.75rem 1rem;
+  min-width: 0;
 }
 
 .profile-header-main h1 {
   margin: 0;
   font-size: 1.8rem;
+}
+
+@media (max-width: 480px) {
+  .profile-header-main h1 {
+    font-size: 1.4rem;
+  }
 }
 
 .status-select-premium {

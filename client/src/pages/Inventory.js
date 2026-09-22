@@ -888,7 +888,7 @@ const Inventory = () => {
                   </small>
                 )}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '1rem' }}>
                 <div className="form-group">
                   <label>Plot Type</label>
                   <select
@@ -918,7 +918,7 @@ const Inventory = () => {
                   placeholder="e.g. 5 Marla, 10 Marla"
                 />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '1rem' }}>
                 <div className="form-group">
                   <label>Block</label>
                   <input
@@ -938,7 +938,7 @@ const Inventory = () => {
                   />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '1rem' }}>
                 <div className="form-group">
                   <label>Registration #</label>
                   <input
@@ -1118,7 +1118,7 @@ const Inventory = () => {
                               Remove
                             </button>
                           </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '1rem' }}>
                             <div>
                               <label>Select Investor *</label>
                               <select

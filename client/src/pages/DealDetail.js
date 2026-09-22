@@ -303,7 +303,7 @@ const DealDetail = () => {
   return (
     <div className="premium-page">
       <div className="premium-page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <div className="profile-header-row">
           <button className="premium-btn premium-btn-secondary" onClick={() => navigate('/deals')}>
             <FaArrowLeft /> Back
           </button>
@@ -329,7 +329,7 @@ const DealDetail = () => {
       </div>
 
       <div className="deal-detail-content">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+        <div className="detail-two-col">
           {/* Customer & Asset Info */}
           <div className="glass-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
@@ -608,7 +608,7 @@ const DealDetail = () => {
                   required
                 />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '1.5rem' }}>
                 <div className="form-group">
                   <label>Type</label>
                   <select
@@ -654,7 +654,7 @@ const DealDetail = () => {
                   </datalist>
                 </div>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '1.5rem' }}>
                 <div className="form-group">
                   <label>Instrument Type</label>
                   <select
@@ -679,7 +679,7 @@ const DealDetail = () => {
                   />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '1.5rem' }}>
                 <div className="form-group">
                   <label>{paymentForm.apply_adjustment ? 'Cash Receipt / Voucher No.' : 'Receipt / Voucher No.'}</label>
                   <input
@@ -755,7 +755,7 @@ const DealDetail = () => {
                           ))}
                         </select>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '1.5rem' }}>
                         <div className="form-group">
                           <label>Quantity (Number of Forms) *</label>
                           <input

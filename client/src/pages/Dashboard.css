@@ -39,7 +39,7 @@
 /* Topline Ledger */
 .topline-ledger-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 2rem;
   margin-bottom: 3rem;
 }
@@ -93,7 +93,7 @@
 /* Main Grid */
 .main-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(350px, 100%), 1fr));
   gap: 2rem;
 }
 
@@ -191,7 +191,7 @@
 /* Operations Grid */
 .ops-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
   gap: 1.5rem;
 }
 
@@ -398,6 +398,12 @@
   }
 
   .project-balance-table {
+    display: block;
+    width: 100%;
+  }
+
+  .project-balance-table tbody {
+    display: block;
     width: 100%;
   }
 

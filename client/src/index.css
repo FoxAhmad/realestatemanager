@@ -137,7 +137,14 @@ body {
   }
 
   .premium-table {
+    display: block;
+    width: 100%;
     min-width: 0;
+  }
+
+  .premium-table tbody {
+    display: block;
+    width: 100%;
   }
 
   .premium-table thead {
@@ -165,10 +172,12 @@ body {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
     padding: 0.65rem 1rem;
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
     text-align: right;
+    overflow-wrap: anywhere;
   }
 
   .premium-table tr td:last-child {

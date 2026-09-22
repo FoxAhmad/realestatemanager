@@ -484,7 +484,7 @@ const Finance = () => {
         </section>
       ) : (
         <div className="analytics-container animate-fade-in">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '2rem' }}>
             <section className="finance-section">
               <h2><FaCalendarAlt style={{ color: 'var(--primary)' }} /> Monthly Performance</h2>
               <div className="glass-card" style={{ padding: '0' }}>
