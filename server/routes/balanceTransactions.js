@@ -16,7 +16,8 @@ const upload = multer({
 /**
  * GET /balance-transactions/forms/summary
  * Per-dealer net Forms count/balance on the Advance for Certificate account (8).
- * Only returns dealers who currently hold at least 1 form.
+ * Returns any dealer with a nonzero forms balance, including negative (over-drawn) ones —
+ * only dealers who are exactly settled at 0 are hidden.
  */
 router.get('/forms/summary', auth, async (req, res) => {
   try {
@@ -30,7 +31,7 @@ router.get('/forms/summary', auth, async (req, res) => {
       JOIN users u ON tl.user_id = u.id
       WHERE tl.account_id = 8 AND tl.user_id IS NOT NULL
       GROUP BY u.id, u.name
-      HAVING SUM(CASE WHEN tl.credit > 0 THEN tl.quantity ELSE -tl.quantity END) > 0
+      HAVING SUM(CASE WHEN tl.credit > 0 THEN tl.quantity ELSE -tl.quantity END) <> 0
       ORDER BY u.name ASC
     `);
     res.json(result.rows);
@@ -306,6 +307,63 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
       );
       await client.query('COMMIT');
       res.status(201).json({ message: 'Adjustment recorded' });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      res.status(500).json({ message: 'Server error', error: error.message });
+    } finally {
+      client.release();
+    }
+  });
+
+  /**
+   * PUT /balance-transactions/adjust-deal/:transactionId
+   * Update an existing Adjustment Form entry (quantity/price/date/dealer/voucher).
+   * Keeps the certificate-account debit and receivable credit lines in sync with
+   * deal_adjustments so the Forms Ledger and the deal's financial totals stay correct.
+   */
+  router.put('/adjust-deal/:transactionId', auth, adminAndAccountantOnly, async (req, res) => {
+    const client = await db.connect();
+    try {
+      const { customer_price, cost_price, quantity, date, notes, user_id, voucher_no } = req.body;
+      if (!customer_price || !cost_price) {
+        return res.status(400).json({ message: 'Missing required fields' });
+      }
+      const accMap = await ledgerService.getAccountMap();
+      const certAccountId = 8;
+      const transId = req.params.transactionId;
+      const qty = quantity || 1;
+
+      await client.query('BEGIN');
+
+      const transRes = await client.query(
+        `UPDATE transactions SET transaction_date = $1, description = $2, voucher_no = $3
+         WHERE id = $4 RETURNING id`,
+        [date || new Date(), notes || null, voucher_no || null, transId]
+      );
+      if (transRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ message: 'Adjustment not found' });
+      }
+
+      await client.query(
+        `UPDATE transaction_lines SET debit = $1, quantity = $2, user_id = COALESCE($3, user_id)
+         WHERE transaction_id = $4 AND account_id = $5`,
+        [cost_price, qty, user_id || null, transId, certAccountId]
+      );
+      await client.query(
+        `UPDATE transaction_lines SET credit = $1
+         WHERE transaction_id = $2 AND account_id = $3`,
+        [customer_price, transId, accMap.ACCOUNTS_RECEIVABLE]
+      );
+      await client.query(
+        `UPDATE deal_adjustments
+         SET customer_price = $1, cost_price = $2, quantity = $3, adjustment_date = $4, notes = $5
+         WHERE transaction_id = $6`,
+        [customer_price, cost_price, qty, date || new Date(), notes, transId]
+      );
+
+      await client.query('COMMIT');
+      res.json({ message: 'Adjustment updated' });
     } catch (error) {
       await client.query('ROLLBACK');
       res.status(500).json({ message: 'Server error', error: error.message });

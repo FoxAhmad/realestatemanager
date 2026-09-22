@@ -8,7 +8,23 @@
 // wipe step, since there is no bulk-delete endpoint and the ledger cleanup needs
 // to reach across tables the API doesn't expose.
 
-const pool = require('../config/database');
+// Build our own pool rather than requiring config/database when USE_LIVE_DB is
+// set, so LIVE_DB_URL (loaded by dotenv from .env, same as any other env var -
+// nothing passed through the shell) is used directly. Passing the live
+// connection string through the shell as DATABASE_URL doesn't work here since
+// .env is only loaded inside the Node process, not exported to bash.
+let pool;
+if (process.env.USE_LIVE_DB === '1') {
+  require('dotenv').config();
+  const { Pool } = require('pg');
+  if (!process.env.LIVE_DB_URL) {
+    console.error('LIVE_DB_URL is not set in .env');
+    process.exit(1);
+  }
+  pool = new Pool({ connectionString: process.env.LIVE_DB_URL, ssl: { rejectUnauthorized: false } });
+} else {
+  pool = require('../config/database');
+}
 
 // API base and admin login are read from the environment so nothing sensitive
 // is hardcoded here - set these before running:
@@ -236,6 +252,31 @@ const UNITS = [
   },
 ];
 
+// Defensive: this script's own DELETE queries (and the /payments, /adjust-deal
+// API calls) depend on columns added by later dbInit.js migrations. Rather than
+// trust that dbInit already ran successfully against whichever database this
+// script is pointed at, ensure the specific columns we touch exist first -
+// these are idempotent no-ops if dbInit already added them.
+const ensureSchema = async () => {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE inventory_payments ADD COLUMN IF NOT EXISTS ledger_transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL`);
+    await client.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS installment_no VARCHAR(20)`);
+    await client.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS instrument VARCHAR(50)`);
+    await client.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS instrument_number VARCHAR(100)`);
+    await client.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS voucher_no VARCHAR(100)`);
+    await client.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS lps_amount DECIMAL(15, 2) DEFAULT 0`);
+    await client.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS voucher_no VARCHAR(100)`);
+    await client.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS block VARCHAR(50)`);
+    await client.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS membership_no VARCHAR(100)`);
+    await client.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS registration_no VARCHAR(100)`);
+    await client.query(`ALTER TABLE inventory_plots ADD COLUMN IF NOT EXISTS form_number VARCHAR(255)`);
+    console.log('Schema check: required columns confirmed present.');
+  } finally {
+    client.release();
+  }
+};
+
 const wipeExisting = async () => {
   const client = await pool.connect();
   try {
@@ -278,6 +319,9 @@ const findOrCreateDealer = async (dealers, name) => {
 };
 
 const run = async () => {
+  console.log('--- Ensuring required schema columns exist ---');
+  await ensureSchema();
+
   console.log('--- Wiping existing inventory/deals/payments/ledger entries ---');
   await wipeExisting();
 
@@ -286,8 +330,11 @@ const run = async () => {
   TOKEN = login.token;
 
   const projects = await api('GET', '/balance-projects');
-  const unionTown = projects.find((p) => p.name.trim().toLowerCase() === 'union town');
-  if (!unionTown) throw new Error('Union Town project not found in balance_projects');
+  let unionTown = projects.find((p) => p.name.trim().toLowerCase() === 'union town');
+  if (!unionTown) {
+    console.log('Union Town project not found - creating it.');
+    unionTown = await api('POST', '/balance-projects', { name: 'Union Town' });
+  }
 
   let customers = await api('GET', '/customers');
   let dealers = await api('GET', '/dealers');
@@ -375,8 +422,54 @@ const run = async () => {
   await pool.end();
 };
 
-run().catch((err) => {
-  console.error('FAILED:', err);
-  pool.end();
-  process.exit(1);
-});
+// Optional cleanup mode: removes specific leftover/duplicate deal+inventory ids
+// found after the import (see chat for how they were identified). Targets
+// exact IDs only, never a blanket delete. Enable with:
+//   CLEANUP_DEAL_IDS=1,2,3,4 CLEANUP_INVENTORY_IDS=1,2,3,4,5 node server/scripts/reimport_union_town.js
+const runCleanup = async () => {
+  const dealIds = process.env.CLEANUP_DEAL_IDS.split(',').map((s) => parseInt(s.trim(), 10));
+  const inventoryIds = process.env.CLEANUP_INVENTORY_IDS.split(',').map((s) => parseInt(s.trim(), 10));
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const dealsBefore = await client.query('SELECT id, customer_id, dealer_id FROM deals WHERE id = ANY($1::int[])', [dealIds]);
+    const invBefore = await client.query('SELECT id, address, price FROM inventory WHERE id = ANY($1::int[])', [inventoryIds]);
+    console.log('Deals about to be removed:', JSON.stringify(dealsBefore.rows));
+    console.log('Inventory about to be removed:', JSON.stringify(invBefore.rows));
+
+    const delTx = await client.query(
+      `DELETE FROM transactions WHERE reference_type IN ('DEAL','ADJUSTMENT','COMMISSION') AND reference_id = ANY($1::int[])`,
+      [dealIds]
+    );
+    const delTx2 = await client.query(
+      `DELETE FROM transactions WHERE id IN (SELECT ledger_transaction_id FROM inventory_payments WHERE inventory_id = ANY($1::int[]) AND ledger_transaction_id IS NOT NULL)`,
+      [inventoryIds]
+    );
+    const delDeals = await client.query('DELETE FROM deals WHERE id = ANY($1::int[])', [dealIds]);
+    const delInventory = await client.query('DELETE FROM inventory WHERE id = ANY($1::int[])', [inventoryIds]);
+
+    await client.query('COMMIT');
+    console.log(`Removed: ${delDeals.rowCount} deals, ${delInventory.rowCount} inventory, ${delTx.rowCount + delTx2.rowCount} ledger transactions.`);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+    await pool.end();
+  }
+};
+
+if (process.env.CLEANUP_DEAL_IDS && process.env.CLEANUP_INVENTORY_IDS) {
+  runCleanup().catch((err) => {
+    console.error('FAILED:', err);
+    process.exit(1);
+  });
+} else {
+  run().catch((err) => {
+    console.error('FAILED:', err);
+    pool.end();
+    process.exit(1);
+  });
+}

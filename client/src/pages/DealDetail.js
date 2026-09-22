@@ -23,6 +23,7 @@ const DealDetail = () => {
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [editingAdjustmentId, setEditingAdjustmentId] = useState(null);
   const [expandedAdjustments, setExpandedAdjustments] = useState({});
   const [dealers, setDealers] = useState([]);
   const [defaultCost, setDefaultCost] = useState(20000);
@@ -182,7 +183,9 @@ const DealDetail = () => {
   }, [filteredLedgerEntries]);
 
   const handleEditPayment = (p) => {
+    const linkedAdj = adjustments.find(a => a.payment_id === p.id);
     setEditingPaymentId(p.id);
+    setEditingAdjustmentId(linkedAdj ? linkedAdj.id : null);
     setPaymentForm({
       ...emptyPaymentForm,
       amount: p.amount,
@@ -194,6 +197,11 @@ const DealDetail = () => {
       voucher_no: p.voucher_no || '',
       lps_amount: p.lps_amount || '',
       installment_no: p.installment_no || '',
+      apply_adjustment: !!linkedAdj,
+      adjustment_user_id: linkedAdj ? linkedAdj.user_id : (deal.dealer_id || ''),
+      adjustment_quantity: linkedAdj ? linkedAdj.quantity : 1,
+      adjustment_price: linkedAdj ? parseFloat(linkedAdj.customer_price) : defaultCustomerValue,
+      adjustment_voucher_no: linkedAdj ? (linkedAdj.voucher_no || '') : '',
     });
     setShowPaymentModal(true);
   };
@@ -201,6 +209,7 @@ const DealDetail = () => {
   const closePaymentModal = () => {
     setShowPaymentModal(false);
     setEditingPaymentId(null);
+    setEditingAdjustmentId(null);
     setPaymentForm({ ...emptyPaymentForm, adjustment_user_id: deal.dealer_id, adjustment_price: defaultCustomerValue });
   };
 
@@ -212,23 +221,33 @@ const DealDetail = () => {
         ...paymentPayload
       } = paymentForm;
 
+      let paymentId = editingPaymentId;
       if (editingPaymentId) {
         await api.put(`/payments/${editingPaymentId}`, paymentPayload);
       } else {
         const paymentRes = await api.post('/payments', { ...paymentPayload, deal_id: id });
+        paymentId = paymentRes.data.id;
+      }
 
-        if (apply_adjustment) {
-          const qty = parseInt(adjustment_quantity) || 1;
+      if (apply_adjustment) {
+        const qty = parseInt(adjustment_quantity) || 1;
+        const adjustmentPayload = {
+          user_id: adjustment_user_id || deal.dealer_id,
+          quantity: qty,
+          customer_price: adjustment_price || (qty * defaultCustomerValue),
+          cost_price: qty * defaultCost,
+          date: paymentForm.payment_date,
+          notes: `Adjustment applied with ${paymentForm.payment_type.replace('_', ' ')} payment`,
+          voucher_no: adjustment_voucher_no || null,
+        };
+
+        if (editingAdjustmentId) {
+          await api.put(`/balance-transactions/adjust-deal/${editingAdjustmentId}`, adjustmentPayload);
+        } else {
           await api.post('/balance-transactions/adjust-deal', {
+            ...adjustmentPayload,
             deal_id: id,
-            user_id: adjustment_user_id || deal.dealer_id,
-            quantity: qty,
-            customer_price: adjustment_price || (qty * defaultCustomerValue),
-            cost_price: qty * defaultCost,
-            date: paymentForm.payment_date,
-            notes: `Adjustment applied with ${paymentForm.payment_type.replace('_', ' ')} payment`,
-            payment_id: paymentRes.data.id,
-            voucher_no: adjustment_voucher_no || null,
+            payment_id: paymentId,
           });
         }
       }
@@ -542,13 +561,22 @@ const DealDetail = () => {
                                   )}
                                 </div>
                                 {(isAdmin || isAccountant) && (
-                                  <button
-                                    className="premium-btn premium-btn-danger"
-                                    style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', marginTop: '0.75rem' }}
-                                    onClick={() => handleAdjustmentDelete(_adjustment.id)}
-                                  >
-                                    <FaTrash size={10} /> Remove
-                                  </button>
+                                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                                    <button
+                                      className="premium-btn premium-btn-secondary"
+                                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}
+                                      onClick={() => handleEditPayment(p)}
+                                    >
+                                      <FaEdit size={10} /> Edit
+                                    </button>
+                                    <button
+                                      className="premium-btn premium-btn-danger"
+                                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}
+                                      onClick={() => handleAdjustmentDelete(_adjustment.id)}
+                                    >
+                                      <FaTrash size={10} /> Remove
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -681,12 +709,7 @@ const DealDetail = () => {
                 />
               </div>
 
-              {editingPaymentId && (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                  Adjustment forms are managed separately — use "Remove" on the linked form to change it.
-                </p>
-              )}
-              {!editingPaymentId && paymentForm.payment_type === 'installment' && (
+              {(paymentForm.payment_type === 'installment' || editingAdjustmentId) && (
                 <div
                   style={{
                     marginTop: '0.5rem',
@@ -697,16 +720,24 @@ const DealDetail = () => {
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', margin: 0 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: !editingAdjustmentId ? 'pointer' : 'default', margin: 0 }}>
                     <input
                       type="checkbox"
+                      disabled={!!editingAdjustmentId}
                       style={{ width: '1.1rem', height: '1.1rem', accentColor: '#ffc107' }}
                       checked={paymentForm.apply_adjustment}
                       onChange={(e) => setPaymentForm({ ...paymentForm, apply_adjustment: e.target.checked })}
                     />
                     <FaFileContract color="#ffc107" />
-                    <span style={{ fontWeight: 700 }}>Apply an Adjustment Form against this installment</span>
+                    <span style={{ fontWeight: 700 }}>
+                      {editingAdjustmentId ? 'Adjustment Form linked to this installment' : 'Apply an Adjustment Form against this installment'}
+                    </span>
                   </label>
+                  {editingAdjustmentId && (
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: '0.5rem 0 0' }}>
+                      Editing here updates the linked form. Use "Remove" on the form itself to delete it instead.
+                    </p>
+                  )}
 
                   {paymentForm.apply_adjustment && (
                     <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed #ffc107' }}>

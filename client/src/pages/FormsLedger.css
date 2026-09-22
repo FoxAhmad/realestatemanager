@@ -108,6 +108,10 @@
   color: var(--primary);
 }
 
+.forms-dealer-count .count-val.negative {
+  color: var(--danger);
+}
+
 .forms-dealer-count .count-label,
 .forms-dealer-value .value-label {
   font-size: 0.65rem;
@@ -123,14 +127,23 @@
   color: var(--success);
 }
 
+.forms-dealer-value .value-val.negative {
+  color: var(--danger);
+}
+
 .forms-dealer-history {
   padding: 0 1.5rem 1.5rem;
   border-top: 1px solid rgba(0,0,0,0.05);
   background: #f8fafc;
 }
 
-.forms-dealer-history .premium-table {
+.forms-dealer-history .premium-table-container {
   margin-top: 1rem;
+}
+
+.forms-history-actions {
+  text-align: center;
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {
@@ -142,5 +155,24 @@
   .forms-dealer-value {
     align-items: flex-start;
     min-width: 0;
+  }
+
+  .forms-price-strip {
+    gap: 0.75rem;
+  }
+
+  .forms-price-chip {
+    flex: 1 1 calc(50% - 0.5rem);
+    padding: 0.65rem 1rem;
+  }
+
+  .forms-price-note {
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .forms-history-actions {
+    justify-content: flex-end !important;
   }
 }

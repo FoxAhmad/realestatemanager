@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { FaFileContract, FaPlus, FaCog, FaChevronDown, FaChevronUp, FaTimes } from 'react-icons/fa';
+import { FaFileContract, FaPlus, FaCog, FaChevronDown, FaChevronUp, FaTimes, FaEdit, FaTrash } from 'react-icons/fa';
+import { useAuth } from '../context/AuthContext';
 import './FormsLedger.css';
 
 const FormsLedger = () => {
+  const { isAdmin, isAccountant } = useAuth();
+  const canManage = isAdmin || isAccountant;
+
   const [summary, setSummary] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dealers, setDealers] = useState([]);
@@ -22,6 +26,10 @@ const FormsLedger = () => {
     date: new Date().toISOString().split('T')[0],
     notes: '',
   });
+
+  const [editEntry, setEditEntry] = useState(null);
+  const [editFormData, setEditFormData] = useState({ date: '', description: '' });
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     fetchSummary();
@@ -73,6 +81,58 @@ const FormsLedger = () => {
       setDealerHistory(prev => ({ ...prev, [dealerId]: response.data }));
     } catch (error) {
       console.error('Error fetching dealer forms history:', error);
+    }
+  };
+
+  const refreshDealerHistory = async (dealerId) => {
+    try {
+      const response = await api.get(`/balance-transactions/8?userId=${dealerId}`);
+      setDealerHistory(prev => ({ ...prev, [dealerId]: response.data }));
+    } catch (error) {
+      console.error('Error refreshing dealer forms history:', error);
+    }
+  };
+
+  const handleEditClick = (dealerId, entry) => {
+    setEditEntry({ ...entry, dealerId });
+    setEditFormData({
+      date: new Date(entry.transaction_date).toISOString().split('T')[0],
+      description: entry.description || '',
+    });
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData({ ...editFormData, [name]: value });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put(`/balance-transactions/${editEntry.id}`, {
+        date: editFormData.date,
+        description: editFormData.description,
+      });
+      const dealerId = editEntry.dealerId;
+      setEditEntry(null);
+      await refreshDealerHistory(dealerId);
+      fetchSummary();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error updating entry');
+    }
+  };
+
+  const handleDelete = async (dealerId, entry) => {
+    if (!window.confirm('Delete this forms ledger entry? This cannot be undone.')) return;
+    setDeletingId(entry.id);
+    try {
+      await api.delete(`/balance-transactions/${entry.id}`);
+      await refreshDealerHistory(dealerId);
+      fetchSummary();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error deleting entry');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -165,11 +225,11 @@ const FormsLedger = () => {
                       <div className="forms-dealer-sub">Rs. {parseFloat(d.balance || 0).toLocaleString()} balance on account</div>
                     </div>
                     <div className="forms-dealer-count">
-                      <span className="count-val">{d.forms_held}</span>
+                      <span className={`count-val${d.forms_held < 0 ? ' negative' : ''}`}>{d.forms_held}</span>
                       <span className="count-label">Forms Held</span>
                     </div>
                     <div className="forms-dealer-value">
-                      <span className="value-val">Rs. {(d.forms_held * defaultCurrentValue).toLocaleString()}</span>
+                      <span className={`value-val${d.forms_held < 0 ? ' negative' : ''}`}>Rs. {(d.forms_held * defaultCurrentValue).toLocaleString()}</span>
                       <span className="value-label">Est. Value</span>
                     </div>
                     <button className="expand-btn">
@@ -183,28 +243,50 @@ const FormsLedger = () => {
                       ) : history.length === 0 ? (
                         <p>No entries yet.</p>
                       ) : (
-                        <table className="premium-table">
-                          <thead>
-                            <tr>
-                              <th>Date</th>
-                              <th>Description</th>
-                              <th>Qty</th>
-                              <th>Credit</th>
-                              <th>Debit</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {history.map(h => (
-                              <tr key={h.line_id}>
-                                <td data-label="Date">{new Date(h.transaction_date).toLocaleDateString()}</td>
-                                <td data-label="Description">{h.description}</td>
-                                <td data-label="Qty">{h.quantity}</td>
-                                <td data-label="Credit" style={{ color: 'var(--success)' }}>{parseFloat(h.credit) > 0 ? parseFloat(h.credit).toLocaleString() : '-'}</td>
-                                <td data-label="Debit" style={{ color: 'var(--danger)' }}>{parseFloat(h.debit) > 0 ? parseFloat(h.debit).toLocaleString() : '-'}</td>
+                        <div className="premium-table-container">
+                          <table className="premium-table">
+                            <thead>
+                              <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Qty</th>
+                                <th>Credit</th>
+                                <th>Debit</th>
+                                {canManage && <th>Actions</th>}
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {history.map(h => (
+                                <tr key={h.line_id}>
+                                  <td data-label="Date">{new Date(h.transaction_date).toLocaleDateString()}</td>
+                                  <td data-label="Description" className="td-wrap">{h.description}</td>
+                                  <td data-label="Qty">{h.quantity}</td>
+                                  <td data-label="Credit" style={{ color: 'var(--success)' }}>{parseFloat(h.credit) > 0 ? parseFloat(h.credit).toLocaleString() : '-'}</td>
+                                  <td data-label="Debit" style={{ color: 'var(--danger)' }}>{parseFloat(h.debit) > 0 ? parseFloat(h.debit).toLocaleString() : '-'}</td>
+                                  {canManage && (
+                                    <td data-label="Actions" className="forms-history-actions" onClick={(e) => e.stopPropagation()}>
+                                      <button
+                                        onClick={() => handleEditClick(d.dealer_id, h)}
+                                        title="Edit Entry"
+                                        style={{ padding: '4px 8px', borderRadius: '6px', border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer', marginRight: '6px' }}
+                                      >
+                                        <FaEdit size={12} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDelete(d.dealer_id, h)}
+                                        title="Delete Entry"
+                                        disabled={deletingId === h.id}
+                                        style={{ padding: '4px 8px', borderRadius: '6px', border: 'none', background: '#dc3545', color: '#fff', cursor: 'pointer' }}
+                                      >
+                                        <FaTrash size={12} />
+                                      </button>
+                                    </td>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       )}
                     </div>
                   )}
@@ -310,6 +392,40 @@ const FormsLedger = () => {
               <div className="modal-actions">
                 <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
                 <button type="submit" className="premium-btn premium-btn-primary">Issue</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editEntry && (
+        <div className="modal-overlay" onClick={() => setEditEntry(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ border: 'none', marginBottom: 0, paddingBottom: 0 }}>Edit Forms Entry</h2>
+              <button className="close-modal-btn" onClick={() => setEditEntry(null)}><FaTimes /></button>
+            </div>
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-group">
+                <label>Date *</label>
+                <input
+                  type="date"
+                  value={editFormData.date}
+                  onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  rows="2"
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setEditEntry(null)}>Cancel</button>
+                <button type="submit" className="premium-btn premium-btn-primary">Save</button>
               </div>
             </form>
           </div>
