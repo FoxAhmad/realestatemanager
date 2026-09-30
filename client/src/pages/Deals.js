@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FaFilePdf } from 'react-icons/fa';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import { buildDealsListPDF } from '../utils/dealsReport';
 import './Deals.css';
 
 const DEAL_STATUS_LABELS = {
@@ -258,6 +260,15 @@ const Deals = () => {
     return <div className="deals-loading">Accessing Deal Registry...</div>;
   }
 
+  const handleExportDeals = () => {
+    try {
+      buildDealsListPDF({ deals: filteredDeals, preparedBy: user?.name });
+    } catch (error) {
+      console.error('Error exporting deals PDF:', error);
+      alert('Error generating PDF export');
+    }
+  };
+
   return (
     <div className="premium-page">
       <div className="premium-page-header">
@@ -265,14 +276,19 @@ const Deals = () => {
           <h1>Real Estate Deals</h1>
           <p>Monitor your sales pipeline and manage property transactions.</p>
         </div>
-        {(isAdmin || isAccountant) && (
-          <button
-            className="premium-btn premium-btn-primary"
-            onClick={() => { setEditingDealId(null); setShowModal(true); }}
-          >
-            + Create New Deal
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button className="premium-btn premium-btn-secondary" onClick={handleExportDeals}>
+            <FaFilePdf /> Export PDF
           </button>
-        )}
+          {(isAdmin || isAccountant) && (
+            <button
+              className="premium-btn premium-btn-primary"
+              onClick={() => { setEditingDealId(null); setShowModal(true); }}
+            >
+              + Create New Deal
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="glass-card">

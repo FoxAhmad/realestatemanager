@@ -220,7 +220,7 @@ const initDatabase = async () => {
       await db.query(`
         ALTER TABLE payments
         ADD CONSTRAINT payments_payment_type_check
-        CHECK (payment_type IN ('down_payment', 'installment', 'excess_area', 'possession_fee', 'form_fee', 'other'))
+        CHECK (payment_type IN ('down_payment', 'installment', 'excess_area', 'possession_fee', 'form_fee', 'processing_fee', 'other'))
       `);
     } catch (e) { /* ignore */ }
 
@@ -749,6 +749,39 @@ const initDatabase = async () => {
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
     `);
+
+    // Create Slips table (physical receipt/slip registry - custody & status tracking
+    // for the receipt codes already recorded on payments/adjustment forms, plus
+    // manually logged slips). source_type + source_id trace which payment/adjustment
+    // row a slip was pulled from, if any, so re-running the pull doesn't duplicate it.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS slips (
+        id SERIAL PRIMARY KEY,
+        slip_no VARCHAR(100) NOT NULL,
+        slip_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        deal_id INTEGER,
+        source_type VARCHAR(20) NOT NULL DEFAULT 'manual' CHECK (source_type IN ('payment', 'adjustment', 'manual')),
+        source_id INTEGER,
+        plot_number VARCHAR(100),
+        block VARCHAR(50),
+        size VARCHAR(50),
+        referred_by VARCHAR(255),
+        installment_amount DECIMAL(15, 2) DEFAULT 0,
+        investment_value DECIMAL(15, 2) DEFAULT 0,
+        form_qty INTEGER DEFAULT 0,
+        slip_owner VARCHAR(255) NOT NULL DEFAULT 'Universal Holdings',
+        slip_status VARCHAR(20) NOT NULL DEFAULT 'available' CHECK (slip_status IN ('available', 'given_out', 'used', 'lost')),
+        given_to VARCHAR(255),
+        given_date DATE,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (deal_id) REFERENCES deals(id) ON DELETE SET NULL
+      )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_slips_deal ON slips(deal_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_slips_slip_no ON slips(slip_no)`);
+    await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_slips_source ON slips(source_type, source_id) WHERE source_id IS NOT NULL`);
 
     // Create default admin user (password: admin123)
     const hashedPassword = await bcrypt.hash('admin123', 10);

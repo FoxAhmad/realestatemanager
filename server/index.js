@@ -36,6 +36,7 @@ app.use('/api/balance-transactions', require('./routes/balanceTransactions'));
 app.use('/api/balance-projects', require('./routes/balanceProjects'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/agencies', require('./routes/agencies'));
+app.use('/api/slips', require('./routes/slips'));
 
 // Initialize database and start server
 const startServer = async () => {

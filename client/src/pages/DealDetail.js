@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { FaArrowLeft, FaPlus, FaTrash, FaEdit, FaFileInvoiceDollar, FaFileContract, FaUser, FaMapMarkerAlt, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaArrowLeft, FaPlus, FaTrash, FaEdit, FaFileInvoiceDollar, FaFileContract, FaUser, FaMapMarkerAlt, FaChevronDown, FaChevronUp, FaFilePdf } from 'react-icons/fa';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import { buildDealProfilePDF } from '../utils/dealsReport';
 import './DealDetail.css';
 
 const LEDGER_COLUMNS = [
@@ -16,7 +17,7 @@ const LEDGER_COLUMNS = [
 const DealDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAdmin, isAccountant } = useAuth();
+  const { isAdmin, isAccountant, user } = useAuth();
   const [deal, setDeal] = useState(null);
   const [payments, setPayments] = useState([]);
   const [adjustments, setAdjustments] = useState([]);
@@ -164,6 +165,7 @@ const DealDetail = () => {
       const first = group.entries[0]._raw;
       if (first.payment_type === 'down_payment') return -2;
       if (first.payment_type === 'form_fee') return -1;
+      if (first.payment_type === 'processing_fee') return 0;
       if (first.payment_type === 'installment' && first.installment_no) {
         const n = parseInt(first.installment_no, 10);
         return Number.isNaN(n) ? 500 : n;
@@ -297,8 +299,24 @@ const DealDetail = () => {
   if (!deal) return <div className="deal-detail-error">Deal not found.</div>;
 
   const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+  // Only installment payments are cash - down payment, excess area, possession fee,
+  // form fee and processing fee are separate charges, not the customer's cash installments.
+  const cashPaid = payments
+    .filter((p) => p.payment_type === 'installment')
+    .reduce((sum, p) => sum + parseFloat(p.amount), 0);
   const totalAdjusted = adjustments.reduce((sum, a) => sum + parseFloat(a.customer_price || 0), 0);
-  const remainingBalance = parseFloat(deal.sale_price || 0) - totalPaid - totalAdjusted;
+  const totalForms = adjustments.reduce((sum, a) => sum + (parseInt(a.quantity, 10) || 0), 0);
+  const totalAmountPaid = totalPaid + totalAdjusted;
+  const remainingBalance = parseFloat(deal.sale_price || 0) - totalAmountPaid;
+
+  const handleExportProfile = () => {
+    try {
+      buildDealProfilePDF({ deal, payments, adjustments, preparedBy: user?.name });
+    } catch (error) {
+      console.error('Error exporting deal profile PDF:', error);
+      alert('Error generating PDF export');
+    }
+  };
 
   return (
     <div className="premium-page">
@@ -325,6 +343,9 @@ const DealDetail = () => {
               </div>
             )}
           </div>
+          <button className="premium-btn premium-btn-secondary" onClick={handleExportProfile}>
+            <FaFilePdf /> Export PDF
+          </button>
         </div>
       </div>
 
@@ -361,18 +382,71 @@ const DealDetail = () => {
                 <span>{deal.inventory_address}</span>
               </div>
               <div className="info-item">
-                <label>Plot Number</label>
-                <span style={{ color: 'var(--primary)', fontWeight: 800 }}>
-                  {deal.plots && deal.plots.length > 0
-                    ? deal.plots.map(p => p.plot_number).join(', ')
-                    : (deal.plot_info || 'N/A')}
-                </span>
-              </div>
-              <div className="info-item">
                 <label>Category</label>
                 <span>{deal.inventory_category}</span>
               </div>
             </div>
+            {deal.plots && deal.plots.length > 0 ? (
+              <div style={{ marginTop: '1.25rem', display: 'grid', gap: '1rem' }}>
+                {deal.plots.map((p) => (
+                  <div
+                    key={p.id}
+                    style={{
+                      padding: '1rem',
+                      border: '1px solid #f1f5f9',
+                      borderRadius: '12px',
+                      background: 'rgba(248, 250, 252, 0.5)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <span style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '1.05rem' }}>Plot {p.plot_number}</span>
+                      <span className="dealer-badge">{p.plot_type === 'C' ? 'Commercial' : 'Residential'}</span>
+                    </div>
+                    <div className="info-grid">
+                      {p.size && (
+                        <div className="info-item">
+                          <label>Size</label>
+                          <span>{p.size}</span>
+                        </div>
+                      )}
+                      {p.block && (
+                        <div className="info-item">
+                          <label>Block</label>
+                          <span>{p.block}</span>
+                        </div>
+                      )}
+                      <div className="info-item">
+                        <label>Plot Factor</label>
+                        <span>{(p.plot_category || 'standard').replace('_', ' ')}</span>
+                      </div>
+                      {p.membership_no && (
+                        <div className="info-item">
+                          <label>Membership #</label>
+                          <span>{p.membership_no}</span>
+                        </div>
+                      )}
+                      {p.registration_no && (
+                        <div className="info-item">
+                          <label>Registration #</label>
+                          <span>{p.registration_no}</span>
+                        </div>
+                      )}
+                      {p.form_number && (
+                        <div className="info-item">
+                          <label>Form #</label>
+                          <span>{p.form_number}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="info-item" style={{ marginTop: '1.25rem' }}>
+                <label>Plot Info</label>
+                <span>{deal.plot_info || 'N/A'}</span>
+              </div>
+            )}
           </div>
 
           {/* Financial Summary */}
@@ -387,12 +461,20 @@ const DealDetail = () => {
                 <span className="amount">Rs. {parseFloat(deal.sale_price || 0).toLocaleString()}</span>
               </div>
               <div className="summary-item">
-                <label>Paid Amount</label>
-                <span className="amount" style={{ color: 'var(--success)' }}>Rs. {totalPaid.toLocaleString()}</span>
+                <label>Cash Paid</label>
+                <span className="amount" style={{ color: 'var(--success)' }}>Rs. {cashPaid.toLocaleString()}</span>
               </div>
               <div className="summary-item">
-                <label>Cert. Adjustments</label>
+                <label>Forms Paid</label>
                 <span className="amount" style={{ color: '#ffc107' }}>Rs. {totalAdjusted.toLocaleString()}</span>
+              </div>
+              <div className="summary-item">
+                <label>Number of Forms</label>
+                <span className="amount">{totalForms}</span>
+              </div>
+              <div className="summary-item">
+                <label>Total Amount Paid</label>
+                <span className="amount" style={{ color: 'var(--primary)' }}>Rs. {totalAmountPaid.toLocaleString()}</span>
               </div>
               <div className="summary-item">
                 <label>Remaining</label>
@@ -624,6 +706,7 @@ const DealDetail = () => {
                     <option value="excess_area">Excess Area</option>
                     <option value="possession_fee">Possession Fee</option>
                     <option value="form_fee">Form Fee</option>
+                    <option value="processing_fee">Processing Fee</option>
                     <option value="other">Other</option>
                   </select>
                 </div>

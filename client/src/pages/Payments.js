@@ -11,6 +11,7 @@ const PAYMENT_TYPE_LABELS = {
   excess_area: 'Excess Area',
   possession_fee: 'Possession Fee',
   form_fee: 'Form Fee',
+  processing_fee: 'Processing Fee',
   other: 'General / Others',
 };
 

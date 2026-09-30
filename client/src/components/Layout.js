@@ -20,7 +20,8 @@ import {
   FaBars,
   FaTimes,
   FaPiggyBank,
-  FaFileContract
+  FaFileContract,
+  FaReceipt
 } from 'react-icons/fa';
 import './Layout.css';
 
@@ -140,6 +141,20 @@ const Layout = () => {
                 >
                   <FaFileContract className="sidebar-icon" />
                   {sidebarOpen && <span>Forms Ledger</span>}
+                </Link>
+              </div>
+            )}
+
+            {(user?.role === 'admin' || user?.role === 'accountant') && (
+              <div className="sidebar-section">
+                <Link
+                  to="/slip-record"
+                  className={`sidebar-submenu-item ${isActive('/slip-record') ? 'active' : ''}`}
+                  title="Slip Record"
+                  onClick={closeSidebarOnMobile}
+                >
+                  <FaReceipt className="sidebar-icon" />
+                  {sidebarOpen && <span>Slip Record</span>}
                 </Link>
               </div>
             )}
