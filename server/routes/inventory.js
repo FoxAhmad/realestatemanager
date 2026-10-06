@@ -231,14 +231,26 @@ const parsePlotNumbers = (plotNumbersInput) => {
 // Create inventory (Admin and Accountant)
 router.post('/', auth, adminAndAccountantOnly, async (req, res) => {
   try {
-    const { category, address, price, quantity, plot_numbers, plot_type, plot_category, size, project_id, block, membership_no, registration_no, form_number } = req.body;
+    const { category, price, quantity, plot_numbers, plot_type, plot_category, size, project_id, block, membership_no, registration_no, form_number } = req.body;
 
-    if (!category || !address || !price) {
-      return res.status(400).json({ message: 'Category, address, and price are required' });
+    if (!category || !price) {
+      return res.status(400).json({ message: 'Category and price are required' });
     }
 
     if (!['plot', 'house', 'shop_office'].includes(category)) {
       return res.status(400).json({ message: 'Invalid category. Must be plot, house, or shop_office' });
+    }
+
+    // The form no longer asks for an address; build a label from block + project so
+    // the column (still used by reports/tables) stays populated.
+    let address = (req.body.address || '').trim();
+    if (!address) {
+      let projectName = null;
+      if (project_id) {
+        const p = await db.query('SELECT name FROM balance_projects WHERE id = $1', [project_id]);
+        projectName = p.rows[0]?.name || null;
+      }
+      address = [block && `Block ${block}`, projectName].filter(Boolean).join(', ') || category;
     }
 
     const qty = parseInt(quantity || 1);

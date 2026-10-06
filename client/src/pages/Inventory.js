@@ -837,17 +837,6 @@ const Inventory = () => {
                 </select>
               </div>
               <div className="form-group">
-                <label>Address *</label>
-                <textarea
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
-                  required
-                  rows="3"
-                />
-              </div>
-              <div className="form-group">
                 <label>Price *</label>
                 <input
                   type="number"

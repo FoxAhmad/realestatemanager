@@ -51,7 +51,6 @@ const Deals = () => {
     notes: '',
   });
 
-  const [availablePlots, setAvailablePlots] = useState([]);
   const [customerInput, setCustomerInput] = useState('');
   const [dealerInput, setDealerInput] = useState('');
 
@@ -109,33 +108,34 @@ const Deals = () => {
     }
   };
 
-  const fetchPlots = async (inventoryId) => {
-    try {
-      const response = await api.get(`/inventory/${inventoryId}/plots?available_only=true`);
-      setAvailablePlots(response.data);
-    } catch (error) {
-      console.error('Error fetching plots:', error);
-    }
+  // One flat list of every unassigned, available plot across all listings, so the
+  // user picks the plot directly instead of choosing a listing first.
+  const availablePlotOptions = inventory
+    .flatMap((i) => (i.plots || [])
+      .filter((p) => p.plot_status === 'available' && !p.assigned_to_id)
+      .map((p) => ({ ...p, item: i })))
+    .sort((a, b) =>
+      (a.item.project_name || '').localeCompare(b.item.project_name || '') ||
+      (a.block || '').localeCompare(b.block || '') ||
+      String(a.plot_number).localeCompare(String(b.plot_number), undefined, { numeric: true }));
+
+  const plotOptionLabel = (p) => {
+    const where = [p.item.project_name, p.block && `Block ${p.block}`].filter(Boolean).join(' · ');
+    const what = [`Plot ${p.plot_number}`, p.size, p.plot_category].filter(Boolean).join(' · ');
+    return where ? `${where} — ${what}` : what;
   };
 
-  const handleInventoryChange = (e) => {
-    const inventoryId = e.target.value;
-    const selectedInventory = inventory.find(i => i.id === parseInt(inventoryId));
-    
-    setFormData({ 
-      ...formData, 
-      inventory_id: inventoryId, 
-      plot_id: '',
-      property_type: selectedInventory ? selectedInventory.category : '',
-      original_price: selectedInventory ? selectedInventory.price : '',
-      sale_price: selectedInventory ? selectedInventory.price : '', // Default sale price to base price
+  const handlePlotChange = (e) => {
+    const plotId = e.target.value;
+    const selected = availablePlotOptions.find((p) => String(p.plot_id) === plotId);
+    setFormData({
+      ...formData,
+      plot_id: plotId,
+      inventory_id: selected ? selected.item.id : '',
+      property_type: selected ? selected.item.category : '',
+      original_price: selected ? selected.item.price : '',
+      sale_price: selected ? selected.item.price : '', // Default sale price to base price
     });
-    
-    if (inventoryId) {
-      fetchPlots(inventoryId);
-    } else {
-      setAvailablePlots([]);
-    }
   };
 
   const resolveCustomerId = async () => {
@@ -183,7 +183,6 @@ const Deals = () => {
     setFormData(emptyFormData);
     setCustomerInput('');
     setDealerInput('');
-    setAvailablePlots([]);
   };
 
   const handleEditDeal = (deal) => {
@@ -438,34 +437,17 @@ const Deals = () => {
                   </small>
                 </div>
               ) : (
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Inventory Asset *</label>
-                    <select
-                      value={formData.inventory_id}
-                      onChange={handleInventoryChange}
-                      required
-                    >
-                      <option value="">Choose asset...</option>
-                      {inventory.map((i) => (
-                        <option key={i.id} value={i.id}>{i.category} - {i.address}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Plot Number *</label>
-                    <select
-                      value={formData.plot_id}
-                      onChange={(e) => setFormData({ ...formData, plot_id: e.target.value })}
-                      required
-                    >
-                      <option value="">Choose plot...</option>
-                      {availablePlots.map((p) => (
-                        <option key={p.id} value={p.id}>{p.plot_number} ({p.plot_category})</option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="form-group">
+                  <label>Plot *</label>
+                  <select value={formData.plot_id} onChange={handlePlotChange} required>
+                    <option value="">Choose plot...</option>
+                    {availablePlotOptions.map((p) => (
+                      <option key={p.plot_id} value={p.plot_id}>{plotOptionLabel(p)}</option>
+                    ))}
+                  </select>
+                  <small style={{ color: '#666', display: 'block', marginTop: '0.35rem' }}>
+                    Only unsold plots are listed. Choosing one fills in the type and price below.
+                  </small>
                 </div>
               )}
 
