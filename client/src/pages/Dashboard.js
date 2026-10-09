@@ -3,16 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
-  FaDollarSign,
-  FaWarehouse,
-  FaHandshake,
-  FaClipboardList,
-  FaHistory,
-  FaWallet,
-  FaCoins,
-  FaCertificate,
-  FaFolderOpen
-} from 'react-icons/fa';
+  LuBanknote,
+  LuWarehouse,
+  LuHeartHandshake,
+  LuClipboardList,
+  LuHistory,
+  LuWallet,
+  LuCoins,
+  LuBadgeCheck,
+  LuFolderOpen
+} from 'react-icons/lu';
 import MutualNetReport from '../components/MutualNetReport';
 import {
   KpiCard, ChartFrame, CollectionsTrend, BookedVsCollected, StatusDonut, PlotMap, DealProgress, RecentPayments, FillBar, CountUp, formatMoney
@@ -147,9 +147,9 @@ const Dashboard = () => {
       {/* Admin/Accountant main ledger balances */}
       {(isAdmin || isAccountant) && (() => {
         const cards = [
-          { key: 'gold', label: 'Dealer Advances', icon: <FaWallet />, value: Math.abs(parseFloat(ledgerBalances.dealerAdvances || 0)), color: 'var(--chart-2)' },
-          { key: 'green', label: 'Savings Deposits', icon: <FaCoins />, value: Math.abs(parseFloat(ledgerBalances.savingsDeposits || 0)), color: 'var(--chart-1)' },
-          { key: 'deep', label: 'Advance for Certificate', icon: <FaCertificate />, value: Math.abs(parseFloat(ledgerBalances.advanceForCertificate || 0)), color: 'var(--chart-3)' },
+          { key: 'gold', label: 'Dealer Advances', icon: <LuWallet />, value: Math.abs(parseFloat(ledgerBalances.dealerAdvances || 0)), color: 'var(--chart-2)' },
+          { key: 'green', label: 'Savings Deposits', icon: <LuCoins />, value: Math.abs(parseFloat(ledgerBalances.savingsDeposits || 0)), color: 'var(--chart-1)' },
+          { key: 'deep', label: 'Advance for Certificate', icon: <LuBadgeCheck />, value: Math.abs(parseFloat(ledgerBalances.advanceForCertificate || 0)), color: 'var(--chart-3)' },
         ];
         const total = cards.reduce((sum, c) => sum + c.value, 0);
         return (
@@ -258,7 +258,7 @@ const Dashboard = () => {
         return (
           <div className="stats-section glass-card project-balances-section" style={{ marginBottom: '2rem' }}>
             <div className="section-header">
-              <FaFolderOpen className="header-icon inventory" />
+              <span className="header-icon inventory"><LuFolderOpen /></span>
               <h2>Balance by Project</h2>
             </div>
             <div className="project-balance-table-wrap">
@@ -300,7 +300,7 @@ const Dashboard = () => {
         {/* Finance Overview */}
         <div className="stats-section glass-card">
           <div className="section-header">
-            <FaDollarSign className="header-icon finance" />
+            <span className="header-icon finance"><LuBanknote /></span>
             <h2>Finance Overview</h2>
           </div>
           <div className="finance-grid">
@@ -337,7 +337,7 @@ const Dashboard = () => {
         {/* Mutuals Overview & Breakdown */}
         <div className="stats-section glass-card">
           <div className="section-header">
-            <FaHistory className="header-icon mutuals" />
+            <span className="header-icon mutuals"><LuHistory /></span>
             <h2>Mutual Exchanges</h2>
           </div>
 
@@ -354,19 +354,19 @@ const Dashboard = () => {
         {/* Operations Overview */}
         <div className="stats-section glass-card wider">
           <div className="section-header">
-            <FaWarehouse className="header-icon inventory" />
+            <span className="header-icon inventory"><LuWarehouse /></span>
             <h2>Operations & Inventory</h2>
           </div>
           <div className="ops-grid">
             <div className="ops-item">
-              <FaHandshake className="ops-icon" />
+              <LuHeartHandshake className="ops-icon" />
               <div className="ops-content">
                 <span className="ops-value">{stats.activeDeals}</span>
                 <span className="ops-label">Active Deals</span>
               </div>
             </div>
             <div className="ops-item">
-              <FaWarehouse className="ops-icon" />
+              <LuWarehouse className="ops-icon" />
               <div className="ops-content">
                 <span className="ops-value">{stats.availableInventoryPlots}</span>
                 <span className="ops-label">Available Plots</span>
@@ -374,7 +374,7 @@ const Dashboard = () => {
             </div>
             {(isAdmin || isAccountant) && (
               <div className="ops-item attention">
-                <FaClipboardList className="ops-icon" />
+                <LuClipboardList className="ops-icon" />
                 <div className="ops-content">
                   <span className="ops-value">{stats.pendingRequests}</span>
                   <span className="ops-label">Pending Requests</span>
@@ -382,7 +382,7 @@ const Dashboard = () => {
               </div>
             )}
             <div className="ops-item">
-              <FaHistory className="ops-icon" />
+              <LuHistory className="ops-icon" />
               <div className="ops-content">
                 <span className="ops-value">{stats.pendingDeals}</span>
                 <span className="ops-label">Pending Deals</span>

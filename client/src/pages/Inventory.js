@@ -3,9 +3,16 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import {
-  FaChevronDown, FaChevronUp, FaCheckCircle, FaFolder, FaFolderOpen,
-  FaEye, FaArrowLeft, FaTrash, FaPlus
-} from 'react-icons/fa';
+  LuChevronDown,
+  LuChevronUp,
+  LuCheckCircle2,
+  LuFolder,
+  LuFolderOpen,
+  LuEye,
+  LuArrowLeft,
+  LuTrash2,
+  LuPlus
+} from 'react-icons/lu';
 import InventoryCharts from '../components/charts/InventoryCharts';
 import Pagination, { usePagerState, paginate } from '../components/Pagination';
 import './Inventory.css';
@@ -474,7 +481,7 @@ const Inventory = () => {
   const renderProjectCard = (proj) => (
     <div key={proj.key} className={`project-card glass-card ${proj.isGeneral ? 'project-card-general' : ''}`}>
       <div className="project-card-icon">
-        {proj.isGeneral ? <FaFolder /> : <FaFolderOpen />}
+        {proj.isGeneral ? <LuFolder /> : <LuFolderOpen />}
       </div>
       <div className="project-card-body">
         <div className="project-card-name">{proj.name}</div>
@@ -495,12 +502,12 @@ const Inventory = () => {
           className="project-view-btn"
           onClick={() => { setSelectedProjectKey(proj.key); setView('plots'); }}
         >
-          <FaEye /> View Plots
+          <LuEye /> View Plots
         </button>
         {!proj.isGeneral && canEdit && (
           <div className="project-edit-actions">
             <button className="project-icon-btn delete" onClick={() => handleDeleteProjectQuick(proj)} title="Delete project">
-              <FaTrash />
+              <LuTrash2 />
             </button>
           </div>
         )}
@@ -524,7 +531,7 @@ const Inventory = () => {
           <div className="header-actions">
             {canEdit && (
               <button className="premium-btn premium-btn-primary" onClick={handleAddProjectQuick}>
-                <FaPlus /> New Project
+                <LuPlus /> New Project
               </button>
             )}
           </div>
@@ -577,13 +584,13 @@ const Inventory = () => {
 
       <div className="project-breadcrumb">
         <button className="back-to-projects-btn" onClick={() => { setView('projects'); setSelectedProjectKey(null); }}>
-          <FaArrowLeft /> All Projects
+          <LuArrowLeft /> All Projects
         </button>
         <span className="breadcrumb-sep">/</span>
         <span className="breadcrumb-project">
           {selectedProjectSummary.isGeneral
-            ? <><FaFolder style={{ marginRight: '0.5rem', color: 'var(--text-muted)' }} />{selectedProjectSummary.name}</>
-            : <><FaFolderOpen style={{ marginRight: '0.5rem', color: 'var(--primary)' }} />{selectedProjectSummary.name}</>}
+            ? <><LuFolder style={{ marginRight: '0.5rem', color: 'var(--text-muted)' }} />{selectedProjectSummary.name}</>
+            : <><LuFolderOpen style={{ marginRight: '0.5rem', color: 'var(--primary)' }} />{selectedProjectSummary.name}</>}
         </span>
       </div>
 
@@ -716,7 +723,7 @@ const Inventory = () => {
                           <td>
                             {hasPossibleDeal && (
                               <button className="expand-btn" onClick={() => toggleDealRow(plot.id)} title="View linked deal">
-                                {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
+                                {isExpanded ? <LuChevronUp /> : <LuChevronDown />}
                               </button>
                             )}
                           </td>
@@ -790,7 +797,7 @@ const Inventory = () => {
                       <tr className="expanded-details-row">
                         <td colSpan={colSpan}>
                           <div className="linked-entries-detail">
-                            <h4><FaCheckCircle color="var(--success)" /> Linked Deal</h4>
+                            <h4><LuCheckCircle2 color="var(--success)" /> Linked Deal</h4>
                             {deal === 'loading' && <p>Loading...</p>}
                             {deal === null && <p>No deal found for this plot.</p>}
                             {deal && deal !== 'loading' && (

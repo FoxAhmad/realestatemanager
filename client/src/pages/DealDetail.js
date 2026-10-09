@@ -2,7 +2,19 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { FaArrowLeft, FaPlus, FaTrash, FaEdit, FaFileInvoiceDollar, FaFileContract, FaUser, FaMapMarkerAlt, FaChevronDown, FaChevronUp, FaFilePdf } from 'react-icons/fa';
+import {
+  LuArrowLeft,
+  LuPlus,
+  LuTrash2,
+  LuPencil,
+  LuFileText,
+  LuFileSignature,
+  LuUser,
+  LuMapPin,
+  LuChevronDown,
+  LuChevronUp,
+  LuFileDown
+} from 'react-icons/lu';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import { buildDealProfilePDF } from '../utils/dealsReport';
 import './DealDetail.css';
@@ -330,7 +342,7 @@ const DealDetail = () => {
       <div className="premium-page-header">
         <div className="profile-header-row">
           <button className="premium-btn premium-btn-secondary" onClick={() => navigate('/deals')}>
-            <FaArrowLeft /> Back
+            <LuArrowLeft /> Back
           </button>
           <div className="profile-header-main">
             <h1>Deal Profile #{id}</h1>
@@ -352,7 +364,7 @@ const DealDetail = () => {
             )}
           </div>
           <button className="premium-btn premium-btn-secondary" onClick={handleExportProfile}>
-            <FaFilePdf /> Export PDF
+            <LuFileDown /> Export PDF
           </button>
         </div>
       </div>
@@ -362,7 +374,7 @@ const DealDetail = () => {
           {/* Customer & Asset Info */}
           <div className="glass-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <FaUser style={{ color: 'var(--primary)' }} />
+              <LuUser style={{ color: 'var(--primary)' }} />
               <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Associate Information</h2>
             </div>
             <div className="info-grid">
@@ -381,7 +393,7 @@ const DealDetail = () => {
             </div>
             <hr style={{ margin: '1.5rem 0', border: 'none', borderTop: '1px solid #f1f5f9' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <FaMapMarkerAlt style={{ color: 'var(--primary)' }} />
+              <LuMapPin style={{ color: 'var(--primary)' }} />
               <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Asset Details</h2>
             </div>
             <div className="info-grid">
@@ -460,7 +472,7 @@ const DealDetail = () => {
           {/* Financial Summary */}
           <div className="glass-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <FaFileInvoiceDollar style={{ color: 'var(--primary)' }} />
+              <LuFileText style={{ color: 'var(--primary)' }} />
               <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Financial Status</h2>
             </div>
             <div className="payment-summary">
@@ -507,7 +519,7 @@ const DealDetail = () => {
             <div style={{ display: 'flex', gap: '1rem' }}>
               {(isAdmin || isAccountant) && (
                 <button className="premium-btn premium-btn-primary" onClick={() => { setEditingPaymentId(null); setShowPaymentModal(true); }}>
-                  <FaPlus /> Post Payment
+                  <LuPlus /> Post Payment
                 </button>
               )}
             </div>
@@ -555,14 +567,14 @@ const DealDetail = () => {
                       {a.description && <div className="payment-notes">{a.description}</div>}
                       {(a.plot_info || a.customer_info) && (
                         <div className="payment-notes" style={{ fontSize: '0.65rem', opacity: 0.8 }}>
-                          {a.customer_info && <span><FaUser size={8} /> {a.customer_info} </span>}
-                          {a.plot_info && <span><FaMapMarkerAlt size={8} /> {a.plot_info}</span>}
+                          {a.customer_info && <span><LuUser size={8} /> {a.customer_info} </span>}
+                          {a.plot_info && <span><LuMapPin size={8} /> {a.plot_info}</span>}
                         </div>
                       )}
                     </div>
                     {(isAdmin || isAccountant) && (
                       <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} aria-label="Delete adjustment" title="Delete adjustment" onClick={() => handleAdjustmentDelete(a.id)}>
-                        <FaTrash />
+                        <LuTrash2 />
                       </button>
                     )}
                   </div>
@@ -587,7 +599,7 @@ const DealDetail = () => {
                                 title="View linked adjustment"
                                 onClick={() => setExpandedAdjustments(prev => ({ ...prev, [p.id]: !prev[p.id] }))}
                               >
-                                {expandedAdjustments[p.id] ? <FaChevronUp /> : <FaChevronDown />}
+                                {expandedAdjustments[p.id] ? <LuChevronUp /> : <LuChevronDown />}
                               </button>
                             )}
                             <div>
@@ -622,17 +634,17 @@ const DealDetail = () => {
                           {(isAdmin || isAccountant) && (
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                               <button className="premium-btn premium-btn-secondary" style={{ padding: '0.5rem' }} title="Edit payment" onClick={() => handleEditPayment(p)}>
-                                <FaEdit />
+                                <LuPencil />
                               </button>
                               <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} aria-label="Delete payment" title="Delete payment" onClick={() => handlePaymentDelete(p.id)}>
-                                <FaTrash />
+                                <LuTrash2 />
                               </button>
                             </div>
                           )}
                         </div>
                         {_adjustment && expandedAdjustments[p.id] && (
                           <div className="linked-entries-detail">
-                            <h4><FaFileContract color="#ffc107" /> Linked Adjustment Form</h4>
+                            <h4><LuFileSignature color="#ffc107" /> Linked Adjustment Form</h4>
                             <div className="linked-grid">
                               <div className="linked-item-card">
                                 <div className="linked-item-header">
@@ -659,14 +671,14 @@ const DealDetail = () => {
                                       style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}
                                       onClick={() => handleEditPayment(p)}
                                     >
-                                      <FaEdit size={10} /> Edit
+                                      <LuPencil size={10} /> Edit
                                     </button>
                                     <button
                                       className="premium-btn premium-btn-danger"
                                       style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}
                                       onClick={() => handleAdjustmentDelete(_adjustment.id)}
                                     >
-                                      <FaTrash size={10} /> Remove
+                                      <LuTrash2 size={10} /> Remove
                                     </button>
                                   </div>
                                 )}
@@ -822,7 +834,7 @@ const DealDetail = () => {
                       checked={paymentForm.apply_adjustment}
                       onChange={(e) => setPaymentForm({ ...paymentForm, apply_adjustment: e.target.checked })}
                     />
-                    <FaFileContract color="#ffc107" />
+                    <LuFileSignature color="#ffc107" />
                     <span style={{ fontWeight: 700 }}>
                       {editingAdjustmentId ? 'Adjustment Form linked to this installment' : 'Apply an Adjustment Form against this installment'}
                     </span>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { FaPlus, FaTimes, FaHandHoldingUsd, FaChartLine, FaUserTie, FaUndo } from 'react-icons/fa';
+import { LuPlus, LuX, LuHelpingHand, LuLineChart, LuBriefcase, LuUndo2 } from 'react-icons/lu';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import Pagination from '../components/Pagination';
 import './LoansAndInvestments.css';
@@ -218,26 +218,26 @@ const LoansAndInvestments = () => {
         </div>
         <div className="header-actions">
           <button className="premium-btn premium-btn-primary" onClick={() => setShowModal(true)}>
-            <FaPlus /> Add Entry
+            <LuPlus /> Add Entry
           </button>
         </div>
       </div>
 
       <div className="li-summary-grid">
         <div className="li-summary-card">
-          <label><FaHandHoldingUsd /> Owed To Us</label>
+          <label><LuHelpingHand /> Owed To Us</label>
           <span className="amount">Rs. {totalOutstanding(loans.receivable).toLocaleString()}</span>
         </div>
         <div className="li-summary-card">
-          <label><FaUserTie /> We Owe</label>
+          <label><LuBriefcase /> We Owe</label>
           <span className="amount">Rs. {totalOutstanding(loans.payable).toLocaleString()}</span>
         </div>
         <div className="li-summary-card">
-          <label><FaChartLine /> Invested (Outstanding)</label>
+          <label><LuLineChart /> Invested (Outstanding)</label>
           <span className="amount">Rs. {totalOutstanding(investments).toLocaleString()}</span>
         </div>
         <div className="li-summary-card">
-          <label><FaUndo /> Owner Equity</label>
+          <label><LuUndo2 /> Owner Equity</label>
           <span className="amount">Rs. {ownerBalance.toLocaleString()}</span>
         </div>
       </div>
@@ -394,7 +394,7 @@ const LoansAndInvestments = () => {
           <div className="modal-content">
             <div className="modal-header">
               <h2>New Loan / Investment Entry</h2>
-              <button onClick={() => setShowModal(false)} className="close-modal-btn"><FaTimes /></button>
+              <button onClick={() => setShowModal(false)} className="close-modal-btn"><LuX /></button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -474,7 +474,7 @@ const LoansAndInvestments = () => {
           <div className="modal-content">
             <div className="modal-header">
               <h2>{repayTarget.isReceivable ? 'Record Repayment' : 'Repay Loan'} &mdash; {repayTarget.name}</h2>
-              <button onClick={() => setRepayTarget(null)} className="close-modal-btn"><FaTimes /></button>
+              <button onClick={() => setRepayTarget(null)} className="close-modal-btn"><LuX /></button>
             </div>
             <form onSubmit={handleRepaySubmit}>
               <div className="form-group">

@@ -263,3 +263,13 @@ summary:focus-visible,
   outline: 3px solid rgba(22, 163, 74, 0.45);
   outline-offset: 2px;
 }
+
+/* ---- Icon sizing: keep icon tiles modest everywhere ---- */
+svg[stroke="currentColor"] { stroke-width: 1.9; }
+
+.project-card-icon.project-card-icon { width: 44px; height: 44px; border-radius: 14px; font-size: 1.2rem; }
+.forms-dealer-icon.forms-dealer-icon { width: 44px; height: 44px; border-radius: 14px; font-size: 1.2rem; }
+.projects-icon.projects-icon { font-size: 1.5rem; }
+.sidebar-icon.sidebar-icon { font-size: 1.15rem; }
+.table-search-icon { font-size: 0.9rem; }
+.premium-btn svg { font-size: 0.95rem; }

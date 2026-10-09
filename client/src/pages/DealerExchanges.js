@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { FaEdit, FaTrash, FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import { LuPencil, LuTrash2, LuChevronDown, LuChevronRight } from 'react-icons/lu';
 import { useAuth } from '../context/AuthContext';
 import MutualNetReport from '../components/MutualNetReport';
 import Pagination, { usePagerState, paginate } from '../components/Pagination';
@@ -250,7 +250,7 @@ const DealerExchanges = () => {
               title="Edit exchange"
               style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', padding: '5px' }}
             >
-              <FaEdit size={16} />
+              <LuPencil size={16} />
             </button>
             <button
               onClick={() => handleDelete(ex)}
@@ -258,7 +258,7 @@ const DealerExchanges = () => {
               title="Delete exchange"
               style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer', padding: '5px' }}
             >
-              <FaTrash size={15} />
+              <LuTrash2 size={15} />
             </button>
           </>
         ) : (
@@ -361,7 +361,7 @@ const DealerExchanges = () => {
                         <td data-label="Date">—</td>
                         <td data-label="Sender" style={{ fontWeight: 700 }}>
                           <span className="mutual-group-toggle">
-                            {isExpanded ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
+                            {isExpanded ? <LuChevronDown size={12} /> : <LuChevronRight size={12} />}
                           </span>
                           {group.partyA}
                           <span className="premium-badge premium-badge-info mutual-group-count">

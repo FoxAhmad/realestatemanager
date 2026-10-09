@@ -2,33 +2,32 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  FaChevronLeft,
-  FaChevronRight,
-  FaHome,
-  FaUsers,
-  FaHandshake,
-  FaChartLine,
-  FaWarehouse,
-  FaMoneyBillWave,
-  FaDollarSign,
-  FaUserPlus,
-  FaBook,
-  FaExchangeAlt,
-  FaWallet,
-  FaUserTie,
-  FaUserShield,
-  FaBars,
-  FaTimes,
-  FaPiggyBank,
-  FaFileContract,
-  FaReceipt,
-  FaSignOutAlt,
-  FaChevronDown,
-  FaUserFriends,
-  FaBullhorn,
-  FaBalanceScale,
-  FaCog
-} from 'react-icons/fa';
+  LuChevronLeft,
+  LuChevronRight,
+  LuHome,
+  LuUsers,
+  LuHeartHandshake,
+  LuLineChart,
+  LuWarehouse,
+  LuBanknote,
+  LuUserPlus,
+  LuBook,
+  LuArrowLeftRight,
+  LuWallet,
+  LuBriefcase,
+  LuUserCog,
+  LuMenu,
+  LuX,
+  LuPiggyBank,
+  LuFileSignature,
+  LuReceipt,
+  LuLogOut,
+  LuChevronDown,
+  LuUsers2,
+  LuMegaphone,
+  LuScale,
+  LuSettings
+} from 'react-icons/lu';
 import './Layout.css';
 
 const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidth <= 768;
@@ -79,7 +78,7 @@ const Layout = () => {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               aria-label="Toggle navigation menu"
             >
-              {sidebarOpen ? <FaTimes /> : <FaBars />}
+              {sidebarOpen ? <LuX /> : <LuMenu />}
             </button>
             <div className="navbar-brand">
               <img src="/images/logoUm.png" alt="Universal Manager logo" className="navbar-logo-img" />
@@ -104,7 +103,7 @@ const Layout = () => {
                 <span className="user-name">{user?.name}</span>
                 <span className="user-role">{user?.role}</span>
               </span>
-              <FaChevronDown className="user-caret" aria-hidden="true" />
+              <LuChevronDown className="user-caret" aria-hidden="true" />
             </button>
 
             {menuOpen && (
@@ -120,10 +119,10 @@ const Layout = () => {
                   </div>
                 </div>
                 <Link to="/settings" role="menuitem" className="user-menu-item">
-                  <FaCog /> Settings &amp; profile
+                  <LuSettings /> Settings &amp; profile
                 </Link>
                 <button type="button" role="menuitem" className="user-menu-logout" onClick={logout}>
-                  <FaSignOutAlt /> Log out
+                  <LuLogOut /> Log out
                 </button>
               </div>
             )}
@@ -140,7 +139,7 @@ const Layout = () => {
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-label="Toggle sidebar"
           >
-            {sidebarOpen ? <FaChevronLeft /> : <FaChevronRight />}
+            {sidebarOpen ? <LuChevronLeft /> : <LuChevronRight />}
           </button>
 
           <nav
@@ -171,7 +170,7 @@ const Layout = () => {
                 data-label="Dashboard"
                 onClick={closeSidebarOnMobile}
               >
-                <FaHome className="sidebar-icon" />
+                <LuHome className="sidebar-icon" />
                 {sidebarOpen && <span>Dashboard</span>}
               </Link>
             </div>
@@ -185,7 +184,7 @@ const Layout = () => {
                   data-label="Salespersons"
                   onClick={closeSidebarOnMobile}
                 >
-                  <FaUserTie className="sidebar-icon" />
+                  <LuBriefcase className="sidebar-icon" />
                   {sidebarOpen && <span>Salespersons</span>}
                 </Link>
               </div>
@@ -199,7 +198,7 @@ const Layout = () => {
                 data-label="Finance"
                 onClick={closeSidebarOnMobile}
               >
-                <FaChartLine className="sidebar-icon" />
+                <LuLineChart className="sidebar-icon" />
                 {sidebarOpen && <span>Finance</span>}
               </Link>
             </div>
@@ -213,7 +212,7 @@ const Layout = () => {
                   data-label="Manage Balances"
                   onClick={closeSidebarOnMobile}
                 >
-                  <FaWallet className="sidebar-icon" />
+                  <LuWallet className="sidebar-icon" />
                   {sidebarOpen && <span>Manage Balances</span>}
                 </Link>
               </div>
@@ -228,7 +227,7 @@ const Layout = () => {
                   data-label="Forms Ledger"
                   onClick={closeSidebarOnMobile}
                 >
-                  <FaFileContract className="sidebar-icon" />
+                  <LuFileSignature className="sidebar-icon" />
                   {sidebarOpen && <span>Forms Ledger</span>}
                 </Link>
               </div>
@@ -243,7 +242,7 @@ const Layout = () => {
                   data-label="Slip Record"
                   onClick={closeSidebarOnMobile}
                 >
-                  <FaReceipt className="sidebar-icon" />
+                  <LuReceipt className="sidebar-icon" />
                   {sidebarOpen && <span>Slip Record</span>}
                 </Link>
               </div>
@@ -258,7 +257,7 @@ const Layout = () => {
                   data-label="Customers"
                   onClick={closeSidebarOnMobile}
                 >
-                  <FaUserFriends className="sidebar-icon" />
+                  <LuUsers2 className="sidebar-icon" />
                   {sidebarOpen && <span>Customers</span>}
                 </Link>
               </div>
@@ -273,7 +272,7 @@ const Layout = () => {
                   data-label="Leads"
                   onClick={closeSidebarOnMobile}
                 >
-                  <FaBullhorn className="sidebar-icon" />
+                  <LuMegaphone className="sidebar-icon" />
                   {sidebarOpen && <span>Leads</span>}
                 </Link>
               </div>
@@ -287,7 +286,7 @@ const Layout = () => {
                 data-label="Inventory"
                 onClick={closeSidebarOnMobile}
               >
-                <FaWarehouse className="sidebar-icon" />
+                <LuWarehouse className="sidebar-icon" />
                 {sidebarOpen && <span>Inventory</span>}
               </Link>
             </div>
@@ -300,7 +299,7 @@ const Layout = () => {
                 data-label="Deals"
                 onClick={closeSidebarOnMobile}
               >
-                <FaHandshake className="sidebar-icon" />
+                <LuHeartHandshake className="sidebar-icon" />
                 {sidebarOpen && <span>Deals</span>}
               </Link>
             </div>
@@ -314,7 +313,7 @@ const Layout = () => {
                   data-label="User Roles"
                   onClick={closeSidebarOnMobile}
                 >
-                  <FaUserShield className="sidebar-icon" />
+                  <LuUserCog className="sidebar-icon" />
                   {sidebarOpen && <span>User Roles</span>}
                 </Link>
               </div>
@@ -329,7 +328,7 @@ const Layout = () => {
                   data-label="General Ledger"
                   onClick={closeSidebarOnMobile}
                 >
-                  <FaBalanceScale className="sidebar-icon" />
+                  <LuScale className="sidebar-icon" />
                   {sidebarOpen && <span>General Ledger</span>}
                 </Link>
               </div>
@@ -344,7 +343,7 @@ const Layout = () => {
                   data-label="Dealer Mutuals"
                   onClick={closeSidebarOnMobile}
                 >
-                  <FaExchangeAlt className="sidebar-icon" />
+                  <LuArrowLeftRight className="sidebar-icon" />
                   {sidebarOpen && <span>Dealer Mutuals</span>}
                 </Link>
               </div>
@@ -359,7 +358,7 @@ const Layout = () => {
                   data-label="Loans & Investments"
                   onClick={closeSidebarOnMobile}
                 >
-                  <FaPiggyBank className="sidebar-icon" />
+                  <LuPiggyBank className="sidebar-icon" />
                   {sidebarOpen && <span>Loans & Investments</span>}
                 </Link>
               </div>
@@ -373,7 +372,7 @@ const Layout = () => {
                 data-label="Payments"
                 onClick={closeSidebarOnMobile}
               >
-                <FaDollarSign className="sidebar-icon" />
+                <LuBanknote className="sidebar-icon" />
                 {sidebarOpen && <span>Payments</span>}
               </Link>
             </div>
@@ -386,7 +385,7 @@ const Layout = () => {
                 data-label="Investors"
                 onClick={closeSidebarOnMobile}
               >
-                <FaMoneyBillWave className="sidebar-icon" />
+                <LuBanknote className="sidebar-icon" />
                 {sidebarOpen && <span>Investors</span>}
               </Link>
             </div>
@@ -398,7 +397,7 @@ const Layout = () => {
                 data-label="Settings"
                 onClick={closeSidebarOnMobile}
               >
-                <FaCog className="sidebar-icon" />
+                <LuSettings className="sidebar-icon" />
                 {sidebarOpen && <span>Settings</span>}
               </Link>
             </div>

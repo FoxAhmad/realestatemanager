@@ -532,3 +532,21 @@
   white-space: nowrap;
   color: var(--text-main);
 }
+
+/* ---- Section header icon tiles: same look as the ledger balance cards (44px soft tile, thin icon) ---- */
+.header-icon.header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  font-size: 1.2rem;
+  box-shadow: none;
+}
+
+.header-icon.finance { background: #fef3c7; color: #92400e; }
+.header-icon.mutuals { background: #d1fae5; color: #065f46; }
+.header-icon.inventory { background: #dcebe3; color: #0f5132; }
+
+.section-header { gap: 0.85rem; }
+.section-header h2 { font-size: 1.25rem; }
+
+.ops-icon { color: var(--primary); font-size: 1.25rem; }

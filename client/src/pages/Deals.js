@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaFilePdf } from 'react-icons/fa';
+import { LuFileDown } from 'react-icons/lu';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
@@ -296,7 +296,7 @@ const Deals = () => {
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <button className="premium-btn premium-btn-secondary" onClick={handleExportDeals}>
-            <FaFilePdf /> Export PDF
+            <LuFileDown /> Export PDF
           </button>
           {(isAdmin || isAccountant) && (
             <button

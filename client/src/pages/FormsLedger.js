@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { FaFileContract, FaPlus, FaCog, FaChevronDown, FaChevronUp, FaTimes, FaEdit, FaTrash } from 'react-icons/fa';
+import {
+  LuFileSignature,
+  LuPlus,
+  LuSettings,
+  LuChevronDown,
+  LuChevronUp,
+  LuX,
+  LuPencil,
+  LuTrash2
+} from 'react-icons/lu';
 import { useAuth } from '../context/AuthContext';
 import './FormsLedger.css';
 import { notify, confirmDialog } from '../utils/notify';
@@ -189,10 +198,10 @@ const FormsLedger = () => {
         </div>
         <div className="header-actions">
           <button className="premium-btn premium-btn-secondary" onClick={openSettings}>
-            <FaCog /> Settings
+            <LuSettings /> Settings
           </button>
           <button className="premium-btn premium-btn-primary" onClick={() => setShowAddModal(true)}>
-            <FaPlus /> Issue Forms
+            <LuPlus /> Issue Forms
           </button>
         </div>
       </div>
@@ -220,7 +229,7 @@ const FormsLedger = () => {
               return (
                 <div key={d.dealer_id} className="forms-dealer-card glass-card">
                   <div className="forms-dealer-row" onClick={() => toggleDealer(d.dealer_id)}>
-                    <div className="forms-dealer-icon"><FaFileContract /></div>
+                    <div className="forms-dealer-icon"><LuFileSignature /></div>
                     <div className="forms-dealer-info">
                       <div className="forms-dealer-name">{d.dealer_name}</div>
                       <div className="forms-dealer-sub">Rs. {parseFloat(d.balance || 0).toLocaleString()} balance on account</div>
@@ -234,7 +243,7 @@ const FormsLedger = () => {
                       <span className="value-label">Est. Value</span>
                     </div>
                     <button className="expand-btn" aria-label={isExpanded ? 'Collapse dealer details' : 'Expand dealer details'} aria-expanded={isExpanded}>
-                      {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
+                      {isExpanded ? <LuChevronUp /> : <LuChevronDown />}
                     </button>
                   </div>
                   {isExpanded && (
@@ -271,7 +280,7 @@ const FormsLedger = () => {
                                         title="Edit Entry"
                                         style={{ padding: '4px 8px', borderRadius: '6px', border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer', marginRight: '6px' }}
                                       >
-                                        <FaEdit size={12} />
+                                        <LuPencil size={12} />
                                       </button>
                                       <button
                                         onClick={() => handleDelete(d.dealer_id, h)}
@@ -279,7 +288,7 @@ const FormsLedger = () => {
                                         disabled={deletingId === h.id}
                                         style={{ padding: '4px 8px', borderRadius: '6px', border: 'none', background: '#dc3545', color: '#fff', cursor: 'pointer' }}
                                       >
-                                        <FaTrash size={12} />
+                                        <LuTrash2 size={12} />
                                       </button>
                                     </td>
                                   )}
@@ -303,7 +312,7 @@ const FormsLedger = () => {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ border: 'none', marginBottom: 0, paddingBottom: 0 }}>Forms Settings</h2>
-              <button className="close-modal-btn" onClick={() => setShowSettings(false)}><FaTimes /></button>
+              <button className="close-modal-btn" onClick={() => setShowSettings(false)}><LuX /></button>
             </div>
             <div className="form-group">
               <label>Base Price / Form (Rs.) *</label>
@@ -404,7 +413,7 @@ const FormsLedger = () => {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ border: 'none', marginBottom: 0, paddingBottom: 0 }}>Edit Forms Entry</h2>
-              <button className="close-modal-btn" onClick={() => setEditEntry(null)}><FaTimes /></button>
+              <button className="close-modal-btn" onClick={() => setEditEntry(null)}><LuX /></button>
             </div>
             <form onSubmit={handleEditSubmit}>
               <div className="form-group">

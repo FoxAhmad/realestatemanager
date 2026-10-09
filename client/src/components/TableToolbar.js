@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FaSearch, FaFilter, FaTimes } from 'react-icons/fa';
+import { LuSearch, LuFilter, LuX } from 'react-icons/lu';
 import './TableToolbar.css';
 
 /**
@@ -157,7 +157,7 @@ export default function TableToolbar({
     <div className="table-toolbar">
       <div className="table-toolbar-row">
         <div className="table-search">
-          <FaSearch className="table-search-icon" />
+          <LuSearch className="table-search-icon" />
           <input
             type="text"
             placeholder={searchPlaceholder}
@@ -166,7 +166,7 @@ export default function TableToolbar({
           />
           {search && (
             <button type="button" className="table-search-clear" onClick={() => onSearchChange('')} aria-label="Clear search">
-              <FaTimes />
+              <LuX />
             </button>
           )}
         </div>
@@ -177,7 +177,7 @@ export default function TableToolbar({
             className={`table-filter-toggle${showFilters ? ' active' : ''}`}
             onClick={onToggleFilters}
           >
-            <FaFilter /> Filters
+            <LuFilter /> Filters
             {activeFilterCount > 0 && <span className="table-filter-count">{activeFilterCount}</span>}
           </button>
         )}

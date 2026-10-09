@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { FaUserPlus, FaEdit, FaTrash, FaShieldAlt } from 'react-icons/fa';
+import { LuUserPlus, LuPencil, LuTrash2, LuShield } from 'react-icons/lu';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import Pagination from '../components/Pagination';
 import './Investors.css';
@@ -102,7 +102,7 @@ const Investors = () => {
     return (
       <div className="premium-page">
         <div className="glass-card investors-access-denied">
-          <FaShieldAlt style={{ fontSize: '4rem', color: 'var(--danger)', marginBottom: '1.5rem' }} />
+          <LuShield style={{ fontSize: '4rem', color: 'var(--danger)', marginBottom: '1.5rem' }} />
           <h2>Restricted Repository</h2>
           <p>You do not have the clearance levels required to view the Investor Registry.</p>
         </div>
@@ -127,7 +127,7 @@ const Investors = () => {
             setShowModal(true);
           }}
         >
-          <FaUserPlus /> Onboard Investor
+          <LuUserPlus /> Onboard Investor
         </button>
       </div>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { FaUserPlus, FaHistory, FaUserTag, FaExchangeAlt, FaEdit, FaTrash } from 'react-icons/fa';
+import { LuUserPlus, LuHistory, LuUserCheck, LuArrowLeftRight, LuPencil, LuTrash2 } from 'react-icons/lu';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import Pagination from '../components/Pagination';
 import './Leads.css';
@@ -188,7 +188,7 @@ const Leads = () => {
               setShowModal(true);
             }}
           >
-            <FaUserPlus /> Add New Lead
+            <LuUserPlus /> Add New Lead
           </button>
         </div>
       </div>
@@ -256,7 +256,7 @@ const Leads = () => {
                               setShowAssignModal(true);
                             }}
                           >
-                            <FaExchangeAlt />
+                            <LuArrowLeftRight />
                           </button>
                         )}
                         <button
@@ -265,7 +265,7 @@ const Leads = () => {
                           title="View History"
                           onClick={() => fetchHistory(lead.id)}
                         >
-                          <FaHistory />
+                          <LuHistory />
                         </button>
                         <button
                           className="premium-btn premium-btn-secondary"
@@ -273,7 +273,7 @@ const Leads = () => {
                           title="Edit"
                           onClick={() => handleEdit(lead)}
                         >
-                          <FaEdit />
+                          <LuPencil />
                         </button>
                         {isAdmin && (
                           <button
@@ -282,7 +282,7 @@ const Leads = () => {
                             title="Delete"
                             onClick={() => handleDelete(lead.id)}
                           >
-                            <FaTrash />
+                            <LuTrash2 />
                           </button>
                         )}
                       </div>

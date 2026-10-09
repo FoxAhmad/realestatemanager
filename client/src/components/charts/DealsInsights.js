@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { FaHandshake, FaHourglassHalf, FaCheckCircle, FaCoins } from 'react-icons/fa';
+import { LuHeartHandshake, LuHourglass, LuCheckCircle2, LuCoins } from 'react-icons/lu';
 import { KpiCard, ChartFrame, StatusDonut, BookedVsCollected } from '../dashboard/widgets';
 import { buildMonthWindow, sumByMonth, num } from './insightsData';
 import './charts.css';
@@ -37,14 +37,14 @@ const DealsInsights = ({ deals, payments }) => {
   return (
     <div className="pl-insights">
       <div className="wg-grid-kpi">
-        <KpiCard label="Total deals" value={data.total} icon={<FaHandshake />} spark={data.createdPerMonth} note="Created per month, last 7 months" />
-        <KpiCard label="In progress" value={data.inProgress} icon={<FaHourglassHalf />} note="Still collecting payments" />
-        <KpiCard label="Completed" value={data.completed} icon={<FaCheckCircle />} note="Closed deals" />
+        <KpiCard label="Total deals" value={data.total} icon={<LuHeartHandshake />} spark={data.createdPerMonth} note="Created per month, last 7 months" />
+        <KpiCard label="In progress" value={data.inProgress} icon={<LuHourglass />} note="Still collecting payments" />
+        <KpiCard label="Completed" value={data.completed} icon={<LuCheckCircle2 />} note="Closed deals" />
         <KpiCard
           label="Booked value"
           value={data.bookedValue}
           prefix="Rs. "
-          icon={<FaCoins />}
+          icon={<LuCoins />}
           note={`Rs. ${data.collected.toLocaleString()} received so far`}
         />
       </div>
