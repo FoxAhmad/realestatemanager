@@ -22,11 +22,13 @@ import FormsLedger from './pages/FormsLedger';
 import SlipRecord from './pages/SlipRecord';
 import LoansAndInvestments from './pages/LoansAndInvestments';
 import Layout from './components/Layout';
+import NotifyHost from './components/NotifyHost';
 import './App.css';
 
 function App() {
   return (
     <AuthProvider>
+      <NotifyHost />
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />

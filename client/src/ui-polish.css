@@ -1,0 +1,167 @@
+/*
+  Plot Ledge UI polish shared by every page: page header, cards, tables, buttons, badges, modals.
+  Loaded after all page styles; doubled class selectors beat the per-page copies of these rules.
+*/
+
+::selection { background: rgba(22, 163, 74, 0.22); }
+
+/* ---- Page frame ---- */
+.premium-page.premium-page { animation: pl-page-in 0.35s ease-out; }
+
+@keyframes pl-page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.premium-page-header.premium-page-header {
+  position: relative;
+  padding-bottom: 1.25rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #ece8dc;
+}
+
+.premium-page-header.premium-page-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 64px;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--primary), #f59e0b);
+}
+
+.premium-page-header.premium-page-header p { color: var(--text-muted); }
+
+/* ---- Cards ---- */
+.glass-card.glass-card,
+.stats-section.stats-section {
+  background: #fff;
+  border: 1px solid #ece8dc;
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(2, 44, 34, 0.04);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.glass-card.glass-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(22, 163, 74, 0.35);
+  box-shadow: 0 14px 34px rgba(2, 44, 34, 0.09);
+}
+
+/* ---- Tables ---- */
+.premium-table-container.premium-table-container {
+  border: 1px solid #ece8dc;
+  border-radius: 16px;
+  background: #fff;
+  scrollbar-width: thin;
+}
+
+.premium-table.premium-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #faf8f3;
+  border-bottom: 1px solid #ece8dc;
+  font-size: 0.74rem;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+}
+
+.premium-table.premium-table td {
+  border-bottom: 1px solid #f4f1e8;
+  padding: 1rem 1.25rem;
+}
+
+.premium-table.premium-table th { padding: 0.85rem 1.25rem; }
+
+.premium-table.premium-table tr:hover td { background: #f6faf7; }
+
+/* ---- Buttons ---- */
+.premium-btn.premium-btn {
+  border-radius: 12px;
+  font-family: inherit;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s, border-color 0.2s;
+}
+
+.premium-btn.premium-btn:focus-visible {
+  outline: 3px solid rgba(22, 163, 74, 0.4);
+  outline-offset: 2px;
+}
+
+.premium-btn.premium-btn:active { transform: translateY(1px); }
+
+.premium-btn-primary.premium-btn-primary { box-shadow: 0 6px 16px rgba(15, 81, 50, 0.22); }
+
+.premium-btn-secondary.premium-btn-secondary {
+  background: #fff;
+  border: 1px solid #d9d4c3;
+}
+
+.premium-btn-secondary.premium-btn-secondary:hover { background: #faf8f3; border-color: var(--primary); }
+
+.premium-btn-danger.premium-btn-danger { background: #b42318; }
+.premium-btn-danger.premium-btn-danger:hover { background: #991b1b; }
+
+/* ---- Badges: pill shape, same palette as the status badges on the dashboard ---- */
+.premium-badge.premium-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.premium-badge-success.premium-badge-success { background: var(--paid-soft, #d1fae5); color: var(--paid-ink, #065f46); }
+.premium-badge-warning.premium-badge-warning { background: var(--pending-soft, #fef3c7); color: var(--pending-ink, #92400e); }
+.premium-badge-danger.premium-badge-danger { background: var(--overdue-soft, #fee2e2); color: var(--overdue-ink, #991b1b); }
+.premium-badge-primary.premium-badge-primary { background: #d1fae5; color: #065f46; }
+.premium-badge-info.premium-badge-info { background: #e7f2ec; color: #0f5132; }
+
+/* ---- Modals ---- */
+.modal-overlay.modal-overlay {
+  background: rgba(2, 44, 34, 0.5);
+  backdrop-filter: blur(4px);
+  animation: pl-fade 0.18s ease-out;
+}
+
+.modal-content.modal-content {
+  border: 1px solid #ece8dc;
+  border-radius: 22px;
+  box-shadow: 0 30px 70px rgba(2, 44, 34, 0.3);
+  animation: pl-modal-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  scrollbar-width: thin;
+}
+
+.modal-content.modal-content h2 {
+  border-bottom: 1px solid #ece8dc;
+}
+
+.modal-actions.modal-actions { border-top: 1px solid #ece8dc; }
+
+@keyframes pl-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pl-modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---- Loading states ---- */
+.premium-loading.premium-loading,
+.dashboard-loading.dashboard-loading {
+  color: var(--text-muted);
+  font-weight: 600;
+  background: linear-gradient(90deg, transparent, rgba(22, 163, 74, 0.08), transparent) 0 0 / 200% 100%;
+  animation: pl-shimmer 1.4s linear infinite;
+  border-radius: 16px;
+}
+
+@keyframes pl-shimmer { to { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-page.premium-page,
+  .modal-overlay.modal-overlay,
+  .modal-content.modal-content,
+  .premium-loading.premium-loading,
+  .dashboard-loading.dashboard-loading { animation: none; }
+}

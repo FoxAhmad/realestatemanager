@@ -3,6 +3,8 @@ import api from '../services/api';
 import { FaFileContract, FaPlus, FaCog, FaChevronDown, FaChevronUp, FaTimes, FaEdit, FaTrash } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import './FormsLedger.css';
+import { notify, confirmDialog } from '../utils/notify';
+import FormsLedgerCharts from '../components/charts/FormsLedgerCharts';
 
 const FormsLedger = () => {
   const { isAdmin, isAccountant } = useAuth();
@@ -118,19 +120,19 @@ const FormsLedger = () => {
       await refreshDealerHistory(dealerId);
       fetchSummary();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error updating entry');
+      notify(error.response?.data?.message || 'Error updating entry');
     }
   };
 
   const handleDelete = async (dealerId, entry) => {
-    if (!window.confirm('Delete this forms ledger entry? This cannot be undone.')) return;
+    if (!await confirmDialog('Delete this forms ledger entry? This cannot be undone.')) return;
     setDeletingId(entry.id);
     try {
       await api.delete(`/balance-transactions/${entry.id}`);
       await refreshDealerHistory(dealerId);
       fetchSummary();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error deleting entry');
+      notify(error.response?.data?.message || 'Error deleting entry');
     } finally {
       setDeletingId(null);
     }
@@ -149,7 +151,7 @@ const FormsLedger = () => {
       setDefaultCurrentValue(parseFloat(settingsForm.defaultCurrentValue));
       setShowSettings(false);
     } catch (error) {
-      alert(error.response?.data?.message || 'Error saving settings');
+      notify(error.response?.data?.message || 'Error saving settings');
     }
   };
 
@@ -171,7 +173,7 @@ const FormsLedger = () => {
       setDealerHistory({});
       fetchSummary();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error issuing forms');
+      notify(error.response?.data?.message || 'Error issuing forms');
     }
   };
 
@@ -207,6 +209,8 @@ const FormsLedger = () => {
         </div>
         <div className="forms-price-note">Current value varies per use — it's editable each time a form is applied to a deal.</div>
       </div>
+
+      <FormsLedgerCharts summary={summary} valuePerForm={defaultCurrentValue} />
 
       <div className="glass-card">
         {summary.length === 0 ? (

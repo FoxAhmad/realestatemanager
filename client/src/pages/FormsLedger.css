@@ -60,14 +60,14 @@
 }
 
 .forms-dealer-row:hover {
-  background: rgba(84, 105, 212, 0.04);
+  background: rgba(15, 81, 50, 0.04);
 }
 
 .forms-dealer-icon {
   width: 46px;
   height: 46px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(84,105,212,0.12), rgba(84,105,212,0.06));
+  background: linear-gradient(135deg, rgba(15, 81, 50,0.12), rgba(15, 81, 50,0.06));
   color: var(--primary);
   display: flex;
   align-items: center;

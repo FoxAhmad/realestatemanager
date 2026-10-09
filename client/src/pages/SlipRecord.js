@@ -5,6 +5,8 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './SlipRecord.css';
+import { notify, confirmDialog } from '../utils/notify';
+import SlipCharts from '../components/charts/SlipCharts';
 
 const SLIP_STATUS_LABELS = {
   available: 'Available',
@@ -187,17 +189,17 @@ const SlipRecord = () => {
       fetchSlips();
       closeModal();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error saving slip record');
+      notify(error.response?.data?.message || 'Error saving slip record');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this slip record permanently?')) return;
+    if (!await confirmDialog('Delete this slip record permanently?')) return;
     try {
       await api.delete(`/slips/${id}`);
       fetchSlips();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error deleting slip record');
+      notify(error.response?.data?.message || 'Error deleting slip record');
     }
   };
 
@@ -206,11 +208,11 @@ const SlipRecord = () => {
     try {
       const response = await api.post('/slips/import');
       const { pulled, fixed } = response.data;
-      alert(`Pulled ${pulled} new slip(s) from existing receipts.`
+      notify(`Pulled ${pulled} new slip(s) from existing receipts.`
         + (fixed ? ` Corrected ${fixed} CADN slip(s) to the forms investment/qty split.` : ''));
       fetchSlips();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error pulling existing receipts');
+      notify(error.response?.data?.message || 'Error pulling existing receipts');
     } finally {
       setImporting(false);
     }
@@ -255,6 +257,8 @@ const SlipRecord = () => {
           <span className="summary-value">{totals.forms}</span>
         </div>
       </div>
+
+      <SlipCharts slips={filteredSlips} />
 
       <div className="glass-card">
         <TableToolbar

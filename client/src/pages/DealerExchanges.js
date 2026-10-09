@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import MutualNetReport from '../components/MutualNetReport';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './DealerExchanges.css';
+import { notify, confirmDialog } from '../utils/notify';
+import ExchangeCharts from '../components/charts/ExchangeCharts';
 
 const DEALER_EXCHANGE_COLUMNS = [
   { key: 'exchange_date', label: 'Date', type: 'date' },
@@ -110,7 +112,7 @@ const DealerExchanges = () => {
       });
     } catch (error) {
       console.error('Error saving exchange:', error);
-      alert(error.response?.data?.message || 'Error saving exchange');
+      notify(error.response?.data?.message || 'Error saving exchange');
     }
   };
 
@@ -149,7 +151,7 @@ const DealerExchanges = () => {
 
   const handleDelete = async (ex) => {
     const amt = parseFloat(ex.amount).toLocaleString(undefined, { minimumFractionDigits: 2 });
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       `Delete this mutual exchange?\n\n`
       + `${ex.sender_name} → ${ex.receiver_name} for ${amt}\n\n`
       + `The net balance between them will be recalculated. This cannot be undone.`
@@ -162,7 +164,7 @@ const DealerExchanges = () => {
       fetchExchanges();
       fetchBalances();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error deleting exchange');
+      notify(error.response?.data?.message || 'Error deleting exchange');
     } finally {
       setDeletingId(null);
     }
@@ -289,6 +291,8 @@ const DealerExchanges = () => {
           + Record Mutual Exchange
         </button>
       </div>
+
+      <ExchangeCharts balances={balances} exchanges={filteredExchanges} isManagement={isAdmin || isAccountant} />
 
       <div className="net-report-section" style={{ marginBottom: '2rem' }}>
         <MutualNetReport 

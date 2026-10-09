@@ -1,0 +1,19 @@
+/* Shared styling for the per-page chart rows (Inventory, Customers, Leads, Salespersons). */
+
+.pc-row { margin-bottom: 1.25rem; }
+.pc-row .wg-grid-kpi, .pc-row .wg-grid-donut, .pc-row .wg-grid-2 { margin-bottom: 1rem; }
+.pc-row > :last-child { margin-bottom: 0; }
+
+.pc-ranked { display: flex; flex-direction: column; gap: 0.85rem; margin: 0; padding: 0; list-style: none; }
+.pc-ranked li { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.pc-ranked-top { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; min-width: 0; }
+.pc-ranked-top strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; color: var(--text-main); }
+.pc-ranked-top span { flex-shrink: 0; font-size: 0.84rem; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.pc-ranked small { font-size: 0.76rem; color: var(--text-muted); }
+.pc-ranked .wg-fill { flex: none; width: 100%; }
+
+.pc-funnel-note { margin: 0.9rem 0 0; font-size: 0.8rem; color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .pc-ranked-top { flex-wrap: wrap; }
+}

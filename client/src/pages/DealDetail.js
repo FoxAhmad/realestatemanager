@@ -6,6 +6,8 @@ import { FaArrowLeft, FaPlus, FaTrash, FaEdit, FaFileInvoiceDollar, FaFileContra
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import { buildDealProfilePDF } from '../utils/dealsReport';
 import './DealDetail.css';
+import { notify, confirmDialog } from '../utils/notify';
+import DealDetailInsights from '../components/charts/DealDetailInsights';
 
 const LEDGER_COLUMNS = [
   { key: 'date', label: 'Date', type: 'date' },
@@ -258,7 +260,7 @@ const DealDetail = () => {
       closePaymentModal();
     } catch (error) {
       console.error('Error recording payment:', error);
-      alert(error.response?.data?.message || 'Error recording payment');
+      notify(error.response?.data?.message || 'Error recording payment');
     }
   };
 
@@ -267,30 +269,30 @@ const DealDetail = () => {
       await api.put(`/deals/${id}`, { status: newStatus });
       fetchDealDetails();
     } catch (error) {
-      alert('Error updating status');
+      notify('Error updating status');
     }
   };
 
   const handlePaymentDelete = async (paymentId) => {
-    if (window.confirm('Are you sure you want to delete this payment record?')) {
+    if (await confirmDialog('Are you sure you want to delete this payment record?')) {
       try {
         await api.delete(`/payments/${paymentId}`);
         fetchDealDetails();
       } catch (error) {
         console.error('Error deleting payment:', error);
-        alert('Error deleting payment');
+        notify('Error deleting payment');
       }
     }
   };
 
   const handleAdjustmentDelete = async (transactionId) => {
-    if (window.confirm('Are you sure you want to delete this adjustment record?')) {
+    if (await confirmDialog('Are you sure you want to delete this adjustment record?')) {
       try {
         await api.delete(`/balance-transactions/${transactionId}`);
         fetchDealDetails();
       } catch (error) {
         console.error('Error deleting adjustment:', error);
-        alert('Error deleting adjustment');
+        notify('Error deleting adjustment');
       }
     }
   };
@@ -314,7 +316,7 @@ const DealDetail = () => {
       buildDealProfilePDF({ deal, payments, adjustments, preparedBy: user?.name });
     } catch (error) {
       console.error('Error exporting deal profile PDF:', error);
-      alert('Error generating PDF export');
+      notify('Error generating PDF export');
     }
   };
 
@@ -489,6 +491,8 @@ const DealDetail = () => {
             )}
           </div>
         </div>
+
+        <DealDetailInsights deal={deal} payments={payments} adjustments={adjustments} />
 
         {/* Payments Table Area */}
         <div className="glass-card">

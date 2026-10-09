@@ -9,6 +9,8 @@ import { useAuth } from '../context/AuthContext';
 import { mergeFinanceEntries } from '../utils/financeLedger';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Finance.css';
+import { notify, confirmDialog } from '../utils/notify';
+import { FinanceLedgerCharts, FinanceAnalyticsCharts } from '../components/charts/FinanceCharts';
 
 const FINANCE_LEDGER_COLUMNS = [
   { key: 'transaction_date', label: 'Date', type: 'date' },
@@ -227,7 +229,7 @@ const Finance = () => {
       setEditEntry(null);
       fetchData();
     } catch (err) {
-      alert('Error updating entry: ' + (err.response?.data?.message || err.message));
+      notify('Error updating entry: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -259,14 +261,14 @@ const Finance = () => {
       msg = 'Delete this transaction? This cannot be undone.';
     }
 
-    if (!window.confirm(msg)) return;
+    if (!await confirmDialog(msg)) return;
 
     setDeletingId(entry.id);
     try {
       await api.delete(`/balance-transactions/${entry.id}`);
       fetchData();
     } catch (err) {
-      alert('Error deleting entry: ' + (err.response?.data?.message || err.message));
+      notify('Error deleting entry: ' + (err.response?.data?.message || err.message));
     } finally {
       setDeletingId(null);
     }
@@ -300,7 +302,7 @@ const Finance = () => {
       });
       fetchData();
     } catch (err) {
-      alert('Error creating entry: ' + (err.response?.data?.message || err.message));
+      notify('Error creating entry: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -364,6 +366,7 @@ const Finance = () => {
 
       {activeTab === 'ledger' ? (
         <section className="finance-ledger-section animate-fade-in">
+          <FinanceLedgerCharts rows={filteredLedgerEntries} isAccountant={isAccountant} />
           <div className="section-header">
             <h2><FaHistory /> Transaction History</h2>
           </div>
@@ -484,6 +487,7 @@ const Finance = () => {
         </section>
       ) : (
         <div className="analytics-container animate-fade-in">
+          <FinanceAnalyticsCharts monthlyStats={monthlyStats} dealerStats={dealerStats} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '2rem' }}>
             <section className="finance-section">
               <h2><FaCalendarAlt style={{ color: 'var(--primary)' }} /> Monthly Performance</h2>

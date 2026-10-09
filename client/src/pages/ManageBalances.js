@@ -13,6 +13,8 @@ import {
 } from '../utils/balanceReports';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './ManageBalances.css';
+import { notify, confirmDialog } from '../utils/notify';
+import { BalanceProjectCharts, BalanceEntryCharts } from '../components/charts/BalancesCharts';
 
 const dealerRefAccessor = (row) => {
   const names = new Set();
@@ -218,17 +220,17 @@ const ManageBalances = () => {
       setShowProjectModal(false);
       fetchProjects();
     } catch (err) {
-      alert('Error saving project: ' + (err.response?.data?.message || err.message));
+      notify('Error saving project: ' + (err.response?.data?.message || err.message));
     }
   };
 
   const handleDeleteProject = async (proj) => {
-    if (!window.confirm(`Delete project "${proj.name}"? This only works if the project has no entries.`)) return;
+    if (!await confirmDialog(`Delete project "${proj.name}"? This only works if the project has no entries.`)) return;
     try {
       await api.delete(`/balance-projects/${proj.id}`);
       fetchProjects();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error deleting project');
+      notify(err.response?.data?.message || 'Error deleting project');
     }
   };
 
@@ -298,7 +300,7 @@ const ManageBalances = () => {
       // Also refresh project summaries in background
       if (view === 'entries') fetchProjects();
     } catch (err) {
-      alert('Error creating transaction: ' + (err.response?.data?.message || err.message));
+      notify('Error creating transaction: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -338,19 +340,19 @@ const ManageBalances = () => {
         + `This cannot be undone.`
       : 'Delete this balance entry? This cannot be undone.';
 
-    if (!window.confirm(confirmMsg)) return;
+    if (!await confirmDialog(confirmMsg)) return;
 
     setDeletingId(t.id);
     try {
       const res = await api.delete(`/balance-transactions/${t.id}`);
       const n = res.data?.unlinked_finance_entries || 0;
       if (n > 0) {
-        alert(`Balance entry deleted. ${n} finance ${n === 1 ? 'entry was' : 'entries were'} preserved and returned to the unlinked pool.`);
+        notify(`Balance entry deleted. ${n} finance ${n === 1 ? 'entry was' : 'entries were'} preserved and returned to the unlinked pool.`);
       }
       fetchTransactions(selectedProject ? selectedProject.id : null);
       fetchProjects();
     } catch (err) {
-      alert('Error deleting entry: ' + (err.response?.data?.message || err.message));
+      notify('Error deleting entry: ' + (err.response?.data?.message || err.message));
     } finally {
       setDeletingId(null);
     }
@@ -373,7 +375,7 @@ const ManageBalances = () => {
       fetchTransactions(null);
       fetchProjects();
     } catch (err) {
-      alert('Error moving entry: ' + (err.response?.data?.message || err.message));
+      notify('Error moving entry: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -392,7 +394,7 @@ const ManageBalances = () => {
       setShowEditModal(false);
       fetchTransactions(selectedProject ? selectedProject.id : null);
     } catch (err) {
-      alert('Error updating transaction: ' + (err.response?.data?.message || err.message));
+      notify('Error updating transaction: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -451,7 +453,7 @@ const ManageBalances = () => {
       builder(reportArgs());
     } catch (err) {
       console.error('PDF export failed:', err);
-      alert('Could not generate the PDF: ' + err.message);
+      notify('Could not generate the PDF: ' + err.message);
     }
   };
 
@@ -588,6 +590,7 @@ const ManageBalances = () => {
       {/* ── Projects View (Accounts 3 & 8) ── */}
       {view === 'projects' && activeTab !== 4 && (
         <div className="animate-fade-in">
+          {!projectsLoading && <BalanceProjectCharts projects={projects} />}
           <div className="projects-section-header">
             <div className="projects-title-group">
               <FaBuilding className="projects-icon" />
@@ -666,6 +669,8 @@ const ManageBalances = () => {
               </div>
             </div>
           </div>
+
+          {!loading && <BalanceEntryCharts transactions={transactions} dealerBalances={dealerBalances} />}
 
           {/* Dealer Balance Cards */}
           {dealerBalances.length > 0 && (

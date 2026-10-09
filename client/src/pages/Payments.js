@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Payments.css';
+import { notify, confirmDialog } from '../utils/notify';
+import PaymentsInsights from '../components/charts/PaymentsInsights';
 
 const PAYMENT_TYPE_LABELS = {
   booking: 'Booking / Down Payment',
@@ -46,13 +48,13 @@ const Payments = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Delete this payment record permanently?')) {
+    if (await confirmDialog('Delete this payment record permanently?')) {
       try {
         await api.delete(`/payments/${id}`);
         fetchPayments();
       } catch (error) {
         console.error('Error deleting payment:', error);
-        alert('Error deleting payment record');
+        notify('Error deleting payment record');
       }
     }
   };
@@ -91,6 +93,8 @@ const Payments = () => {
           <span className="summary-value">{filteredPayments.length} Entries</span>
         </div>
       </div>
+
+      <PaymentsInsights payments={filteredPayments} />
 
       <div className="glass-card">
         <TableToolbar

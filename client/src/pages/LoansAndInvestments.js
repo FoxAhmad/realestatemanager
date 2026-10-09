@@ -3,6 +3,8 @@ import api from '../services/api';
 import { FaPlus, FaTimes, FaHandHoldingUsd, FaChartLine, FaUserTie, FaUndo } from 'react-icons/fa';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './LoansAndInvestments.css';
+import { notify } from '../utils/notify';
+import LoansCharts from '../components/charts/LoansCharts';
 
 const LOAN_RECEIVABLE_COLUMNS = [
   { key: 'name', label: 'Name', type: 'text' },
@@ -174,7 +176,7 @@ const LoansAndInvestments = () => {
       setFormData(emptyForm);
       fetchAll();
     } catch (err) {
-      alert('Error saving entry: ' + (err.response?.data?.message || err.message));
+      notify('Error saving entry: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -198,7 +200,7 @@ const LoansAndInvestments = () => {
       setRepayTarget(null);
       fetchAll();
     } catch (err) {
-      alert('Error recording repayment: ' + (err.response?.data?.message || err.message));
+      notify('Error recording repayment: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -236,6 +238,15 @@ const LoansAndInvestments = () => {
           <span className="amount">Rs. {ownerBalance.toLocaleString()}</span>
         </div>
       </div>
+
+      <LoansCharts
+        loans={loans}
+        investments={investments}
+        filteredReceivable={filteredLoansReceivable}
+        filteredPayable={filteredLoansPayable}
+        filteredInvestments={filteredInvestments}
+        activeTab={activeTab}
+      />
 
       <div className="li-tabs-nav">
         <button className={`li-tab-item ${activeTab === 'loans' ? 'active' : ''}`} onClick={() => setActiveTab('loans')}>

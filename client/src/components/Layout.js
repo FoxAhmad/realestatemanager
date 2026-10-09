@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -21,7 +21,9 @@ import {
   FaTimes,
   FaPiggyBank,
   FaFileContract,
-  FaReceipt
+  FaReceipt,
+  FaSignOutAlt,
+  FaChevronDown
 } from 'react-icons/fa';
 import './Layout.css';
 
@@ -31,6 +33,29 @@ const Layout = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobileViewport());
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
 
   const isActive = (path) => location.pathname === path;
 
@@ -52,16 +77,48 @@ const Layout = () => {
               {sidebarOpen ? <FaTimes /> : <FaBars />}
             </button>
             <div className="navbar-brand">
-              <img src="./images/logoUm.png" alt="logo" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
-              <h1 className='text-white'>Universal Manager</h1>
+              <img src="/images/logoUm.png" alt="Universal Manager logo" className="navbar-logo-img" />
+              <div className="navbar-brand-text">
+                <h1 className="navbar-title">Universal Manager</h1>
+                <span className="navbar-tagline">Real Estate CRM</span>
+              </div>
             </div>
           </div>
-          <div className="navbar-user-section">
-            <div className="user-info">
-              <span className="user-name">{user?.name}</span>
-              <span className="user-role">{user?.role}</span>
-            </div>
-            <button onClick={logout} className="logout-btn">Logout</button>
+          <div className="navbar-user-section" ref={menuRef}>
+            <button
+              type="button"
+              className={`user-chip ${menuOpen ? 'open' : ''}`}
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              <span className="user-avatar" aria-hidden="true">
+                {(user?.name || '?').trim().charAt(0).toUpperCase()}
+              </span>
+              <span className="user-info">
+                <span className="user-name">{user?.name}</span>
+                <span className="user-role">{user?.role}</span>
+              </span>
+              <FaChevronDown className="user-caret" aria-hidden="true" />
+            </button>
+
+            {menuOpen && (
+              <div className="user-menu" role="menu">
+                <div className="user-menu-head">
+                  <span className="user-avatar large" aria-hidden="true">
+                    {(user?.name || '?').trim().charAt(0).toUpperCase()}
+                  </span>
+                  <div className="user-menu-id">
+                    <strong>{user?.name}</strong>
+                    {user?.email && <span className="user-menu-email">{user.email}</span>}
+                    <span className="user-role">{user?.role}</span>
+                  </div>
+                </div>
+                <button type="button" role="menuitem" className="user-menu-logout" onClick={logout}>
+                  <FaSignOutAlt /> Log out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </nav>

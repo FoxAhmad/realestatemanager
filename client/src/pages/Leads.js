@@ -3,7 +3,9 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { FaUserPlus, FaHistory, FaUserTag, FaExchangeAlt, FaEdit, FaTrash } from 'react-icons/fa';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import LeadsCharts from '../components/charts/LeadsCharts';
 import './Leads.css';
+import { notify, confirmDialog } from '../utils/notify';
 
 const LEAD_COLUMNS = [
   { key: 'name', label: 'Lead Name', type: 'text' },
@@ -110,7 +112,7 @@ const Leads = () => {
       });
     } catch (error) {
       console.error('Error saving lead:', error);
-      alert(error.response?.data?.message || 'Error saving lead');
+      notify(error.response?.data?.message || 'Error saving lead');
     }
   };
 
@@ -121,10 +123,10 @@ const Leads = () => {
       fetchLeads();
       setShowAssignModal(false);
       setAssignmentData({ dealer_id: '' });
-      alert('Lead assigned successfully');
+      notify('Lead assigned successfully');
     } catch (error) {
       console.error('Error assigning lead:', error);
-      alert(error.response?.data?.message || 'Error assigning lead');
+      notify(error.response?.data?.message || 'Error assigning lead');
     }
   };
 
@@ -143,13 +145,13 @@ const Leads = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this lead?')) {
+    if (await confirmDialog('Are you sure you want to delete this lead?')) {
       try {
         await api.delete(`/leads/${id}`);
         fetchLeads();
       } catch (error) {
         console.error('Error deleting lead:', error);
-        alert('Error deleting lead');
+        notify('Error deleting lead');
       }
     }
   };
@@ -189,6 +191,8 @@ const Leads = () => {
           </button>
         </div>
       </div>
+
+      <LeadsCharts leads={filteredLeads} />
 
       <div className="glass-card">
         <TableToolbar

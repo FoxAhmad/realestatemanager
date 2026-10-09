@@ -6,7 +6,9 @@ import {
   FaChevronDown, FaChevronUp, FaCheckCircle, FaFolder, FaFolderOpen,
   FaEye, FaArrowLeft, FaTrash, FaPlus
 } from 'react-icons/fa';
+import InventoryCharts from '../components/charts/InventoryCharts';
 import './Inventory.css';
+import { notify, confirmDialog } from '../utils/notify';
 
 const INVENTORY_CATEGORY_LABELS = {
   plot: 'Plot',
@@ -142,18 +144,18 @@ const Inventory = () => {
       setBalanceProjects(prev => [...prev, response.data].sort((a, b) => a.name.localeCompare(b.name)));
       setFormData(prev => ({ ...prev, project_id: response.data.id }));
     } catch (error) {
-      alert(error.response?.data?.message || 'Error creating project');
+      notify(error.response?.data?.message || 'Error creating project');
     }
   };
 
   const handleDeleteProjectQuick = async (proj) => {
-    if (!window.confirm(`Delete project "${proj.name}"? Inventory in this project will become unassigned.`)) return;
+    if (!await confirmDialog(`Delete project "${proj.name}"? Inventory in this project will become unassigned.`)) return;
     try {
       await api.delete(`/balance-projects/${proj.id}`);
       setBalanceProjects(prev => prev.filter(p => p.id !== proj.id));
       fetchInventory();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error deleting project');
+      notify(error.response?.data?.message || 'Error deleting project');
     }
   };
 
@@ -224,7 +226,7 @@ const Inventory = () => {
       });
     } catch (error) {
       console.error('Error saving inventory:', error);
-      alert(error.response?.data?.message || 'Error saving inventory');
+      notify(error.response?.data?.message || 'Error saving inventory');
     }
   };
 
@@ -251,12 +253,12 @@ const Inventory = () => {
   const handleUpdatePlot = async (plotId) => {
     try {
       await api.put(`/inventory/plots/${plotId}`, plotEditForm);
-      alert('Plot updated successfully');
+      notify('Plot updated successfully');
       setEditingPlotId(null);
       // Refresh main inventory list (plots are embedded in it)
       fetchInventory();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error updating plot');
+      notify(error.response?.data?.message || 'Error updating plot');
     }
   };
 
@@ -280,13 +282,13 @@ const Inventory = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this inventory item?')) {
+    if (await confirmDialog('Are you sure you want to delete this inventory item?')) {
       try {
         await api.delete(`/inventory/${id}`);
         fetchInventory();
       } catch (error) {
         console.error('Error deleting inventory:', error);
-        alert('Error deleting inventory');
+        notify('Error deleting inventory');
       }
     }
   };
@@ -376,14 +378,14 @@ const Inventory = () => {
     try {
       // Validate investors array
       if (paymentForm.investors.length === 0) {
-        alert('Please add at least one investor');
+        notify('Please add at least one investor');
         return;
       }
 
       // Validate all investors have ID and amount
       for (const inv of paymentForm.investors) {
         if (!inv.investor_id || !inv.amount || parseFloat(inv.amount) <= 0) {
-          alert('Please fill in all investor fields with valid amounts');
+          notify('Please fill in all investor fields with valid amounts');
           return;
         }
       }
@@ -399,7 +401,7 @@ const Inventory = () => {
         notes: paymentForm.notes || null
       });
 
-      alert('Payment submitted successfully!');
+      notify('Payment submitted successfully!');
       setShowPaymentModal(null);
       setPaymentForm({
         inventory_id: null,
@@ -412,7 +414,7 @@ const Inventory = () => {
       fetchInvestorBalances();
     } catch (error) {
       console.error('Error submitting payment:', error);
-      alert(error.response?.data?.message || 'Error submitting payment');
+      notify(error.response?.data?.message || 'Error submitting payment');
     }
   };
 
@@ -525,6 +527,7 @@ const Inventory = () => {
             )}
           </div>
         </div>
+        <InventoryCharts items={inventory} byProject scope="All projects" />
         <div className="projects-grid">
           {renderProjectCard(unassigned)}
           {projectCards.map(proj => renderProjectCard(proj))}
@@ -580,6 +583,8 @@ const Inventory = () => {
             : <><FaFolderOpen style={{ marginRight: '0.5rem', color: 'var(--primary)' }} />{selectedProjectSummary.name}</>}
         </span>
       </div>
+
+      <InventoryCharts items={itemsInSelectedProject} scope={selectedProjectSummary.name} />
 
       <div className="glass-card">
         <TableToolbar

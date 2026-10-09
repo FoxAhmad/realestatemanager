@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import { buildDealsListPDF } from '../utils/dealsReport';
 import './Deals.css';
+import { notify, confirmDialog } from '../utils/notify';
+import DealsInsights from '../components/charts/DealsInsights';
 
 const DEAL_STATUS_LABELS = {
   in_progress: 'In Progress',
@@ -35,6 +37,7 @@ const Deals = () => {
   const [customers, setCustomers] = useState([]);
   const [dealers, setDealers] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingDealId, setEditingDealId] = useState(null);
@@ -68,6 +71,7 @@ const Deals = () => {
     fetchCustomers();
     fetchDealers();
     fetchInventory();
+    fetchPayments();
   }, []);
 
   const fetchDeals = async () => {
@@ -96,6 +100,16 @@ const Deals = () => {
       setDealers(response.data);
     } catch (error) {
       console.error('Error fetching dealers:', error);
+    }
+  };
+
+  // Receipts only feed the charts, so a failure here just leaves the collected side empty.
+  const fetchPayments = async () => {
+    try {
+      const response = await api.get('/payments');
+      setPayments(response.data);
+    } catch (error) {
+      console.error('Error fetching payments:', error);
     }
   };
 
@@ -201,13 +215,14 @@ const Deals = () => {
   };
 
   const handleDeleteDeal = async (id) => {
-    if (!window.confirm('Delete this deal? Its payments and adjustments will be removed too, and the plot will become available again.')) return;
+    if (!await confirmDialog('Delete this deal? Its payments and adjustments will be removed too, and the plot will become available again.')) return;
     try {
       await api.delete(`/deals/${id}`);
       fetchDeals();
+      fetchPayments();
     } catch (error) {
       console.error('Error deleting deal:', error);
-      alert(error.response?.data?.message || 'Error deleting deal');
+      notify(error.response?.data?.message || 'Error deleting deal');
     }
   };
 
@@ -216,13 +231,13 @@ const Deals = () => {
     try {
       const dealerName = dealerInput.trim();
       if (!dealerName) {
-        alert('Salesperson name is required');
+        notify('Salesperson name is required');
         return;
       }
       const dealerId = await resolveDealerId();
       const customerId = await resolveCustomerId();
       if (!customerId) {
-        alert('Customer name is required');
+        notify('Customer name is required');
         return;
       }
 
@@ -239,10 +254,11 @@ const Deals = () => {
         await api.post('/deals', { ...formData, customer_id: customerId, dealer_id: dealerId });
       }
       fetchDeals();
+      fetchPayments();
       closeDealModal();
     } catch (error) {
       console.error('Error saving deal:', error);
-      alert(error.response?.data?.message || 'Error saving deal');
+      notify(error.response?.data?.message || 'Error saving deal');
     }
   };
 
@@ -264,7 +280,7 @@ const Deals = () => {
       buildDealsListPDF({ deals: filteredDeals, preparedBy: user?.name });
     } catch (error) {
       console.error('Error exporting deals PDF:', error);
-      alert('Error generating PDF export');
+      notify('Error generating PDF export');
     }
   };
 
@@ -289,6 +305,8 @@ const Deals = () => {
           )}
         </div>
       </div>
+
+      <DealsInsights deals={filteredDeals} payments={payments} />
 
       <div className="glass-card">
         <TableToolbar

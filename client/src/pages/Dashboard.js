@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -13,6 +14,10 @@ import {
   FaFolderOpen
 } from 'react-icons/fa';
 import MutualNetReport from '../components/MutualNetReport';
+import {
+  KpiCard, ChartFrame, CollectionsTrend, BookedVsCollected, StatusDonut, PlotMap, DealProgress, RecentPayments, formatMoney
+} from '../components/dashboard/widgets';
+import { buildOverview } from '../components/dashboard/overviewData';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -37,7 +42,10 @@ const Dashboard = () => {
   const [mutualSummary, setMutualSummary] = useState({ owe: 0, owed: 0 });
   const [allDealerBalances, setAllDealerBalances] = useState([]);
   const [projectBalances, setProjectBalances] = useState([]);
+  const [rawData, setRawData] = useState({ deals: [], payments: [], inventory: [] });
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const overview = useMemo(() => buildOverview(rawData), [rawData]);
 
   useEffect(() => {
     if (user) {
@@ -64,12 +72,15 @@ const Dashboard = () => {
       const fetchBalances = api.get('/dealer-exchanges/balances').catch(e => ({ data: { peerBalances: [], ledgerBalances: {} } }));
       const fetchProjectBalances = isMgmt ? api.get('/balance-projects').catch(e => ({ data: [] })) : Promise.resolve({ data: [] });
 
-      const [dealsRes, inventoryRes, financeRes, reqsRes, mutualsRes, projectBalancesRes] = await Promise.all([
-        fetchDeals, fetchInventory, fetchFinance, fetchRequests, fetchBalances, fetchProjectBalances
+      const fetchPayments = api.get('/payments').catch(e => ({ data: [] }));
+
+      const [dealsRes, inventoryRes, financeRes, reqsRes, mutualsRes, projectBalancesRes, paymentsRes] = await Promise.all([
+        fetchDeals, fetchInventory, fetchFinance, fetchRequests, fetchBalances, fetchProjectBalances, fetchPayments
       ]);
 
       const deals = dealsRes.data || [];
       const inventory = inventoryRes.data || [];
+      setRawData({ deals, inventory, payments: paymentsRes.data || [] });
       const requests = reqsRes.data || [];
       const mutualsData = mutualsRes.data || {};
       
@@ -131,6 +142,76 @@ const Dashboard = () => {
         <div className="header-date">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </div>
+      </div>
+
+      {/* Overview: KPIs and charts, same widgets as the Plot Ledge site */}
+      <div className="wg-grid-kpi">
+        <KpiCard
+          label="Total collected"
+          value={overview.totalCollected}
+          prefix="Rs. "
+          delta={overview.collectedDelta}
+          deltaLabel="vs last month"
+          spark={overview.collected}
+        />
+        <KpiCard
+          label="Outstanding"
+          value={overview.outstanding}
+          prefix="Rs. "
+          note="Still to be received on active deals"
+        />
+        <KpiCard
+          label="Active deals"
+          value={overview.activeDealCount}
+          delta={overview.dealsDelta}
+          deltaLabel="new deals vs last month"
+          spark={overview.dealsCreated}
+        />
+        <KpiCard
+          label="Collection rate"
+          value={overview.collectionRate}
+          decimals={1}
+          suffix="%"
+          note={`${overview.plotCounts.available} plots still available`}
+        />
+      </div>
+
+      <div className="wg-grid-2">
+        <ChartFrame title="Collections trend" subtitle="Money received per month">
+          <CollectionsTrend labels={overview.labels} values={overview.collected} />
+        </ChartFrame>
+        <ChartFrame
+          title="Booked vs collected"
+          subtitle="Deal value booked against money received"
+          legend={[
+            { label: 'Booked', color: 'var(--chart-2)' },
+            { label: 'Collected', color: 'var(--chart-1)' },
+          ]}
+        >
+          <BookedVsCollected labels={overview.labels} booked={overview.booked} collected={overview.collected} />
+        </ChartFrame>
+      </div>
+
+      <div className="wg-grid-donut">
+        <ChartFrame
+          title="Deal status"
+          subtitle="All deals"
+          legend={overview.statusSegments.map((s) => ({ label: s.label, color: s.color, value: s.count }))}
+        >
+          <StatusDonut segments={overview.statusSegments} centerLabel="deals" />
+        </ChartFrame>
+        <ChartFrame title="Deals in progress" subtitle="Largest open deals and how much has been received">
+          <DealProgress deals={overview.progress} onOpen={(id) => navigate(`/deals/${id}`)} />
+        </ChartFrame>
+      </div>
+
+      <div className="wg-grid-plots">
+        <ChartFrame title="Plot map" subtitle="Every plot in your inventory by status">
+          <PlotMap plots={overview.plots} />
+        </ChartFrame>
+        <ChartFrame title="Recent payments" subtitle={`Latest receipts, ${formatMoney(overview.totalCollected)} received overall`}>
+          <RecentPayments payments={overview.recent} />
+        </ChartFrame>
       </div>
 
       {/* Admin/Accountant Main Ledger Topline */}

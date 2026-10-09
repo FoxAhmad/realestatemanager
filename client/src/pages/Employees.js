@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Employees.css';
+import { notify } from '../utils/notify';
 
 const EMPLOYEE_COLUMNS = [
   { key: 'name', label: 'Member Name', type: 'text' },
@@ -49,7 +50,7 @@ const Employees = () => {
       setEditingEmployee(null);
     } catch (error) {
       console.error('Error updating employee:', error);
-      alert(error.response?.data?.message || 'Error updating employee');
+      notify(error.response?.data?.message || 'Error updating employee');
     }
   };
 

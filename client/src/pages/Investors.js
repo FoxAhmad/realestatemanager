@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { FaUserPlus, FaEdit, FaTrash, FaShieldAlt } from 'react-icons/fa';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Investors.css';
+import { notify, confirmDialog } from '../utils/notify';
+import InvestorCharts from '../components/charts/InvestorCharts';
 
 const INVESTOR_COLUMNS = [
   { key: 'name', label: 'Partner Name', type: 'text' },
@@ -68,7 +70,7 @@ const Investors = () => {
       setFormData({ name: '', cnic: '', contact_number: '', address: '' });
     } catch (error) {
       console.error('Error saving investor:', error);
-      alert(error.response?.data?.message || 'Error saving investor');
+      notify(error.response?.data?.message || 'Error saving investor');
     }
   };
 
@@ -84,13 +86,13 @@ const Investors = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this investor?')) {
+    if (await confirmDialog('Are you sure you want to delete this investor?')) {
       try {
         await api.delete(`/investors/${id}`);
         fetchInvestors();
       } catch (error) {
         console.error('Error deleting investor:', error);
-        alert('Error deleting investor');
+        notify('Error deleting investor');
       }
     }
   };
@@ -127,6 +129,8 @@ const Investors = () => {
           <FaUserPlus /> Onboard Investor
         </button>
       </div>
+
+      <InvestorCharts investors={filteredInvestors} />
 
       <div className="glass-card">
         <TableToolbar

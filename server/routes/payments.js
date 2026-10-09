@@ -8,7 +8,7 @@ const ledgerService = require('../services/ledgerService');
 router.get('/', auth, async (req, res) => {
   try {
     let result;
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'admin' || req.user.role === 'accountant') {
       result = await db.query(`
         SELECT p.*, d.dealer_id, d.sale_price, c.name as customer_name
         FROM payments p
