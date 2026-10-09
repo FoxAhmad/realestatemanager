@@ -280,3 +280,36 @@ svg[stroke="currentColor"] { stroke-width: 1.9; }
   font-size: clamp(1.6rem, 2.1vw, 2.25rem);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---- Modal header: title on the left, close button on the right (class had no styling before) ---- */
+.modal-content .modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #ece8dc;
+}
+
+.modal-content .modal-header h2 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.close-modal-btn.close-modal-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #f6f3ea;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+.close-modal-btn.close-modal-btn:hover {
+  background: #fee2e2;
+  color: #b42318;
+  transform: none;
+}
