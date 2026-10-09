@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './Employees.css';
 import { notify } from '../utils/notify';
 
@@ -58,6 +59,8 @@ const Employees = () => {
     search, setSearch,
     filters, setFilter, clearFilters,
     filteredData: filteredEmployees,
+    pagedData: pagedEmployees,
+    pagination: employeesPagination,
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
@@ -108,7 +111,7 @@ const Employees = () => {
                   </td>
                 </tr>
               ) : (
-                filteredEmployees.map((emp) => (
+                pagedEmployees.map((emp) => (
                   <tr key={emp.id}>
                     <td data-label="Member Name" style={{ fontWeight: '700' }}>{emp.name}</td>
                     <td data-label="Access Email">{emp.email}</td>
@@ -137,6 +140,7 @@ const Employees = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...employeesPagination} />
       </div>
 
       {showModal && (

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { FaPlus, FaTimes, FaHandHoldingUsd, FaChartLine, FaUserTie, FaUndo } from 'react-icons/fa';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './LoansAndInvestments.css';
 import { notify } from '../utils/notify';
 
@@ -98,6 +99,7 @@ const LoansAndInvestments = () => {
     uniqueValues: receivableUniqueValues,
     showFilters: showReceivableFilters, setShowFilters: setShowReceivableFilters,
     activeFilterCount: receivableActiveFilterCount,
+    pagedData: pagedLoansReceivable, pagination: receivablePagination,
   } = useTableFilters(loans.receivable, LOAN_RECEIVABLE_COLUMNS);
 
   const {
@@ -107,6 +109,7 @@ const LoansAndInvestments = () => {
     uniqueValues: payableUniqueValues,
     showFilters: showPayableFilters, setShowFilters: setShowPayableFilters,
     activeFilterCount: payableActiveFilterCount,
+    pagedData: pagedLoansPayable, pagination: payablePagination,
   } = useTableFilters(loans.payable, LOAN_PAYABLE_COLUMNS);
 
   const {
@@ -116,6 +119,7 @@ const LoansAndInvestments = () => {
     uniqueValues: investmentsUniqueValues,
     showFilters: showInvestmentsFilters, setShowFilters: setShowInvestmentsFilters,
     activeFilterCount: investmentsActiveFilterCount,
+    pagedData: pagedInvestments, pagination: investmentsPagination,
   } = useTableFilters(investments, INVESTMENT_COLUMNS);
 
   const handleInputChange = (e) => {
@@ -273,7 +277,7 @@ const LoansAndInvestments = () => {
                 {filteredLoansReceivable.length === 0 && (
                   <tr className="li-empty-row"><td colSpan="3">No loans given out yet.</td></tr>
                 )}
-                {filteredLoansReceivable.map(row => (
+                {pagedLoansReceivable.map(row => (
                   <tr key={row.account_id}>
                     <td data-label="Name">{row.name}</td>
                     <td data-label="Outstanding">
@@ -293,6 +297,7 @@ const LoansAndInvestments = () => {
               </tbody>
             </table>
           </div>
+          <Pagination {...receivablePagination} />
 
           <h3 style={{ margin: '1.5rem 0 0.75rem' }}>Loans Payable &mdash; we owe</h3>
           <TableToolbar
@@ -318,7 +323,7 @@ const LoansAndInvestments = () => {
                 {filteredLoansPayable.length === 0 && (
                   <tr className="li-empty-row"><td colSpan="3">No loans taken yet.</td></tr>
                 )}
-                {filteredLoansPayable.map(row => (
+                {pagedLoansPayable.map(row => (
                   <tr key={row.account_id}>
                     <td data-label="Name">{row.name}</td>
                     <td data-label="Outstanding">
@@ -338,6 +343,7 @@ const LoansAndInvestments = () => {
               </tbody>
             </table>
           </div>
+          <Pagination {...payablePagination} />
         </>
       )}
 
@@ -366,7 +372,7 @@ const LoansAndInvestments = () => {
               {filteredInvestments.length === 0 && (
                 <tr className="li-empty-row"><td colSpan="2">No investments recorded yet.</td></tr>
               )}
-              {filteredInvestments.map(row => (
+              {pagedInvestments.map(row => (
                 <tr key={row.account_id}>
                   <td data-label="Venture">{row.name}</td>
                   <td data-label="Outstanding">
@@ -379,6 +385,7 @@ const LoansAndInvestments = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...investmentsPagination} />
         </>
       )}
 

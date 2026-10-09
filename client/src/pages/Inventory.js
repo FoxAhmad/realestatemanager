@@ -7,6 +7,7 @@ import {
   FaEye, FaArrowLeft, FaTrash, FaPlus
 } from 'react-icons/fa';
 import InventoryCharts from '../components/charts/InventoryCharts';
+import Pagination, { usePagerState, paginate } from '../components/Pagination';
 import './Inventory.css';
 import { notify, confirmDialog } from '../utils/notify';
 
@@ -32,6 +33,7 @@ const Inventory = () => {
   const { isAdmin, isAccountant, isEmployee, user } = useAuth();
   const canEdit = isAdmin || isAccountant;
   const [inventory, setInventory] = useState([]);
+  const plotPager = usePagerState();
   const [salespersons, setSalespersons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -543,6 +545,7 @@ const Inventory = () => {
 
   const itemsInSelectedProject = filteredInventory.filter(item => getProjectKey(item) === selectedProjectKey);
   const plotsInSelectedProject = getPlotsFromItems(itemsInSelectedProject);
+  const { pageItems: pagedPlots, pagination: plotsPagination } = paginate(plotsInSelectedProject, plotPager);
 
   return (
     <div className="premium-page">
@@ -624,7 +627,7 @@ const Inventory = () => {
                 <td colSpan={canEdit ? 11 : 8} className="empty-state">No plots in this project yet</td>
               </tr>
             ) : (
-              plotsInSelectedProject.map(plot => {
+              pagedPlots.map(plot => {
                 const hasPossibleDeal = plot.status !== 'available';
                 const isExpanded = !!expandedPlotRows[plot.id];
                 const deal = dealInfo[plot.id];
@@ -820,6 +823,7 @@ const Inventory = () => {
           </tbody>
         </table>
       </div>
+      <Pagination {...plotsPagination} />
     </div>
 
       {showModal && (

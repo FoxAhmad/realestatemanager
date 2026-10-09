@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { FaUserPlus, FaEdit, FaTrash, FaShieldAlt } from 'react-icons/fa';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './Investors.css';
 import { notify, confirmDialog } from '../utils/notify';
 
@@ -31,6 +32,7 @@ const Investors = () => {
     search, setSearch,
     filters, setFilter, clearFilters,
     filteredData: filteredInvestors,
+    pagedData: pagedInvestors, pagination: investorsPagination,
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
@@ -163,7 +165,7 @@ const Investors = () => {
                   </td>
                 </tr>
               ) : (
-                filteredInvestors.map((investor) => (
+                pagedInvestors.map((investor) => (
                   <tr key={investor.id}>
                     <td data-label="Partner Name" style={{ fontWeight: '700' }}>{investor.name}</td>
                     <td data-label="Identity (CNIC)">{investor.cnic}</td>
@@ -197,6 +199,7 @@ const Investors = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...investorsPagination} />
       </div>
 
       {showModal && (

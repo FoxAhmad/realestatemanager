@@ -165,3 +165,34 @@
   .premium-loading.premium-loading,
   .dashboard-loading.dashboard-loading { animation: none; }
 }
+
+/* ---- Phones: page headers wrap so action buttons never push the page wider than the screen ---- */
+@media (max-width: 768px) {
+  .premium-page-header.premium-page-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .premium-page-header.premium-page-header > div:last-child:not(:first-child) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    width: 100%;
+  }
+
+  .premium-page-header.premium-page-header .premium-btn { flex: 1 1 auto; justify-content: center; }
+}
+
+/* ---- Summary figures and money cells stay on one line ---- */
+.summary-value.summary-value,
+.slip-summary-container .summary-value,
+.amount-cell,
+.premium-table td.amount-cell {
+  white-space: nowrap;
+}
+
+.slip-summary-container .summary-value { font-size: clamp(1.2rem, 1.6vw, 1.6rem); }
+
+/* ---- Plot map and similar chart cards align to the top instead of floating mid-card ---- */
+.wg-frame:has(.wg-plotmap) .wg-frame-body { justify-content: flex-start; }

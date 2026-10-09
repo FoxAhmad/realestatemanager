@@ -477,3 +477,23 @@
   width: 24px;
   height: 24px;
 }
+
+
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  color: var(--text-main);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.user-menu-item:hover { background: #f6faf7; }
+.user-menu-item svg { color: var(--primary); }
+.user-menu-logout { margin-top: 0.2rem; border-top: 1px solid #f4f1e8; border-radius: 0 0 10px 10px; }

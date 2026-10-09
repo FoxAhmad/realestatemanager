@@ -12,6 +12,7 @@ import {
   buildDealerLedgers, buildDealerSharesPDF, buildTotalSummaryPDF
 } from '../utils/balanceReports';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './ManageBalances.css';
 import { notify, confirmDialog } from '../utils/notify';
 import { BalanceProjectCharts, BalanceEntryCharts } from '../components/charts/BalancesCharts';
@@ -423,6 +424,7 @@ const ManageBalances = () => {
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
+    pagedData: pagedTransactions, pagination,
   } = useTableFilters(transactionsWithBalance, BALANCE_COLUMNS);
 
   // ── Computed Values ───────────────────────────────────────────────────────────
@@ -728,7 +730,7 @@ const ManageBalances = () => {
                   ) : filteredTransactions.length === 0 ? (
                     <tr><td colSpan="9" className="empty-state">No transactions recorded for this project</td></tr>
                   ) : (
-                    filteredTransactions.map((t) => {
+                    pagedTransactions.map((t) => {
                       const runningBalance = t._runningBalance;
                       const balanceChange = t._balanceChange;
                       const isExpanded = expandedRows[t.id];
@@ -860,6 +862,7 @@ const ManageBalances = () => {
                 </tbody>
               </table>
             </div>
+            <Pagination {...pagination} />
           </div>
         </div>
       )}

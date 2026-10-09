@@ -34,7 +34,17 @@ export const useInView = () => {
       { threshold: 0.15 }
     );
     if (ref.current) obs.observe(ref.current);
-    return () => obs.disconnect();
+    // IntersectionObserver does not fire while the tab is hidden; do not leave widgets blank.
+    const fallback = setInterval(() => {
+      const el = ref.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (r.top < window.innerHeight && r.bottom > 0) setSeen(true);
+    }, 1500);
+    return () => {
+      obs.disconnect();
+      clearInterval(fallback);
+    };
   }, [seen]);
   return [ref, seen];
 };
@@ -56,7 +66,12 @@ export const CountUp = ({ value, decimals = 0, prefix = '', suffix = '', duratio
       if (t < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    // Browsers pause animation frames in background tabs; make sure the final value still lands.
+    const settle = setTimeout(() => setShown(value), duration + 150);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(settle);
+    };
   }, [seen, value, duration]);
   return (
     <span ref={ref}>

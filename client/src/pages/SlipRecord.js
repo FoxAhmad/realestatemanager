@@ -4,6 +4,7 @@ import { FaPlus, FaEdit, FaTrash, FaFileImport, FaReceipt } from 'react-icons/fa
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './SlipRecord.css';
 import { notify, confirmDialog } from '../utils/notify';
 
@@ -115,6 +116,7 @@ const SlipRecord = () => {
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
+    pagedData: pagedSlips, pagination,
   } = useTableFilters(slips, SLIP_COLUMNS);
 
   const totals = filteredSlips.reduce((acc, s) => ({
@@ -299,9 +301,9 @@ const SlipRecord = () => {
                   </td>
                 </tr>
               ) : (
-                filteredSlips.map((s, idx) => (
+                pagedSlips.map((s, idx) => (
                   <tr key={s.id}>
-                    <td data-label="S.No">{idx + 1}</td>
+                    <td data-label="S.No">{(pagination.page - 1) * pagination.pageSize + idx + 1}</td>
                     <td data-label="Date">{new Date(s.slip_date).toLocaleDateString()}</td>
                     <td data-label="Plot">
                       {s.deal_id ? (
@@ -362,6 +364,7 @@ const SlipRecord = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...pagination} />
       </div>
 
       {showModal && (

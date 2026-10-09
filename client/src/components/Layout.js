@@ -23,7 +23,11 @@ import {
   FaFileContract,
   FaReceipt,
   FaSignOutAlt,
-  FaChevronDown
+  FaChevronDown,
+  FaUserFriends,
+  FaBullhorn,
+  FaBalanceScale,
+  FaCog
 } from 'react-icons/fa';
 import './Layout.css';
 
@@ -114,6 +118,9 @@ const Layout = () => {
                     <span className="user-role">{user?.role}</span>
                   </div>
                 </div>
+                <Link to="/settings" role="menuitem" className="user-menu-item">
+                  <FaCog /> Settings &amp; profile
+                </Link>
                 <button type="button" role="menuitem" className="user-menu-logout" onClick={logout}>
                   <FaSignOutAlt /> Log out
                 </button>
@@ -216,6 +223,34 @@ const Layout = () => {
               </div>
             )}
 
+            {user?.role !== 'customer' && (
+              <div className="sidebar-section">
+                <Link
+                  to="/customers"
+                  className={`sidebar-submenu-item ${isActive('/customers') ? 'active' : ''}`}
+                  title="Customers"
+                  onClick={closeSidebarOnMobile}
+                >
+                  <FaUserFriends className="sidebar-icon" />
+                  {sidebarOpen && <span>Customers</span>}
+                </Link>
+              </div>
+            )}
+
+            {user?.role !== 'customer' && (
+              <div className="sidebar-section">
+                <Link
+                  to="/leads"
+                  className={`sidebar-submenu-item ${isActive('/leads') ? 'active' : ''}`}
+                  title="Leads"
+                  onClick={closeSidebarOnMobile}
+                >
+                  <FaBullhorn className="sidebar-icon" />
+                  {sidebarOpen && <span>Leads</span>}
+                </Link>
+              </div>
+            )}
+
             <div className="sidebar-section">
               <Link
                 to="/inventory"
@@ -250,6 +285,20 @@ const Layout = () => {
                 >
                   <FaUserShield className="sidebar-icon" />
                   {sidebarOpen && <span>User Roles</span>}
+                </Link>
+              </div>
+            )}
+
+            {(user?.role === 'admin' || user?.role === 'accountant') && (
+              <div className="sidebar-section">
+                <Link
+                  to="/ledger"
+                  className={`sidebar-submenu-item ${isActive('/ledger') ? 'active' : ''}`}
+                  title="General Ledger"
+                  onClick={closeSidebarOnMobile}
+                >
+                  <FaBalanceScale className="sidebar-icon" />
+                  {sidebarOpen && <span>General Ledger</span>}
                 </Link>
               </div>
             )}
@@ -305,6 +354,18 @@ const Layout = () => {
                 {sidebarOpen && <span>Investors</span>}
               </Link>
             </div>
+            <div className="sidebar-section">
+              <Link
+                to="/settings"
+                className={`sidebar-submenu-item ${isActive('/settings') ? 'active' : ''}`}
+                title="Settings"
+                onClick={closeSidebarOnMobile}
+              >
+                <FaCog className="sidebar-icon" />
+                {sidebarOpen && <span>Settings</span>}
+              </Link>
+            </div>
+
           </nav>
         </aside>
 

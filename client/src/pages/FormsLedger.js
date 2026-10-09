@@ -227,7 +227,7 @@ const FormsLedger = () => {
                     </div>
                     <div className="forms-dealer-count">
                       <span className={`count-val${d.forms_held < 0 ? ' negative' : ''}`}>{d.forms_held}</span>
-                      <span className="count-label">Forms Held</span>
+                      <span className="count-label">{d.forms_held < 0 ? 'Over-used' : 'Forms Held'}</span>
                     </div>
                     <div className="forms-dealer-value">
                       <span className={`value-val${d.forms_held < 0 ? ' negative' : ''}`}>Rs. {(d.forms_held * defaultCurrentValue).toLocaleString()}</span>

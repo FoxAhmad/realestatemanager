@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './Ledger.css';
 
 const LEDGER_COLUMNS = [
@@ -27,6 +28,7 @@ const Ledger = () => {
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
+    pagedData: pagedLedgerLines, pagination,
   } = useTableFilters(ledgerLines, LEDGER_COLUMNS);
 
   useEffect(() => {
@@ -94,7 +96,7 @@ const Ledger = () => {
                   </td>
                 </tr>
               ) : (
-                filteredLedgerLines.map((line, index) => {
+                pagedLedgerLines.map((line, index) => {
                   const isCredit = parseFloat(line.credit || 0) > 0;
                   // Grouping logic: if next line is same transaction, style accordingly
                   // For now simple list
@@ -129,6 +131,7 @@ const Ledger = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...pagination} />
       </div>
     </div>
   );

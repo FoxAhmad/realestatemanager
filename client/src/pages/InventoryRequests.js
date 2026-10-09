@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './InventoryRequests.css';
 import { notify, confirmDialog } from '../utils/notify';
 
@@ -39,6 +40,7 @@ const InventoryRequests = () => {
     search, setSearch,
     filters, setFilter, clearFilters,
     filteredData: filteredRequests,
+    pagedData: pagedRequests, pagination: requestsPagination,
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
@@ -168,7 +170,7 @@ const InventoryRequests = () => {
                 </td>
               </tr>
             ) : (
-              filteredRequests.map((request) => (
+              pagedRequests.map((request) => (
                 <tr key={request.id}>
                   <td>{request.id}</td>
                   <td>{request.inventory_address || '-'}</td>
@@ -237,6 +239,7 @@ const InventoryRequests = () => {
           </tbody>
         </table>
       </div>
+      <Pagination {...requestsPagination} />
 
       {actionModal && (
         <div

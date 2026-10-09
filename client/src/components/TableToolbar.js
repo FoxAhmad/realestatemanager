@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FaSearch, FaFilter, FaTimes } from 'react-icons/fa';
 import './TableToolbar.css';
 
@@ -11,6 +11,8 @@ export function useTableFilters(data, columns) {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({});
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const getValue = (row, col) => (col.accessor ? col.accessor(row) : row[col.key]);
 
@@ -90,6 +92,22 @@ export function useTableFilters(data, columns) {
     return rows;
   }, [data, columns, search, filters]);
 
+  // Pagination: pages slice the already filtered rows, so search and filters always cover every row.
+  const total = filteredData.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedData = useMemo(
+    () => filteredData.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredData, safePage, pageSize]
+  );
+
+  // Go back to the first page whenever the search or a filter changes.
+  useEffect(() => {
+    setPage(1);
+  }, [search, filters]);
+
+  const pagination = { page: safePage, pageSize, total, totalPages, setPage, setPageSize: (n) => { setPageSize(n); setPage(1); } };
+
   const setFilter = (key, val) => setFilters((prev) => ({ ...prev, [key]: val }));
 
   const clearFilters = () => {
@@ -110,6 +128,8 @@ export function useTableFilters(data, columns) {
     setFilter,
     clearFilters,
     filteredData,
+    pagedData,
+    pagination,
     uniqueValues,
     showFilters,
     setShowFilters,

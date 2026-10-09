@@ -5,6 +5,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import { buildDealsListPDF } from '../utils/dealsReport';
+import Pagination from '../components/Pagination';
 import './Deals.css';
 import { notify, confirmDialog } from '../utils/notify';
 import DealsInsights from '../components/charts/DealsInsights';
@@ -61,6 +62,8 @@ const Deals = () => {
     search, setSearch,
     filters, setFilter, clearFilters,
     filteredData: filteredDeals,
+    pagedData: pagedDeals,
+    pagination: dealsPagination,
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
@@ -345,7 +348,7 @@ const Deals = () => {
                   </td>
                 </tr>
               ) : (
-                filteredDeals.map((deal) => (
+                pagedDeals.map((deal) => (
                   <tr key={deal.id}>
                     <td data-label="Deal ID">#{deal.id}</td>
                     <td data-label="Customer Name" style={{ fontWeight: '700' }}>{deal.customer_name}</td>
@@ -399,6 +402,7 @@ const Deals = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...dealsPagination} />
       </div>
 
       {showModal && (

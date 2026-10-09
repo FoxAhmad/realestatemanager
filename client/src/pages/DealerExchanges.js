@@ -3,6 +3,7 @@ import api from '../services/api';
 import { FaEdit, FaTrash, FaChevronDown, FaChevronRight } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import MutualNetReport from '../components/MutualNetReport';
+import Pagination, { usePagerState, paginate } from '../components/Pagination';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './DealerExchanges.css';
 import { notify, confirmDialog } from '../utils/notify';
@@ -21,6 +22,7 @@ const DealerExchanges = () => {
   const isAdmin = user?.role === 'admin';
   const isAccountant = user?.role === 'accountant';
   const [exchanges, setExchanges] = useState([]);
+  const groupPager = usePagerState(10);
   const [dealers, setDealers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -213,6 +215,9 @@ const DealerExchanges = () => {
     senderGroups[groupIndexByPair.get(key)].entries.push(ex);
   });
 
+  // Pages hold whole groups, so a group's collapsed total always sums every entry in it.
+  const { pageItems: pagedGroups, pagination: groupsPagination } = paginate(senderGroups, groupPager);
+
   const renderExchangeRow = (ex, { nested = false } = {}) => (
     <tr key={ex.id} className={nested ? 'mutual-subrow' : undefined}>
       <td data-label="Date">{new Date(ex.exchange_date).toLocaleDateString()}</td>
@@ -339,7 +344,7 @@ const DealerExchanges = () => {
                   </td>
                 </tr>
               ) : (
-                senderGroups.map((group) => {
+                pagedGroups.map((group) => {
                   if (group.entries.length === 1) {
                     return renderExchangeRow(group.entries[0]);
                   }
@@ -379,6 +384,7 @@ const DealerExchanges = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...groupsPagination} />
       </div>
 
       {showModal && (

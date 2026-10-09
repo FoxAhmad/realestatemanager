@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './Payments.css';
 import { notify, confirmDialog } from '../utils/notify';
 import PaymentsInsights from '../components/charts/PaymentsInsights';
@@ -66,6 +67,7 @@ const Payments = () => {
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
+    pagedData: pagedPayments, pagination,
   } = useTableFilters(payments, PAYMENT_COLUMNS);
 
   const totalAmount = filteredPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
@@ -133,7 +135,7 @@ const Payments = () => {
                   </td>
                 </tr>
               ) : (
-                filteredPayments.map((p) => (
+                pagedPayments.map((p) => (
                   <tr key={p.id}>
                     <td data-label="Date" style={{ fontWeight: 600 }}>{new Date(p.payment_date).toLocaleDateString()}</td>
                     <td data-label="Classification">
@@ -177,6 +179,7 @@ const Payments = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...pagination} />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './Dealers.css';
 import { notify, confirmDialog } from '../utils/notify';
 
@@ -86,6 +87,8 @@ const Dealers = () => {
     search, setSearch,
     filters, setFilter, clearFilters,
     filteredData: filteredDealers,
+    pagedData: pagedDealers,
+    pagination: dealersPagination,
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
@@ -148,7 +151,7 @@ const Dealers = () => {
                   </td>
                 </tr>
               ) : (
-                filteredDealers.map((dealer) => (
+                pagedDealers.map((dealer) => (
                   <tr key={dealer.id}>
                     <td data-label="Full Name" style={{ fontWeight: '700' }}>{dealer.name}</td>
                     <td data-label="Access Email">{dealer.email}</td>
@@ -186,6 +189,7 @@ const Dealers = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...dealersPagination} />
       </div>
 
       {showModal && (

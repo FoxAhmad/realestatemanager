@@ -8,6 +8,7 @@ import { buildDealProfilePDF } from '../utils/dealsReport';
 import './DealDetail.css';
 import { notify, confirmDialog } from '../utils/notify';
 import DealDetailInsights from '../components/charts/DealDetailInsights';
+import Pagination, { usePagerState, paginate } from '../components/Pagination';
 
 const LEDGER_COLUMNS = [
   { key: 'date', label: 'Date', type: 'date' },
@@ -21,6 +22,7 @@ const DealDetail = () => {
   const navigate = useNavigate();
   const { isAdmin, isAccountant, user } = useAuth();
   const [deal, setDeal] = useState(null);
+  const groupPager = usePagerState(10);
   const [payments, setPayments] = useState([]);
   const [adjustments, setAdjustments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -185,6 +187,9 @@ const DealDetail = () => {
       }))
       .sort((a, b) => rankOf(a) - rankOf(b));
   }, [filteredLedgerEntries]);
+
+  // Pages hold whole groups so each group's total always covers all of its payments.
+  const { pageItems: pagedPaymentGroups, pagination: paymentGroupsPagination } = paginate(groupedPaymentEntries, groupPager);
 
   const handleEditPayment = (p) => {
     const linkedAdj = adjustments.find(a => a.payment_id === p.id);
@@ -561,7 +566,7 @@ const DealDetail = () => {
                     )}
                   </div>
                 ))}
-                {groupedPaymentEntries.map((group) => (
+                {pagedPaymentGroups.map((group) => (
                   <div key={group.key} className="ledger-group">
                     <div className="ledger-group-header">
                       <span className="ledger-group-label">{group.label}</span>
@@ -673,6 +678,7 @@ const DealDetail = () => {
                     </div>
                   </div>
                 ))}
+                <Pagination {...paymentGroupsPagination} />
               </>
             )}
           </div>

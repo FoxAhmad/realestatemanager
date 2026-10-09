@@ -21,6 +21,7 @@ import ManageBalances from './pages/ManageBalances';
 import FormsLedger from './pages/FormsLedger';
 import SlipRecord from './pages/SlipRecord';
 import LoansAndInvestments from './pages/LoansAndInvestments';
+import Settings from './pages/Settings';
 import Layout from './components/Layout';
 import NotifyHost from './components/NotifyHost';
 import './App.css';
@@ -58,6 +59,8 @@ function App() {
             <Route path="manage-balances" element={<ManageBalances />} />
             <Route path="forms-ledger" element={<FormsLedger />} />
             <Route path="slip-record" element={<SlipRecord />} />
+            <Route path="profile" element={<Navigate to="/settings" replace />} />
+            <Route path="settings" element={<Settings />} />
             <Route path="loans-and-investments" element={<LoansAndInvestments />} />
           </Route>
         </Routes>

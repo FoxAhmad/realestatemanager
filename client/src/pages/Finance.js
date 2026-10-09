@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { mergeFinanceEntries } from '../utils/financeLedger';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './Finance.css';
 import { notify, confirmDialog } from '../utils/notify';
 import { FinanceLedgerCharts, FinanceAnalyticsCharts } from '../components/charts/FinanceCharts';
@@ -67,6 +68,7 @@ const Finance = () => {
     search: ledgerSearch, setSearch: setLedgerSearch,
     filters: ledgerFilters, setFilter: setLedgerFilter, clearFilters: clearLedgerFilters,
     filteredData: filteredLedgerEntries,
+    pagedData: pagedLedgerEntries, pagination: ledgerPagination,
     uniqueValues: ledgerUniqueValues,
     showFilters: showLedgerFilters, setShowFilters: setShowLedgerFilters,
     activeFilterCount: ledgerActiveFilterCount,
@@ -76,6 +78,7 @@ const Finance = () => {
     search: teamSearch, setSearch: setTeamSearch,
     filters: teamFilters, setFilter: setTeamFilter, clearFilters: clearTeamFilters,
     filteredData: filteredDealerStats,
+    pagedData: pagedDealerStats, pagination: teamPagination,
     uniqueValues: teamUniqueValues,
     showFilters: showTeamFilters, setShowFilters: setShowTeamFilters,
     activeFilterCount: teamActiveFilterCount,
@@ -405,7 +408,7 @@ const Finance = () => {
                       return <tr><td colSpan={6 + (isAccountant ? 1 : 0) + (canManage ? 1 : 0)} className="empty-state">No financial transactions found.</td></tr>;
                     }
 
-                    return filteredLedgerEntries.map((entry, idx) => (
+                    return pagedLedgerEntries.map((entry, idx) => (
                       <tr key={`${entry.id}_${idx}`}>
                         <td data-label="Date">
                           {new Date(entry.transaction_date).toLocaleDateString()}
@@ -483,6 +486,7 @@ const Finance = () => {
                 </tbody>
               </table>
             </div>
+            <Pagination {...ledgerPagination} />
           </div>
         </section>
       ) : (
@@ -550,7 +554,7 @@ const Finance = () => {
                         {filteredDealerStats.length === 0 ? (
                           <tr><td colSpan="3" className="empty-state">No team data available</td></tr>
                         ) : (
-                          filteredDealerStats.map((stat, i) => (
+                          pagedDealerStats.map((stat, i) => (
                             <tr key={i}>
                               <td data-label="Salesperson" style={{ fontWeight: '700' }}>{stat.dealer_name}</td>
                               <td data-label="Volume">Rs. {parseFloat(stat.total_revenue).toLocaleString()}</td>
@@ -561,6 +565,7 @@ const Finance = () => {
                       </tbody>
                     </table>
                   </div>
+                  <Pagination {...teamPagination} />
                 </div>
               </section>
             )}

@@ -13,22 +13,25 @@ router.get('/', auth, adminAndAccountantOnly, async (req, res) => {
   }
 });
 
-// Update a setting
+// Create or update a setting. Keys are upper-case letters, digits and underscores only.
 router.put('/:key', auth, adminAndAccountantOnly, async (req, res) => {
   try {
-    const { value } = req.body;
-    if (value === undefined) {
+    const { value, description } = req.body;
+    if (value === undefined || value === null) {
       return res.status(400).json({ message: 'Setting value is required' });
+    }
+    if (!/^[A-Z][A-Z0-9_]{1,99}$/.test(req.params.key)) {
+      return res.status(400).json({ message: 'Invalid setting key' });
     }
 
     const result = await db.query(
-      'UPDATE app_settings SET setting_value = $1, updated_at = CURRENT_TIMESTAMP WHERE setting_key = $2 RETURNING *',
-      [value.toString(), req.params.key]
+      `INSERT INTO app_settings (setting_key, setting_value, description)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (setting_key)
+       DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [req.params.key, value.toString(), description || null]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Setting not found' });
-    }
 
     res.json(result.rows[0]);
   } catch (error) {

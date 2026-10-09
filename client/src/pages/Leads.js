@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { FaUserPlus, FaHistory, FaUserTag, FaExchangeAlt, FaEdit, FaTrash } from 'react-icons/fa';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './Leads.css';
 import { notify, confirmDialog } from '../utils/notify';
 
@@ -46,6 +47,7 @@ const Leads = () => {
     search, setSearch,
     filters, setFilter, clearFilters,
     filteredData: filteredLeads,
+    pagedData: pagedLeads, pagination: leadsPagination,
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
@@ -227,7 +229,7 @@ const Leads = () => {
                   </td>
                 </tr>
               ) : (
-                filteredLeads.map((lead) => (
+                pagedLeads.map((lead) => (
                   <tr key={lead.id}>
                     <td data-label="Lead Name" style={{ fontWeight: '700' }}>{lead.name}</td>
                     <td data-label="Contact info">
@@ -291,6 +293,7 @@ const Leads = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...leadsPagination} />
       </div>
 
       {/* Add/Edit Modal */}
