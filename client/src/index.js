@@ -5,8 +5,10 @@ import App from './App';
 import './floating-fields.css';
 import './ui-polish.css';
 import { initFloatingFields } from './floating-fields';
+import { initModalEscape } from './modal-escape';
 
 initFloatingFields();
+initModalEscape();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

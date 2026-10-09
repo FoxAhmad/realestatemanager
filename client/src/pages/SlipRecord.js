@@ -344,6 +344,8 @@ const SlipRecord = () => {
                           <button
                             className="premium-btn premium-btn-secondary"
                             style={{ padding: '0.4rem 0.7rem' }}
+                            aria-label="Edit slip"
+                            title="Edit slip"
                             onClick={() => openEditModal(s)}
                           >
                             <FaEdit />
@@ -351,6 +353,8 @@ const SlipRecord = () => {
                           <button
                             className="premium-btn premium-btn-danger"
                             style={{ padding: '0.4rem 0.7rem' }}
+                            aria-label="Delete slip"
+                            title="Delete slip"
                             onClick={() => handleDelete(s.id)}
                           >
                             <FaTrash />

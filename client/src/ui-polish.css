@@ -230,3 +230,36 @@ td.empty-state::before {
     gap: 0.4rem;
   }
 }
+
+/* ---- Dense tables (many columns): tighter padding, and short identifiers stay on one line ---- */
+@media (min-width: 641px) {
+  .premium-table.premium-table:has(th:nth-child(9)) th,
+  .premium-table.premium-table:has(th:nth-child(9)) td {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .premium-table td[data-label='S.No'],
+  .premium-table td[data-label='Date'],
+  .premium-table td[data-label='Plot'],
+  .premium-table td[data-label='Block'],
+  .premium-table td[data-label='Size'],
+  .premium-table td[data-label='Receipt'],
+  .premium-table td[data-label='Form Qty'],
+  .premium-table td[data-label='Voucher #'],
+  .premium-table td[data-label='Status'],
+  .premium-table td[data-label='Slip Status'] {
+    white-space: nowrap;
+  }
+}
+
+/* ---- Keyboard focus: a visible ring on every interactive element ---- */
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[role='button']:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid rgba(22, 163, 74, 0.45);
+  outline-offset: 2px;
+}

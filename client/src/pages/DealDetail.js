@@ -337,6 +337,7 @@ const DealDetail = () => {
             {(isAdmin || isAccountant) ? (
               <select
                 className={`status-select-premium ${deal.status}`}
+                aria-label="Deal status"
                 value={deal.status}
                 onChange={(e) => handleStatusUpdate(e.target.value)}
               >
@@ -560,7 +561,7 @@ const DealDetail = () => {
                       )}
                     </div>
                     {(isAdmin || isAccountant) && (
-                      <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} onClick={() => handleAdjustmentDelete(a.id)}>
+                      <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} aria-label="Delete adjustment" title="Delete adjustment" onClick={() => handleAdjustmentDelete(a.id)}>
                         <FaTrash />
                       </button>
                     )}
@@ -623,7 +624,7 @@ const DealDetail = () => {
                               <button className="premium-btn premium-btn-secondary" style={{ padding: '0.5rem' }} title="Edit payment" onClick={() => handleEditPayment(p)}>
                                 <FaEdit />
                               </button>
-                              <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} onClick={() => handlePaymentDelete(p.id)}>
+                              <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} aria-label="Delete payment" title="Delete payment" onClick={() => handlePaymentDelete(p.id)}>
                                 <FaTrash />
                               </button>
                             </div>

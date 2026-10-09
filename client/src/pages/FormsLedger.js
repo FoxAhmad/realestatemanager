@@ -233,7 +233,7 @@ const FormsLedger = () => {
                       <span className={`value-val${d.forms_held < 0 ? ' negative' : ''}`}>Rs. {(d.forms_held * defaultCurrentValue).toLocaleString()}</span>
                       <span className="value-label">Est. Value</span>
                     </div>
-                    <button className="expand-btn">
+                    <button className="expand-btn" aria-label={isExpanded ? 'Collapse dealer details' : 'Expand dealer details'} aria-expanded={isExpanded}>
                       {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
                     </button>
                   </div>
