@@ -3,7 +3,6 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { FaUserPlus, FaHistory, FaUserTag, FaExchangeAlt, FaEdit, FaTrash } from 'react-icons/fa';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
-import LeadsCharts from '../components/charts/LeadsCharts';
 import './Leads.css';
 import { notify, confirmDialog } from '../utils/notify';
 
@@ -191,8 +190,6 @@ const Leads = () => {
           </button>
         </div>
       </div>
-
-      <LeadsCharts leads={filteredLeads} />
 
       <div className="glass-card">
         <TableToolbar

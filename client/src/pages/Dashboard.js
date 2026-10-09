@@ -15,7 +15,7 @@ import {
 } from 'react-icons/fa';
 import MutualNetReport from '../components/MutualNetReport';
 import {
-  KpiCard, ChartFrame, CollectionsTrend, BookedVsCollected, StatusDonut, PlotMap, DealProgress, RecentPayments, formatMoney
+  KpiCard, ChartFrame, CollectionsTrend, BookedVsCollected, StatusDonut, PlotMap, DealProgress, RecentPayments, FillBar, CountUp, formatMoney
 } from '../components/dashboard/widgets';
 import { buildOverview } from '../components/dashboard/overviewData';
 import './Dashboard.css';
@@ -144,6 +144,36 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Admin/Accountant main ledger balances */}
+      {(isAdmin || isAccountant) && (() => {
+        const cards = [
+          { key: 'gold', label: 'Dealer Advances', icon: <FaWallet />, value: Math.abs(parseFloat(ledgerBalances.dealerAdvances || 0)), color: 'var(--chart-2)' },
+          { key: 'green', label: 'Savings Deposits', icon: <FaCoins />, value: Math.abs(parseFloat(ledgerBalances.savingsDeposits || 0)), color: 'var(--chart-1)' },
+          { key: 'deep', label: 'Advance for Certificate', icon: <FaCertificate />, value: Math.abs(parseFloat(ledgerBalances.advanceForCertificate || 0)), color: 'var(--chart-3)' },
+        ];
+        const total = cards.reduce((sum, c) => sum + c.value, 0);
+        return (
+          <div className="topline-ledger-row">
+            {cards.map((c) => {
+              const share = total > 0 ? (c.value / total) * 100 : 0;
+              return (
+                <div key={c.key} className={`ledger-card ledger-${c.key}`}>
+                  <div className="ledger-top">
+                    <div className="card-icon">{c.icon}</div>
+                    <span className="ledger-share">{share.toFixed(0)}% of total</span>
+                  </div>
+                  <span className="label">{c.label}</span>
+                  <span className="value">
+                    <CountUp value={c.value} prefix="Rs. " />
+                  </span>
+                  <FillBar pct={share} color={c.color} />
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* Overview: KPIs and charts, same widgets as the Plot Ledge site */}
       <div className="wg-grid-kpi">
         <KpiCard
@@ -213,33 +243,6 @@ const Dashboard = () => {
           <RecentPayments payments={overview.recent} />
         </ChartFrame>
       </div>
-
-      {/* Admin/Accountant Main Ledger Topline */}
-      {(isAdmin || isAccountant) && (
-        <div className="topline-ledger-row">
-          <div className="ledger-card glass-card gold-border">
-            <div className="card-icon"><FaWallet /></div>
-            <div className="card-info">
-              <span className="label">Dealer Advances</span>
-              <span className="value">Rs. {Math.abs(parseFloat(ledgerBalances.dealerAdvances || 0)).toLocaleString()}</span>
-            </div>
-          </div>
-          <div className="ledger-card glass-card blue-border">
-            <div className="card-icon"><FaCoins /></div>
-            <div className="card-info">
-              <span className="label">Savings Deposits</span>
-              <span className="value">Rs. {Math.abs(parseFloat(ledgerBalances.savingsDeposits || 0)).toLocaleString()}</span>
-            </div>
-          </div>
-          <div className="ledger-card glass-card green-border">
-            <div className="card-icon"><FaCertificate /></div>
-            <div className="card-info">
-              <span className="label">Advance for Certificate</span>
-              <span className="value">Rs. {Math.abs(parseFloat(ledgerBalances.advanceForCertificate || 0)).toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Balance by Project */}
       {(isAdmin || isAccountant) && projectBalances.length > 0 && (() => {

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
-import CustomersCharts from '../components/charts/CustomersCharts';
 import './Customers.css';
 import { notify, confirmDialog } from '../utils/notify';
 
@@ -126,8 +125,6 @@ const Customers = () => {
           + Add New Customer
         </button>
       </div>
-
-      <CustomersCharts customers={filteredCustomers} />
 
       <div className="glass-card">
         <TableToolbar

@@ -5,7 +5,6 @@ import { FaUserPlus, FaEdit, FaTrash, FaShieldAlt } from 'react-icons/fa';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './Investors.css';
 import { notify, confirmDialog } from '../utils/notify';
-import InvestorCharts from '../components/charts/InvestorCharts';
 
 const INVESTOR_COLUMNS = [
   { key: 'name', label: 'Partner Name', type: 'text' },
@@ -129,8 +128,6 @@ const Investors = () => {
           <FaUserPlus /> Onboard Investor
         </button>
       </div>
-
-      <InvestorCharts investors={filteredInvestors} />
 
       <div className="glass-card">
         <TableToolbar

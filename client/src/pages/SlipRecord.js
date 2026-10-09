@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './SlipRecord.css';
 import { notify, confirmDialog } from '../utils/notify';
-import SlipCharts from '../components/charts/SlipCharts';
 
 const SLIP_STATUS_LABELS = {
   available: 'Available',
@@ -257,8 +256,6 @@ const SlipRecord = () => {
           <span className="summary-value">{totals.forms}</span>
         </div>
       </div>
-
-      <SlipCharts slips={filteredSlips} />
 
       <div className="glass-card">
         <TableToolbar

@@ -4,7 +4,6 @@ import { FaPlus, FaTimes, FaHandHoldingUsd, FaChartLine, FaUserTie, FaUndo } fro
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './LoansAndInvestments.css';
 import { notify } from '../utils/notify';
-import LoansCharts from '../components/charts/LoansCharts';
 
 const LOAN_RECEIVABLE_COLUMNS = [
   { key: 'name', label: 'Name', type: 'text' },
@@ -238,15 +237,6 @@ const LoansAndInvestments = () => {
           <span className="amount">Rs. {ownerBalance.toLocaleString()}</span>
         </div>
       </div>
-
-      <LoansCharts
-        loans={loans}
-        investments={investments}
-        filteredReceivable={filteredLoansReceivable}
-        filteredPayable={filteredLoansPayable}
-        filteredInvestments={filteredInvestments}
-        activeTab={activeTab}
-      />
 
       <div className="li-tabs-nav">
         <button className={`li-tab-item ${activeTab === 'loans' ? 'active' : ''}`} onClick={() => setActiveTab('loans')}>

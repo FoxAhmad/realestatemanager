@@ -442,3 +442,93 @@
     color: #94a3b8;
   }
 }
+
+
+/* ---- Ledger balance cards (top of the dashboard) ---- */
+.topline-ledger-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 900px) {
+  .topline-ledger-row { grid-template-columns: minmax(0, 1fr); }
+}
+
+.ledger-card.ledger-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 1.25rem 1.35rem 1.15rem;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #ece8dc;
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(2, 44, 34, 0.04);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.ledger-card.ledger-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--ledger-accent);
+}
+
+.ledger-card.ledger-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--ledger-accent);
+  box-shadow: 0 14px 34px rgba(2, 44, 34, 0.09);
+}
+
+.ledger-gold { --ledger-accent: #f59e0b; --ledger-tint: #fef3c7; --ledger-ink: #92400e; }
+.ledger-green { --ledger-accent: #16a34a; --ledger-tint: #d1fae5; --ledger-ink: #065f46; }
+.ledger-deep { --ledger-accent: #0f5132; --ledger-tint: #dcebe3; --ledger-ink: #0f5132; }
+
+.ledger-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.9rem;
+}
+
+.ledger-card .card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  font-size: 1.2rem;
+  background: var(--ledger-tint);
+  color: var(--ledger-ink);
+}
+
+.ledger-share {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--ledger-tint);
+  color: var(--ledger-ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-card > .label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ledger-card > .value {
+  margin: 0.2rem 0 0.9rem;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(1.5rem, 2vw, 1.95rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-main);
+}

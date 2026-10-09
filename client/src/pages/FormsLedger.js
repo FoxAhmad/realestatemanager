@@ -4,7 +4,6 @@ import { FaFileContract, FaPlus, FaCog, FaChevronDown, FaChevronUp, FaTimes, FaE
 import { useAuth } from '../context/AuthContext';
 import './FormsLedger.css';
 import { notify, confirmDialog } from '../utils/notify';
-import FormsLedgerCharts from '../components/charts/FormsLedgerCharts';
 
 const FormsLedger = () => {
   const { isAdmin, isAccountant } = useAuth();
@@ -209,8 +208,6 @@ const FormsLedger = () => {
         </div>
         <div className="forms-price-note">Current value varies per use — it's editable each time a form is applied to a deal.</div>
       </div>
-
-      <FormsLedgerCharts summary={summary} valuePerForm={defaultCurrentValue} />
 
       <div className="glass-card">
         {summary.length === 0 ? (

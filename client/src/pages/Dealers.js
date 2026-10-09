@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
-import DealersCharts from '../components/charts/DealersCharts';
 import './Dealers.css';
 import { notify, confirmDialog } from '../utils/notify';
 
@@ -14,7 +13,6 @@ const DEALER_COLUMNS = [
 
 const Dealers = () => {
   const [dealers, setDealers] = useState([]);
-  const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingDealer, setEditingDealer] = useState(null);
@@ -27,7 +25,6 @@ const Dealers = () => {
 
   useEffect(() => {
     fetchDealers();
-    api.get('/deals').then((res) => setDeals(res.data || [])).catch(() => setDeals([]));
   }, []);
 
   const fetchDealers = async () => {
@@ -116,8 +113,6 @@ const Dealers = () => {
           + Add Salesperson
         </button>
       </div>
-
-      <DealersCharts dealers={dealers} deals={deals} />
 
       <div className="glass-card">
         <TableToolbar

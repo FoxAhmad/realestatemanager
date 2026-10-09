@@ -318,7 +318,10 @@ const Layout = () => {
       <footer className="app-footer">
         <div className="footer-logo-container">
           <p>Powered by</p>
-          <img src="/images/logo.png" alt="Universal Holdings" className="footer-logo" />
+          <span className="footer-brand">
+            <img src="/favicon.svg" alt="" className="footer-brand-mark" />
+            Plot Ledge
+          </span>
         </div>
       </footer>
     </div>

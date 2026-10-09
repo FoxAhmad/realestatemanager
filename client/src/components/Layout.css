@@ -367,7 +367,7 @@
 
 /* App Footer */
 .app-footer {
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(2, 44, 34, 0.96);
   backdrop-filter: blur(10px);
   padding: 0.75rem 2rem;
   border-top: 1px solid rgba(255,255,255,0.05);
@@ -460,4 +460,20 @@
     background: rgba(0,0,0,0.5);
     z-index: 100;
   }
+}
+
+.footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-display, inherit);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.footer-brand-mark {
+  width: 24px;
+  height: 24px;
 }
