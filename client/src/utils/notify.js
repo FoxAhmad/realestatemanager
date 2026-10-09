@@ -31,8 +31,8 @@ export const confirmDialog = (message, options = {}) =>
       confirm: {
         id: nextId++,
         message: String(message ?? ''),
-        title: options.title || 'Please confirm',
-        confirmLabel: options.confirmLabel || 'Confirm',
+        title: options.title || (/delete|remove|revoke/i.test(String(message)) ? 'Delete this record?' : 'Please confirm'),
+        confirmLabel: options.confirmLabel || (/delete|remove|revoke/i.test(String(message)) ? 'Delete' : 'Confirm'),
         cancelLabel: options.cancelLabel || 'Cancel',
         danger: options.danger !== false,
         resolve,

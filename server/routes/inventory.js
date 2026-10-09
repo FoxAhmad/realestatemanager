@@ -32,10 +32,13 @@ router.get('/', auth, async (req, res) => {
         ORDER BY i.created_at DESC
       `);
 
-      // Fetch all plot assignments with details for each inventory item
-      for (let item of result.rows) {
+      // Fetch plot assignments for every inventory item in ONE query (was one query per item).
+      const ids = result.rows.map(item => item.id);
+      const plotsByInventory = new Map();
+      if (ids.length > 0) {
         const plotsResult = await db.query(`
           SELECT
+            ip.inventory_id,
             ip.id as plot_id,
             ip.plot_number,
             ip.status as plot_status,
@@ -50,11 +53,18 @@ router.get('/', auth, async (req, res) => {
             u.name as assigned_to_name
           FROM inventory_plots ip
           LEFT JOIN users u ON ip.assigned_to = u.id
-          WHERE ip.inventory_id = $1
+          WHERE ip.inventory_id = ANY($1::int[])
           ORDER BY ip.plot_number ASC
-        `, [item.id]);
+        `, [ids]);
 
-        item.plots = plotsResult.rows;
+        for (const row of plotsResult.rows) {
+          const { inventory_id, ...plot } = row;
+          if (!plotsByInventory.has(inventory_id)) plotsByInventory.set(inventory_id, []);
+          plotsByInventory.get(inventory_id).push(plot);
+        }
+      }
+      for (let item of result.rows) {
+        item.plots = plotsByInventory.get(item.id) || [];
       }
     } else {
       // Salespersons see ALL assigned inventory (either via inventory.assigned_to OR via plot assignments)
