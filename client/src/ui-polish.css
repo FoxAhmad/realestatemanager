@@ -1,0 +1,315 @@
+/*
+  Plot Ledge UI polish shared by every page: page header, cards, tables, buttons, badges, modals.
+  Loaded after all page styles; doubled class selectors beat the per-page copies of these rules.
+*/
+
+::selection { background: rgba(22, 163, 74, 0.22); }
+
+/* ---- Page frame ---- */
+.premium-page.premium-page { animation: pl-page-in 0.35s ease-out; }
+
+@keyframes pl-page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.premium-page-header.premium-page-header {
+  position: relative;
+  padding-bottom: 1.25rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #ece8dc;
+}
+
+.premium-page-header.premium-page-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 64px;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--primary), #f59e0b);
+}
+
+.premium-page-header.premium-page-header p { color: var(--text-muted); }
+
+/* ---- Cards ---- */
+.glass-card.glass-card,
+.stats-section.stats-section {
+  background: #fff;
+  border: 1px solid #ece8dc;
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(2, 44, 34, 0.04);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.glass-card.glass-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(22, 163, 74, 0.35);
+  box-shadow: 0 14px 34px rgba(2, 44, 34, 0.09);
+}
+
+/* ---- Tables ---- */
+.premium-table-container.premium-table-container {
+  border: 1px solid #ece8dc;
+  border-radius: 16px;
+  background: #fff;
+  scrollbar-width: thin;
+}
+
+.premium-table.premium-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #faf8f3;
+  border-bottom: 1px solid #ece8dc;
+  font-size: 0.74rem;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+}
+
+.premium-table.premium-table td {
+  border-bottom: 1px solid #f4f1e8;
+  padding: 1rem 1.25rem;
+}
+
+.premium-table.premium-table th { padding: 0.85rem 1.25rem; }
+
+.premium-table.premium-table tr:hover td { background: #f6faf7; }
+
+/* ---- Buttons ---- */
+.premium-btn.premium-btn {
+  border-radius: 12px;
+  font-family: inherit;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s, border-color 0.2s;
+}
+
+.premium-btn.premium-btn:focus-visible {
+  outline: 3px solid rgba(22, 163, 74, 0.4);
+  outline-offset: 2px;
+}
+
+.premium-btn.premium-btn:active { transform: translateY(1px); }
+
+.premium-btn-primary.premium-btn-primary { box-shadow: 0 6px 16px rgba(15, 81, 50, 0.22); }
+
+.premium-btn-secondary.premium-btn-secondary {
+  background: #fff;
+  border: 1px solid #d9d4c3;
+}
+
+.premium-btn-secondary.premium-btn-secondary:hover { background: #faf8f3; border-color: var(--primary); }
+
+.premium-btn-danger.premium-btn-danger { background: #b42318; }
+.premium-btn-danger.premium-btn-danger:hover { background: #991b1b; }
+
+/* ---- Badges: pill shape, same palette as the status badges on the dashboard ---- */
+.premium-badge.premium-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.premium-badge-success.premium-badge-success { background: var(--paid-soft, #d1fae5); color: var(--paid-ink, #065f46); }
+.premium-badge-warning.premium-badge-warning { background: var(--pending-soft, #fef3c7); color: var(--pending-ink, #92400e); }
+.premium-badge-danger.premium-badge-danger { background: var(--overdue-soft, #fee2e2); color: var(--overdue-ink, #991b1b); }
+.premium-badge-primary.premium-badge-primary { background: #d1fae5; color: #065f46; }
+.premium-badge-info.premium-badge-info { background: #e7f2ec; color: #0f5132; }
+
+/* ---- Modals ---- */
+.modal-overlay.modal-overlay {
+  background: rgba(2, 44, 34, 0.5);
+  backdrop-filter: blur(4px);
+  animation: pl-fade 0.18s ease-out;
+}
+
+.modal-content.modal-content {
+  border: 1px solid #ece8dc;
+  border-radius: 22px;
+  box-shadow: 0 30px 70px rgba(2, 44, 34, 0.3);
+  animation: pl-modal-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  scrollbar-width: thin;
+}
+
+.modal-content.modal-content h2 {
+  border-bottom: 1px solid #ece8dc;
+}
+
+.modal-actions.modal-actions { border-top: 1px solid #ece8dc; }
+
+@keyframes pl-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pl-modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---- Loading states ---- */
+.premium-loading.premium-loading,
+.dashboard-loading.dashboard-loading {
+  color: var(--text-muted);
+  font-weight: 600;
+  background: linear-gradient(90deg, transparent, rgba(22, 163, 74, 0.08), transparent) 0 0 / 200% 100%;
+  animation: pl-shimmer 1.4s linear infinite;
+  border-radius: 16px;
+}
+
+@keyframes pl-shimmer { to { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-page.premium-page,
+  .modal-overlay.modal-overlay,
+  .modal-content.modal-content,
+  .premium-loading.premium-loading,
+  .dashboard-loading.dashboard-loading { animation: none; }
+}
+
+/* ---- Phones: page headers wrap so action buttons never push the page wider than the screen ---- */
+@media (max-width: 768px) {
+  .premium-page-header.premium-page-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .premium-page-header.premium-page-header > div:last-child:not(:first-child) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    width: 100%;
+  }
+
+  .premium-page-header.premium-page-header .premium-btn { flex: 1 1 auto; justify-content: center; }
+}
+
+/* ---- Summary figures and money cells stay on one line ---- */
+.summary-value.summary-value,
+.slip-summary-container .summary-value,
+.amount-cell,
+.premium-table td.amount-cell {
+  white-space: nowrap;
+}
+
+.slip-summary-container .summary-value { font-size: clamp(1.2rem, 1.6vw, 1.6rem); }
+
+/* ---- Plot map and similar chart cards align to the top instead of floating mid-card ---- */
+.wg-frame:has(.wg-plotmap) .wg-frame-body { justify-content: flex-start; }
+
+/* ---- Empty states: calm, centred, with a soft icon instead of a bare line of grey text ---- */
+td.empty-state,
+.empty-state.empty-state {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+td.empty-state::before {
+  content: '';
+  display: block;
+  width: 3rem;
+  height: 3rem;
+  margin: 0 auto 0.9rem;
+  border-radius: 14px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f5132' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 13h5l2 3h4l2-3h5'/%3E%3Cpath d='M5 13l2.2-7.1A2 2 0 0 1 9.1 4.5h5.8a2 2 0 0 1 1.9 1.4L19 13v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z'/%3E%3C/svg%3E")
+    center / 60% no-repeat,
+    #e7f2ec;
+}
+
+/* ---- Manage Balances tabs share the row on phones instead of scrolling sideways ---- */
+@media (max-width: 640px) {
+  .balances-tabs .tab-btn {
+    flex: 1 1 0;
+    justify-content: center;
+    padding: 0.7rem 0.6rem;
+    font-size: 0.85rem;
+    gap: 0.4rem;
+  }
+}
+
+/* ---- Dense tables (many columns): tighter padding, and short identifiers stay on one line ---- */
+@media (min-width: 641px) {
+  .premium-table.premium-table:has(th:nth-child(9)) th,
+  .premium-table.premium-table:has(th:nth-child(9)) td {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .premium-table td[data-label='S.No'],
+  .premium-table td[data-label='Date'],
+  .premium-table td[data-label='Plot'],
+  .premium-table td[data-label='Block'],
+  .premium-table td[data-label='Size'],
+  .premium-table td[data-label='Receipt'],
+  .premium-table td[data-label='Form Qty'],
+  .premium-table td[data-label='Voucher #'],
+  .premium-table td[data-label='Status'],
+  .premium-table td[data-label='Slip Status'] {
+    white-space: nowrap;
+  }
+}
+
+/* ---- Keyboard focus: a visible ring on every interactive element ---- */
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[role='button']:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid rgba(22, 163, 74, 0.45);
+  outline-offset: 2px;
+}
+
+/* ---- Icon sizing: keep icon tiles modest everywhere ---- */
+svg[stroke="currentColor"] { stroke-width: 1.9; }
+
+.project-card-icon.project-card-icon { width: 44px; height: 44px; border-radius: 14px; font-size: 1.2rem; }
+.forms-dealer-icon.forms-dealer-icon { width: 44px; height: 44px; border-radius: 14px; font-size: 1.2rem; }
+.projects-icon.projects-icon { font-size: 1.5rem; }
+.sidebar-icon.sidebar-icon { font-size: 1.15rem; }
+.table-search-icon { font-size: 0.9rem; }
+.premium-btn svg { font-size: 0.95rem; }
+
+/* ---- Large money figures never wrap onto two lines ---- */
+.amount.amount {
+  white-space: nowrap;
+  font-size: clamp(1.6rem, 2.1vw, 2.25rem);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Modal header: title on the left, close button on the right (class had no styling before) ---- */
+.modal-content .modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #ece8dc;
+}
+
+.modal-content .modal-header h2 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.close-modal-btn.close-modal-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #f6f3ea;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+.close-modal-btn.close-modal-btn:hover {
+  background: #fee2e2;
+  color: #b42318;
+  transform: none;
+}

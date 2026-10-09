@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { FaUserPlus, FaEdit, FaTrash, FaShieldAlt } from 'react-icons/fa';
+import { LuUserPlus, LuPencil, LuTrash2, LuShield } from 'react-icons/lu';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './Investors.css';
+import { notify, confirmDialog } from '../utils/notify';
 
 const INVESTOR_COLUMNS = [
   { key: 'name', label: 'Partner Name', type: 'text' },
@@ -30,6 +32,7 @@ const Investors = () => {
     search, setSearch,
     filters, setFilter, clearFilters,
     filteredData: filteredInvestors,
+    pagedData: pagedInvestors, pagination: investorsPagination,
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
@@ -68,7 +71,7 @@ const Investors = () => {
       setFormData({ name: '', cnic: '', contact_number: '', address: '' });
     } catch (error) {
       console.error('Error saving investor:', error);
-      alert(error.response?.data?.message || 'Error saving investor');
+      notify(error.response?.data?.message || 'Error saving investor');
     }
   };
 
@@ -84,13 +87,13 @@ const Investors = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this investor?')) {
+    if (await confirmDialog('Are you sure you want to delete this investor?')) {
       try {
         await api.delete(`/investors/${id}`);
         fetchInvestors();
       } catch (error) {
         console.error('Error deleting investor:', error);
-        alert('Error deleting investor');
+        notify('Error deleting investor');
       }
     }
   };
@@ -99,7 +102,7 @@ const Investors = () => {
     return (
       <div className="premium-page">
         <div className="glass-card investors-access-denied">
-          <FaShieldAlt style={{ fontSize: '4rem', color: 'var(--danger)', marginBottom: '1.5rem' }} />
+          <LuShield style={{ fontSize: '4rem', color: 'var(--danger)', marginBottom: '1.5rem' }} />
           <h2>Restricted Repository</h2>
           <p>You do not have the clearance levels required to view the Investor Registry.</p>
         </div>
@@ -124,7 +127,7 @@ const Investors = () => {
             setShowModal(true);
           }}
         >
-          <FaUserPlus /> Onboard Investor
+          <LuUserPlus /> Onboard Investor
         </button>
       </div>
 
@@ -162,7 +165,7 @@ const Investors = () => {
                   </td>
                 </tr>
               ) : (
-                filteredInvestors.map((investor) => (
+                pagedInvestors.map((investor) => (
                   <tr key={investor.id}>
                     <td data-label="Partner Name" style={{ fontWeight: '700' }}>{investor.name}</td>
                     <td data-label="Identity (CNIC)">{investor.cnic}</td>
@@ -196,6 +199,7 @@ const Investors = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...investorsPagination} />
       </div>
 
       {showModal && (

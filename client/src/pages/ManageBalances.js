@@ -1,18 +1,39 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import api from '../services/api';
 import {
-  FaPlus, FaSearch, FaHistory, FaFilePdf,
-  FaWallet, FaPiggyBank, FaTimes, FaExternalLinkAlt,
-  FaChevronDown, FaChevronUp, FaCheckCircle, FaUser, FaMapMarkerAlt,
-  FaEdit, FaArrowLeft, FaFolder, FaFolderOpen, FaTrash, FaEye,
-  FaBuilding, FaExchangeAlt, FaUsers, FaListAlt
-} from 'react-icons/fa';
+  LuPlus,
+  LuSearch,
+  LuHistory,
+  LuFileDown,
+  LuWallet,
+  LuPiggyBank,
+  LuX,
+  LuExternalLink,
+  LuChevronDown,
+  LuChevronUp,
+  LuCheckCircle2,
+  LuUser,
+  LuMapPin,
+  LuPencil,
+  LuArrowLeft,
+  LuFolder,
+  LuFolderOpen,
+  LuTrash2,
+  LuEye,
+  LuBuilding2,
+  LuArrowLeftRight,
+  LuUsers,
+  LuListChecks
+} from 'react-icons/lu';
 import { useAuth } from '../context/AuthContext';
 import {
   buildDealerLedgers, buildDealerSharesPDF, buildTotalSummaryPDF
 } from '../utils/balanceReports';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './ManageBalances.css';
+import { notify, confirmDialog } from '../utils/notify';
+import { BalanceProjectCharts, BalanceEntryCharts } from '../components/charts/BalancesCharts';
 
 const dealerRefAccessor = (row) => {
   const names = new Set();
@@ -87,8 +108,8 @@ const ManageBalances = () => {
   });
 
   const accounts = [
-    { id: 3, name: 'Dealer Advances', icon: <FaWallet />, color: '#007bff' },
-    { id: 4, name: 'Savings Deposits', icon: <FaPiggyBank />, color: '#28a745' }
+    { id: 3, name: 'Dealer Advances', icon: <LuWallet />, color: '#007bff' },
+    { id: 4, name: 'Savings Deposits', icon: <LuPiggyBank />, color: '#28a745' }
   ];
 
   // ── Fetch Helpers ─────────────────────────────────────────────────────────────
@@ -218,17 +239,17 @@ const ManageBalances = () => {
       setShowProjectModal(false);
       fetchProjects();
     } catch (err) {
-      alert('Error saving project: ' + (err.response?.data?.message || err.message));
+      notify('Error saving project: ' + (err.response?.data?.message || err.message));
     }
   };
 
   const handleDeleteProject = async (proj) => {
-    if (!window.confirm(`Delete project "${proj.name}"? This only works if the project has no entries.`)) return;
+    if (!await confirmDialog(`Delete project "${proj.name}"? This only works if the project has no entries.`)) return;
     try {
       await api.delete(`/balance-projects/${proj.id}`);
       fetchProjects();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error deleting project');
+      notify(err.response?.data?.message || 'Error deleting project');
     }
   };
 
@@ -298,7 +319,7 @@ const ManageBalances = () => {
       // Also refresh project summaries in background
       if (view === 'entries') fetchProjects();
     } catch (err) {
-      alert('Error creating transaction: ' + (err.response?.data?.message || err.message));
+      notify('Error creating transaction: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -338,19 +359,19 @@ const ManageBalances = () => {
         + `This cannot be undone.`
       : 'Delete this balance entry? This cannot be undone.';
 
-    if (!window.confirm(confirmMsg)) return;
+    if (!await confirmDialog(confirmMsg)) return;
 
     setDeletingId(t.id);
     try {
       const res = await api.delete(`/balance-transactions/${t.id}`);
       const n = res.data?.unlinked_finance_entries || 0;
       if (n > 0) {
-        alert(`Balance entry deleted. ${n} finance ${n === 1 ? 'entry was' : 'entries were'} preserved and returned to the unlinked pool.`);
+        notify(`Balance entry deleted. ${n} finance ${n === 1 ? 'entry was' : 'entries were'} preserved and returned to the unlinked pool.`);
       }
       fetchTransactions(selectedProject ? selectedProject.id : null);
       fetchProjects();
     } catch (err) {
-      alert('Error deleting entry: ' + (err.response?.data?.message || err.message));
+      notify('Error deleting entry: ' + (err.response?.data?.message || err.message));
     } finally {
       setDeletingId(null);
     }
@@ -373,7 +394,7 @@ const ManageBalances = () => {
       fetchTransactions(null);
       fetchProjects();
     } catch (err) {
-      alert('Error moving entry: ' + (err.response?.data?.message || err.message));
+      notify('Error moving entry: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -392,7 +413,7 @@ const ManageBalances = () => {
       setShowEditModal(false);
       fetchTransactions(selectedProject ? selectedProject.id : null);
     } catch (err) {
-      alert('Error updating transaction: ' + (err.response?.data?.message || err.message));
+      notify('Error updating transaction: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -421,6 +442,7 @@ const ManageBalances = () => {
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
+    pagedData: pagedTransactions, pagination,
   } = useTableFilters(transactionsWithBalance, BALANCE_COLUMNS);
 
   // ── Computed Values ───────────────────────────────────────────────────────────
@@ -451,7 +473,7 @@ const ManageBalances = () => {
       builder(reportArgs());
     } catch (err) {
       console.error('PDF export failed:', err);
-      alert('Could not generate the PDF: ' + err.message);
+      notify('Could not generate the PDF: ' + err.message);
     }
   };
 
@@ -468,7 +490,7 @@ const ManageBalances = () => {
         className={`project-card glass-card ${isGeneral ? 'project-card-general' : ''}`}
       >
         <div className="project-card-icon">
-          {isGeneral ? <FaFolder /> : <FaFolderOpen />}
+          {isGeneral ? <LuFolder /> : <LuFolderOpen />}
         </div>
         <div className="project-card-body">
           <div className="project-card-name">{isGeneral ? 'General / Unassigned' : proj.name}</div>
@@ -496,15 +518,15 @@ const ManageBalances = () => {
             className="project-view-btn"
             onClick={() => openProject(isGeneral ? null : proj)}
           >
-            <FaEye /> View Entries
+            <LuEye /> View Entries
           </button>
           {!isGeneral && isAdminOrAccountant && (
             <div className="project-edit-actions">
               <button className="project-icon-btn edit" onClick={() => openEditProjectModal(proj)} title="Edit project">
-                <FaEdit />
+                <LuPencil />
               </button>
               <button className="project-icon-btn delete" onClick={() => handleDeleteProject(proj)} title="Delete project">
-                <FaTrash />
+                <LuTrash2 />
               </button>
             </div>
           )}
@@ -531,12 +553,12 @@ const ManageBalances = () => {
                 aria-haspopup="true"
                 aria-expanded={showExportMenu}
               >
-                <FaFilePdf /> Export PDF {showExportMenu ? <FaChevronUp size={11} /> : <FaChevronDown size={11} />}
+                <LuFileDown /> Export PDF {showExportMenu ? <LuChevronUp size={11} /> : <LuChevronDown size={11} />}
               </button>
               {showExportMenu && (
                 <div className="export-menu">
                   <button className="export-menu-item" onClick={() => runExport(buildDealerSharesPDF)}>
-                    <span className="export-menu-icon"><FaUsers /></span>
+                    <span className="export-menu-icon"><LuUsers /></span>
                     <span className="export-menu-text">
                       <strong>Dealer Shares &amp; Payment Logs</strong>
                       <small>
@@ -546,7 +568,7 @@ const ManageBalances = () => {
                     </span>
                   </button>
                   <button className="export-menu-item" onClick={() => runExport(buildTotalSummaryPDF)}>
-                    <span className="export-menu-icon"><FaListAlt /></span>
+                    <span className="export-menu-icon"><LuListChecks /></span>
                     <span className="export-menu-text">
                       <strong>Total Summary &amp; Full Register</strong>
                       <small>
@@ -561,12 +583,12 @@ const ManageBalances = () => {
           )}
           {view === 'projects' && activeTab !== 4 && isAdminOrAccountant && (
             <button className="premium-btn premium-btn-primary" onClick={openNewProjectModal}>
-              <FaPlus /> New Project
+              <LuPlus /> New Project
             </button>
           )}
           {view === 'entries' && isAdminOrAccountant && (
             <button className="premium-btn premium-btn-primary" onClick={() => setShowModal(true)}>
-              <FaPlus /> Add Transaction
+              <LuPlus /> Add Transaction
             </button>
           )}
         </div>
@@ -588,9 +610,10 @@ const ManageBalances = () => {
       {/* ── Projects View (Accounts 3 & 8) ── */}
       {view === 'projects' && activeTab !== 4 && (
         <div className="animate-fade-in">
+          {!projectsLoading && <BalanceProjectCharts projects={projects} />}
           <div className="projects-section-header">
             <div className="projects-title-group">
-              <FaBuilding className="projects-icon" />
+              <LuBuilding2 className="projects-icon" />
               <div>
                 <h2 className="projects-heading">Projects</h2>
                 <p className="projects-subheading">Select a project to view and manage its balance entries</p>
@@ -611,7 +634,7 @@ const ManageBalances = () => {
               {projects.length === 0 && isAdminOrAccountant && (
                 <div className="project-card project-card-new glass-card" onClick={openNewProjectModal}>
                   <div className="project-card-new-inner">
-                    <FaPlus />
+                    <LuPlus />
                     <span>Create First Project</span>
                   </div>
                 </div>
@@ -628,14 +651,14 @@ const ManageBalances = () => {
           {activeTab !== 4 && (
             <div className="project-breadcrumb">
               <button className="back-to-projects-btn" onClick={backToProjects}>
-                <FaArrowLeft /> All Projects
+                <LuArrowLeft /> All Projects
               </button>
               <span className="breadcrumb-sep">/</span>
               <span className="breadcrumb-project">
                 {selectedProject ? (
-                  <><FaFolderOpen style={{ marginRight: '0.5rem', color: 'var(--primary)' }} />{selectedProject.name}</>
+                  <><LuFolderOpen style={{ marginRight: '0.5rem', color: 'var(--primary)' }} />{selectedProject.name}</>
                 ) : (
-                  <><FaFolder style={{ marginRight: '0.5rem', color: 'var(--text-muted)' }} />General / Unassigned</>
+                  <><LuFolder style={{ marginRight: '0.5rem', color: 'var(--text-muted)' }} />General / Unassigned</>
                 )}
               </span>
             </div>
@@ -645,7 +668,7 @@ const ManageBalances = () => {
           <div className="balance-summary-cards">
             <div className="balance-card" style={{ alignItems: 'flex-start' }}>
               <div className="card-icon" style={{ background: 'rgba(0,123,255,0.1)', color: '#007bff' }}>
-                <FaWallet />
+                <LuWallet />
               </div>
               <div className="card-info" style={{ flex: 1 }}>
                 <h3>Current Total Balance</h3>
@@ -656,7 +679,7 @@ const ManageBalances = () => {
             </div>
             <div className="balance-card">
               <div className="card-icon" style={{ background: 'rgba(255,193,7,0.1)', color: '#ffc107' }}>
-                <FaHistory />
+                <LuHistory />
               </div>
               <div className="card-info">
                 <h3>Recent Transactions</h3>
@@ -666,6 +689,8 @@ const ManageBalances = () => {
               </div>
             </div>
           </div>
+
+          {!loading && <BalanceEntryCharts transactions={transactions} dealerBalances={dealerBalances} />}
 
           {/* Dealer Balance Cards */}
           {dealerBalances.length > 0 && (
@@ -723,7 +748,7 @@ const ManageBalances = () => {
                   ) : filteredTransactions.length === 0 ? (
                     <tr><td colSpan="9" className="empty-state">No transactions recorded for this project</td></tr>
                   ) : (
-                    filteredTransactions.map((t) => {
+                    pagedTransactions.map((t) => {
                       const runningBalance = t._runningBalance;
                       const balanceChange = t._balanceChange;
                       const isExpanded = expandedRows[t.id];
@@ -735,7 +760,7 @@ const ManageBalances = () => {
                             <td>
                               {hasLinked && (
                                 <button className="expand-btn" onClick={() => toggleRow(t.id)}>
-                                  {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
+                                  {isExpanded ? <LuChevronUp /> : <LuChevronDown />}
                                 </button>
                               )}
                             </td>
@@ -751,13 +776,13 @@ const ManageBalances = () => {
                               </div>
                               {(t.plot_info || t.customer_info) && (
                                 <div className="entry-details-sub">
-                                  {t.customer_info && <span><FaUser size={10} /> {t.customer_info}</span>}
-                                  {t.plot_info && <span><FaMapMarkerAlt size={10} /> {t.plot_info}</span>}
+                                  {t.customer_info && <span><LuUser size={10} /> {t.customer_info}</span>}
+                                  {t.plot_info && <span><LuMapPin size={10} /> {t.plot_info}</span>}
                                 </div>
                               )}
                               {t.proof_file && (
                                 <a href={t.proof_file.startsWith('http') ? t.proof_file : (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + t.proof_file} target="_blank" rel="noopener noreferrer" className="proof-link">
-                                  <FaExternalLinkAlt size={10} /> View Proof
+                                  <LuExternalLink size={10} /> View Proof
                                 </a>
                               )}
                             </td>
@@ -793,7 +818,7 @@ const ManageBalances = () => {
                               <td data-label="Actions">
                                 <div style={{ display: 'flex', gap: '4px' }}>
                                   <button className="edit-btn" style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', padding: '5px' }} onClick={() => handleEditClick(t)} title="Edit Transaction">
-                                    <FaEdit size={16} />
+                                    <LuPencil size={16} />
                                   </button>
                                   {/* Move to Project — only shown in General/Unassigned view */}
                                   {selectedProject === null && activeTab !== 4 && (
@@ -802,7 +827,7 @@ const ManageBalances = () => {
                                       onClick={() => handleOpenMoveModal(t)}
                                       title="Move to Project"
                                     >
-                                      <FaExchangeAlt size={14} />
+                                      <LuArrowLeftRight size={14} />
                                     </button>
                                   )}
                                   <button
@@ -814,7 +839,7 @@ const ManageBalances = () => {
                                       ? 'Delete this balance entry (linked finance entries are kept)'
                                       : 'Delete this balance entry'}
                                   >
-                                    <FaTrash size={15} />
+                                    <LuTrash2 size={15} />
                                   </button>
                                 </div>
                               </td>
@@ -824,7 +849,7 @@ const ManageBalances = () => {
                             <tr className="expanded-details-row">
                               <td colSpan={isAdminOrAccountant ? 9 : 8}>
                                 <div className="linked-entries-detail">
-                                  <h4><FaCheckCircle color="var(--success)" /> Linked Finance Entries</h4>
+                                  <h4><LuCheckCircle2 color="var(--success)" /> Linked Finance Entries</h4>
                                   <div className="linked-grid">
                                     {t.linked_entries.map(entry => (
                                       <div key={entry.id} className="linked-item-card">
@@ -855,6 +880,7 @@ const ManageBalances = () => {
                 </tbody>
               </table>
             </div>
+            <Pagination {...pagination} />
           </div>
         </div>
       )}
@@ -865,7 +891,7 @@ const ManageBalances = () => {
           <div className="modal-content">
             <div className="modal-header">
               <h2>{editingProject ? 'Edit Project' : 'New Project'}</h2>
-              <button onClick={() => setShowProjectModal(false)} className="close-modal-btn"><FaTimes /></button>
+              <button onClick={() => setShowProjectModal(false)} className="close-modal-btn"><LuX /></button>
             </div>
             <form onSubmit={handleProjectSubmit}>
               <div className="form-group">
@@ -906,11 +932,11 @@ const ManageBalances = () => {
                 New Balance Entry
                 {selectedProject && (
                   <span className="modal-project-tag">
-                    <FaFolderOpen /> {selectedProject.name}
+                    <LuFolderOpen /> {selectedProject.name}
                   </span>
                 )}
               </h2>
-              <button onClick={() => { setShowModal(false); resetForm(); }} className="close-modal-btn"><FaTimes /></button>
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="close-modal-btn"><LuX /></button>
             </div>
             <form onSubmit={handleSubmit} className="modal-two-col">
               <div className="form-main">
@@ -1019,7 +1045,7 @@ const ManageBalances = () => {
           <div className="modal-content">
             <div className="modal-header">
               <h2>Edit Transaction Details</h2>
-              <button onClick={() => setShowEditModal(false)} className="close-modal-btn"><FaTimes /></button>
+              <button onClick={() => setShowEditModal(false)} className="close-modal-btn"><LuX /></button>
             </div>
             <form onSubmit={handleEditSubmit}>
               <div className="form-group">
@@ -1067,8 +1093,8 @@ const ManageBalances = () => {
         <div className="modal-overlay">
           <div className="modal-content modal-compact">
             <div className="modal-header">
-              <h2><FaExchangeAlt style={{ marginRight: '0.5rem', color: 'var(--primary)' }} />Move to Project</h2>
-              <button onClick={() => setMoveTarget(null)} className="close-modal-btn"><FaTimes /></button>
+              <h2><LuArrowLeftRight style={{ marginRight: '0.5rem', color: 'var(--primary)' }} />Move to Project</h2>
+              <button onClick={() => setMoveTarget(null)} className="close-modal-btn"><LuX /></button>
             </div>
             <div className="move-modal-entry-label">
               <span className="move-entry-desc">"{moveTarget.desc}"</span>
@@ -1097,7 +1123,7 @@ const ManageBalances = () => {
               <div className="modal-footer">
                 <button type="button" className="premium-btn premium-btn-secondary" onClick={() => setMoveTarget(null)}>Cancel</button>
                 <button type="submit" className="premium-btn premium-btn-primary" disabled={!moveProjectId}>
-                  <FaExchangeAlt /> Move Entry
+                  <LuArrowLeftRight /> Move Entry
                 </button>
               </div>
             </form>

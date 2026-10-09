@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { FaEdit, FaTrash, FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import { LuPencil, LuTrash2, LuChevronDown, LuChevronRight } from 'react-icons/lu';
 import { useAuth } from '../context/AuthContext';
 import MutualNetReport from '../components/MutualNetReport';
+import Pagination, { usePagerState, paginate } from '../components/Pagination';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import './DealerExchanges.css';
+import { notify, confirmDialog } from '../utils/notify';
+import ExchangeCharts from '../components/charts/ExchangeCharts';
 
 const DEALER_EXCHANGE_COLUMNS = [
   { key: 'exchange_date', label: 'Date', type: 'date' },
@@ -19,6 +22,7 @@ const DealerExchanges = () => {
   const isAdmin = user?.role === 'admin';
   const isAccountant = user?.role === 'accountant';
   const [exchanges, setExchanges] = useState([]);
+  const groupPager = usePagerState(10);
   const [dealers, setDealers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -110,7 +114,7 @@ const DealerExchanges = () => {
       });
     } catch (error) {
       console.error('Error saving exchange:', error);
-      alert(error.response?.data?.message || 'Error saving exchange');
+      notify(error.response?.data?.message || 'Error saving exchange');
     }
   };
 
@@ -149,7 +153,7 @@ const DealerExchanges = () => {
 
   const handleDelete = async (ex) => {
     const amt = parseFloat(ex.amount).toLocaleString(undefined, { minimumFractionDigits: 2 });
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       `Delete this mutual exchange?\n\n`
       + `${ex.sender_name} → ${ex.receiver_name} for ${amt}\n\n`
       + `The net balance between them will be recalculated. This cannot be undone.`
@@ -162,7 +166,7 @@ const DealerExchanges = () => {
       fetchExchanges();
       fetchBalances();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error deleting exchange');
+      notify(error.response?.data?.message || 'Error deleting exchange');
     } finally {
       setDeletingId(null);
     }
@@ -211,6 +215,9 @@ const DealerExchanges = () => {
     senderGroups[groupIndexByPair.get(key)].entries.push(ex);
   });
 
+  // Pages hold whole groups, so a group's collapsed total always sums every entry in it.
+  const { pageItems: pagedGroups, pagination: groupsPagination } = paginate(senderGroups, groupPager);
+
   const renderExchangeRow = (ex, { nested = false } = {}) => (
     <tr key={ex.id} className={nested ? 'mutual-subrow' : undefined}>
       <td data-label="Date">{new Date(ex.exchange_date).toLocaleDateString()}</td>
@@ -243,7 +250,7 @@ const DealerExchanges = () => {
               title="Edit exchange"
               style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', padding: '5px' }}
             >
-              <FaEdit size={16} />
+              <LuPencil size={16} />
             </button>
             <button
               onClick={() => handleDelete(ex)}
@@ -251,7 +258,7 @@ const DealerExchanges = () => {
               title="Delete exchange"
               style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer', padding: '5px' }}
             >
-              <FaTrash size={15} />
+              <LuTrash2 size={15} />
             </button>
           </>
         ) : (
@@ -289,6 +296,8 @@ const DealerExchanges = () => {
           + Record Mutual Exchange
         </button>
       </div>
+
+      <ExchangeCharts balances={balances} exchanges={filteredExchanges} isManagement={isAdmin || isAccountant} />
 
       <div className="net-report-section" style={{ marginBottom: '2rem' }}>
         <MutualNetReport 
@@ -335,7 +344,7 @@ const DealerExchanges = () => {
                   </td>
                 </tr>
               ) : (
-                senderGroups.map((group) => {
+                pagedGroups.map((group) => {
                   if (group.entries.length === 1) {
                     return renderExchangeRow(group.entries[0]);
                   }
@@ -352,7 +361,7 @@ const DealerExchanges = () => {
                         <td data-label="Date">—</td>
                         <td data-label="Sender" style={{ fontWeight: 700 }}>
                           <span className="mutual-group-toggle">
-                            {isExpanded ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
+                            {isExpanded ? <LuChevronDown size={12} /> : <LuChevronRight size={12} />}
                           </span>
                           {group.partyA}
                           <span className="premium-badge premium-badge-info mutual-group-count">
@@ -375,6 +384,7 @@ const DealerExchanges = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...groupsPagination} />
       </div>
 
       {showModal && (

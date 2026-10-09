@@ -1,18 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
-  FaDollarSign,
-  FaWarehouse,
-  FaHandshake,
-  FaClipboardList,
-  FaHistory,
-  FaWallet,
-  FaCoins,
-  FaCertificate,
-  FaFolderOpen
-} from 'react-icons/fa';
+  LuBanknote,
+  LuWarehouse,
+  LuHeartHandshake,
+  LuClipboardList,
+  LuHistory,
+  LuWallet,
+  LuCoins,
+  LuBadgeCheck,
+  LuFolderOpen
+} from 'react-icons/lu';
 import MutualNetReport from '../components/MutualNetReport';
+import {
+  KpiCard, ChartFrame, CollectionsTrend, BookedVsCollected, StatusDonut, PlotMap, DealProgress, RecentPayments, FillBar, CountUp, formatMoney
+} from '../components/dashboard/widgets';
+import { buildOverview } from '../components/dashboard/overviewData';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -37,7 +42,10 @@ const Dashboard = () => {
   const [mutualSummary, setMutualSummary] = useState({ owe: 0, owed: 0 });
   const [allDealerBalances, setAllDealerBalances] = useState([]);
   const [projectBalances, setProjectBalances] = useState([]);
+  const [rawData, setRawData] = useState({ deals: [], payments: [], inventory: [] });
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const overview = useMemo(() => buildOverview(rawData), [rawData]);
 
   useEffect(() => {
     if (user) {
@@ -64,12 +72,15 @@ const Dashboard = () => {
       const fetchBalances = api.get('/dealer-exchanges/balances').catch(e => ({ data: { peerBalances: [], ledgerBalances: {} } }));
       const fetchProjectBalances = isMgmt ? api.get('/balance-projects').catch(e => ({ data: [] })) : Promise.resolve({ data: [] });
 
-      const [dealsRes, inventoryRes, financeRes, reqsRes, mutualsRes, projectBalancesRes] = await Promise.all([
-        fetchDeals, fetchInventory, fetchFinance, fetchRequests, fetchBalances, fetchProjectBalances
+      const fetchPayments = api.get('/payments').catch(e => ({ data: [] }));
+
+      const [dealsRes, inventoryRes, financeRes, reqsRes, mutualsRes, projectBalancesRes, paymentsRes] = await Promise.all([
+        fetchDeals, fetchInventory, fetchFinance, fetchRequests, fetchBalances, fetchProjectBalances, fetchPayments
       ]);
 
       const deals = dealsRes.data || [];
       const inventory = inventoryRes.data || [];
+      setRawData({ deals, inventory, payments: paymentsRes.data || [] });
       const requests = reqsRes.data || [];
       const mutualsData = mutualsRes.data || {};
       
@@ -133,32 +144,105 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Admin/Accountant Main Ledger Topline */}
-      {(isAdmin || isAccountant) && (
-        <div className="topline-ledger-row">
-          <div className="ledger-card glass-card gold-border">
-            <div className="card-icon"><FaWallet /></div>
-            <div className="card-info">
-              <span className="label">Dealer Advances</span>
-              <span className="value">Rs. {Math.abs(parseFloat(ledgerBalances.dealerAdvances || 0)).toLocaleString()}</span>
-            </div>
+      {/* Admin/Accountant main ledger balances */}
+      {(isAdmin || isAccountant) && (() => {
+        const cards = [
+          { key: 'gold', label: 'Dealer Advances', icon: <LuWallet />, value: Math.abs(parseFloat(ledgerBalances.dealerAdvances || 0)), color: 'var(--chart-2)' },
+          { key: 'green', label: 'Savings Deposits', icon: <LuCoins />, value: Math.abs(parseFloat(ledgerBalances.savingsDeposits || 0)), color: 'var(--chart-1)' },
+          { key: 'deep', label: 'Advance for Certificate', icon: <LuBadgeCheck />, value: Math.abs(parseFloat(ledgerBalances.advanceForCertificate || 0)), color: 'var(--chart-3)' },
+        ];
+        const total = cards.reduce((sum, c) => sum + c.value, 0);
+        return (
+          <div className="topline-ledger-row">
+            {cards.map((c) => {
+              const share = total > 0 ? (c.value / total) * 100 : 0;
+              return (
+                <div key={c.key} className={`ledger-card ledger-${c.key}`}>
+                  <div className="ledger-top">
+                    <div className="card-icon">{c.icon}</div>
+                    <span className="ledger-share">{share.toFixed(0)}% of total</span>
+                  </div>
+                  <span className="label">{c.label}</span>
+                  <span className="value">
+                    <CountUp value={c.value} prefix="Rs. " />
+                  </span>
+                  <FillBar pct={share} color={c.color} />
+                </div>
+              );
+            })}
           </div>
-          <div className="ledger-card glass-card blue-border">
-            <div className="card-icon"><FaCoins /></div>
-            <div className="card-info">
-              <span className="label">Savings Deposits</span>
-              <span className="value">Rs. {Math.abs(parseFloat(ledgerBalances.savingsDeposits || 0)).toLocaleString()}</span>
-            </div>
-          </div>
-          <div className="ledger-card glass-card green-border">
-            <div className="card-icon"><FaCertificate /></div>
-            <div className="card-info">
-              <span className="label">Advance for Certificate</span>
-              <span className="value">Rs. {Math.abs(parseFloat(ledgerBalances.advanceForCertificate || 0)).toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
+
+      {/* Overview: KPIs and charts, same widgets as the Plot Ledge site */}
+      <div className="wg-grid-kpi">
+        <KpiCard
+          label="Total collected"
+          value={overview.totalCollected}
+          prefix="Rs. "
+          delta={overview.collectedDelta}
+          deltaLabel="vs last month"
+          spark={overview.collected}
+        />
+        <KpiCard
+          label="Outstanding"
+          value={overview.outstanding}
+          prefix="Rs. "
+          note="Still to be received on active deals"
+        />
+        <KpiCard
+          label="Active deals"
+          value={overview.activeDealCount}
+          delta={overview.dealsDelta}
+          deltaLabel="new deals vs last month"
+          spark={overview.dealsCreated}
+        />
+        <KpiCard
+          label="Collection rate"
+          value={overview.collectionRate}
+          decimals={1}
+          suffix="%"
+          note={`${overview.plotCounts.available} plots still available`}
+        />
+      </div>
+
+      <div className="wg-grid-2">
+        <ChartFrame title="Collections trend" subtitle="Money received per month">
+          <CollectionsTrend labels={overview.labels} values={overview.collected} />
+        </ChartFrame>
+        <ChartFrame
+          title="Booked vs collected"
+          subtitle="Deal value booked against money received"
+          legend={[
+            { label: 'Booked', color: 'var(--chart-2)' },
+            { label: 'Collected', color: 'var(--chart-1)' },
+          ]}
+        >
+          <BookedVsCollected labels={overview.labels} booked={overview.booked} collected={overview.collected} />
+        </ChartFrame>
+      </div>
+
+      <div className="wg-grid-donut">
+        <ChartFrame
+          title="Deal status"
+          subtitle="All deals"
+          legend={overview.statusSegments.map((s) => ({ label: s.label, color: s.color, value: s.count }))}
+        >
+          <StatusDonut segments={overview.statusSegments} centerLabel="deals" />
+        </ChartFrame>
+        <ChartFrame title="Deals in progress" subtitle="Largest open deals and how much has been received">
+          <DealProgress deals={overview.progress} onOpen={(id) => navigate(`/deals/${id}`)} />
+        </ChartFrame>
+      </div>
+
+      <div className="wg-grid-plots">
+        <ChartFrame title="Plot map" subtitle="Every plot in your inventory by status">
+          <PlotMap plots={overview.plots} />
+        </ChartFrame>
+        <ChartFrame title="Recent payments" subtitle={`Latest receipts, ${formatMoney(overview.totalCollected)} received overall`}>
+          <RecentPayments payments={overview.recent} />
+        </ChartFrame>
+      </div>
 
       {/* Balance by Project */}
       {(isAdmin || isAccountant) && projectBalances.length > 0 && (() => {
@@ -174,7 +258,7 @@ const Dashboard = () => {
         return (
           <div className="stats-section glass-card project-balances-section" style={{ marginBottom: '2rem' }}>
             <div className="section-header">
-              <FaFolderOpen className="header-icon inventory" />
+              <span className="header-icon inventory"><LuFolderOpen /></span>
               <h2>Balance by Project</h2>
             </div>
             <div className="project-balance-table-wrap">
@@ -216,7 +300,7 @@ const Dashboard = () => {
         {/* Finance Overview */}
         <div className="stats-section glass-card">
           <div className="section-header">
-            <FaDollarSign className="header-icon finance" />
+            <span className="header-icon finance"><LuBanknote /></span>
             <h2>Finance Overview</h2>
           </div>
           <div className="finance-grid">
@@ -253,7 +337,7 @@ const Dashboard = () => {
         {/* Mutuals Overview & Breakdown */}
         <div className="stats-section glass-card">
           <div className="section-header">
-            <FaHistory className="header-icon mutuals" />
+            <span className="header-icon mutuals"><LuHistory /></span>
             <h2>Mutual Exchanges</h2>
           </div>
 
@@ -270,19 +354,19 @@ const Dashboard = () => {
         {/* Operations Overview */}
         <div className="stats-section glass-card wider">
           <div className="section-header">
-            <FaWarehouse className="header-icon inventory" />
+            <span className="header-icon inventory"><LuWarehouse /></span>
             <h2>Operations & Inventory</h2>
           </div>
           <div className="ops-grid">
             <div className="ops-item">
-              <FaHandshake className="ops-icon" />
+              <LuHeartHandshake className="ops-icon" />
               <div className="ops-content">
                 <span className="ops-value">{stats.activeDeals}</span>
                 <span className="ops-label">Active Deals</span>
               </div>
             </div>
             <div className="ops-item">
-              <FaWarehouse className="ops-icon" />
+              <LuWarehouse className="ops-icon" />
               <div className="ops-content">
                 <span className="ops-value">{stats.availableInventoryPlots}</span>
                 <span className="ops-label">Available Plots</span>
@@ -290,7 +374,7 @@ const Dashboard = () => {
             </div>
             {(isAdmin || isAccountant) && (
               <div className="ops-item attention">
-                <FaClipboardList className="ops-icon" />
+                <LuClipboardList className="ops-icon" />
                 <div className="ops-content">
                   <span className="ops-value">{stats.pendingRequests}</span>
                   <span className="ops-label">Pending Requests</span>
@@ -298,7 +382,7 @@ const Dashboard = () => {
               </div>
             )}
             <div className="ops-item">
-              <FaHistory className="ops-icon" />
+              <LuHistory className="ops-icon" />
               <div className="ops-content">
                 <span className="ops-value">{stats.pendingDeals}</span>
                 <span className="ops-label">Pending Deals</span>

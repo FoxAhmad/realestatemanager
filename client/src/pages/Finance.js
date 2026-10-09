@@ -1,14 +1,27 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import {
-  FaChartBar, FaCalendarAlt, FaUserTie, FaWallet, FaHistory,
-  FaPlus, FaTimes, FaExternalLinkAlt, FaFileInvoiceDollar, FaCheckCircle,
-  FaEdit, FaTrash, FaFolderOpen
-} from 'react-icons/fa';
+  LuBarChart3,
+  LuCalendar,
+  LuBriefcase,
+  LuWallet,
+  LuHistory,
+  LuPlus,
+  LuX,
+  LuExternalLink,
+  LuFileText,
+  LuCheckCircle2,
+  LuPencil,
+  LuTrash2,
+  LuFolderOpen
+} from 'react-icons/lu';
 import { useAuth } from '../context/AuthContext';
 import { mergeFinanceEntries } from '../utils/financeLedger';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './Finance.css';
+import { notify, confirmDialog } from '../utils/notify';
+import { FinanceLedgerCharts, FinanceAnalyticsCharts } from '../components/charts/FinanceCharts';
 
 const FINANCE_LEDGER_COLUMNS = [
   { key: 'transaction_date', label: 'Date', type: 'date' },
@@ -65,6 +78,7 @@ const Finance = () => {
     search: ledgerSearch, setSearch: setLedgerSearch,
     filters: ledgerFilters, setFilter: setLedgerFilter, clearFilters: clearLedgerFilters,
     filteredData: filteredLedgerEntries,
+    pagedData: pagedLedgerEntries, pagination: ledgerPagination,
     uniqueValues: ledgerUniqueValues,
     showFilters: showLedgerFilters, setShowFilters: setShowLedgerFilters,
     activeFilterCount: ledgerActiveFilterCount,
@@ -74,6 +88,7 @@ const Finance = () => {
     search: teamSearch, setSearch: setTeamSearch,
     filters: teamFilters, setFilter: setTeamFilter, clearFilters: clearTeamFilters,
     filteredData: filteredDealerStats,
+    pagedData: pagedDealerStats, pagination: teamPagination,
     uniqueValues: teamUniqueValues,
     showFilters: showTeamFilters, setShowFilters: setShowTeamFilters,
     activeFilterCount: teamActiveFilterCount,
@@ -227,7 +242,7 @@ const Finance = () => {
       setEditEntry(null);
       fetchData();
     } catch (err) {
-      alert('Error updating entry: ' + (err.response?.data?.message || err.message));
+      notify('Error updating entry: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -259,14 +274,14 @@ const Finance = () => {
       msg = 'Delete this transaction? This cannot be undone.';
     }
 
-    if (!window.confirm(msg)) return;
+    if (!await confirmDialog(msg)) return;
 
     setDeletingId(entry.id);
     try {
       await api.delete(`/balance-transactions/${entry.id}`);
       fetchData();
     } catch (err) {
-      alert('Error deleting entry: ' + (err.response?.data?.message || err.message));
+      notify('Error deleting entry: ' + (err.response?.data?.message || err.message));
     } finally {
       setDeletingId(null);
     }
@@ -300,7 +315,7 @@ const Finance = () => {
       });
       fetchData();
     } catch (err) {
-      alert('Error creating entry: ' + (err.response?.data?.message || err.message));
+      notify('Error creating entry: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -315,7 +330,7 @@ const Finance = () => {
         </div>
         <div className="header-actions">
           <button className="premium-btn premium-btn-primary" onClick={() => setShowModal(true)}>
-            <FaPlus /> Add Entry
+            <LuPlus /> Add Entry
           </button>
         </div>
       </div>
@@ -325,13 +340,13 @@ const Finance = () => {
           className={`tab-item ${activeTab === 'ledger' ? 'active' : ''}`}
           onClick={() => setActiveTab('ledger')}
         >
-          <FaWallet /> {isAccountant ? 'Network Ledger' : 'My Wallet & Ledger'}
+          <LuWallet /> {isAccountant ? 'Network Ledger' : 'My Wallet & Ledger'}
         </button>
         <button
           className={`tab-item ${activeTab === 'analytics' ? 'active' : ''}`}
           onClick={() => setActiveTab('analytics')}
         >
-          <FaChartBar /> Performance Analytics
+          <LuBarChart3 /> Performance Analytics
         </button>
       </div>
 
@@ -339,7 +354,7 @@ const Finance = () => {
         <div className="summary-card glass-card wallet-card">
           <div className="card-top">
             <label>{isAccountant ? 'Total Dealer Wallets' : 'Wallet Balance'}</label>
-            <FaWallet className="card-icon" />
+            <LuWallet className="card-icon" />
           </div>
           <span className="amount profit">Rs. {parseFloat(summary.dealer_finance_balance || 0).toLocaleString()}</span>
           <p className="card-subtext">Available for withdrawal / use</p>
@@ -347,7 +362,7 @@ const Finance = () => {
         <div className="summary-card glass-card">
           <div className="card-top">
             <label>{isAccountant ? 'Network Profits' : 'Total Profit Earned'}</label>
-            <FaFileInvoiceDollar className="card-icon" />
+            <LuFileText className="card-icon" />
           </div>
           <span className="amount">Rs. {parseFloat(summary.total_profit || 0).toLocaleString()}</span>
           <p className="card-subtext">Cumulative earnings from deals</p>
@@ -355,7 +370,7 @@ const Finance = () => {
         <div className="summary-card glass-card">
           <div className="card-top">
             <label>Completed Deals</label>
-            <FaCheckCircle className="card-icon" />
+            <LuCheckCircle2 className="card-icon" />
           </div>
           <span className="amount" style={{ color: 'var(--primary)' }}>{summary.completed_deals}</span>
           <p className="card-subtext">{summary.active_deals} deals currently in progress</p>
@@ -364,8 +379,9 @@ const Finance = () => {
 
       {activeTab === 'ledger' ? (
         <section className="finance-ledger-section animate-fade-in">
+          <FinanceLedgerCharts rows={filteredLedgerEntries} isAccountant={isAccountant} />
           <div className="section-header">
-            <h2><FaHistory /> Transaction History</h2>
+            <h2><LuHistory /> Transaction History</h2>
           </div>
           <div className="glass-card" style={{ padding: '0' }}>
             <TableToolbar
@@ -402,7 +418,7 @@ const Finance = () => {
                       return <tr><td colSpan={6 + (isAccountant ? 1 : 0) + (canManage ? 1 : 0)} className="empty-state">No financial transactions found.</td></tr>;
                     }
 
-                    return filteredLedgerEntries.map((entry, idx) => (
+                    return pagedLedgerEntries.map((entry, idx) => (
                       <tr key={`${entry.id}_${idx}`}>
                         <td data-label="Date">
                           {new Date(entry.transaction_date).toLocaleDateString()}
@@ -435,13 +451,13 @@ const Finance = () => {
                           </div>
                           {entry.project_name && (
                             <div className="instrument-tag" style={{ marginTop: '4px', display: 'inline-block' }}>
-                              <FaFolderOpen size={10} style={{ marginRight: '4px' }} />{entry.project_name}
+                              <LuFolderOpen size={10} style={{ marginRight: '4px' }} />{entry.project_name}
                             </div>
                           )}
                           {entry.proof_files.map((file, i) => (
                             <div key={`proof_${i}`} style={{ marginTop: '4px' }}>
                               <a href={file.startsWith('http') ? file : (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '') + file} target="_blank" rel="noopener noreferrer" className="proof-link">
-                                <FaExternalLinkAlt size={10} /> View Proof {entry.proof_files.length > 1 ? i + 1 : ''}
+                                <LuExternalLink size={10} /> View Proof {entry.proof_files.length > 1 ? i + 1 : ''}
                               </a>
                             </div>
                           ))}
@@ -462,7 +478,7 @@ const Finance = () => {
                               title="Edit Entry"
                               style={{ padding: '4px 8px', borderRadius: '6px', border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer', marginRight: '6px' }}
                             >
-                              <FaEdit size={13} />
+                              <LuPencil size={13} />
                             </button>
                             <button
                               onClick={() => handleDelete(entry)}
@@ -470,7 +486,7 @@ const Finance = () => {
                               disabled={deletingId === entry.id}
                               style={{ padding: '4px 8px', borderRadius: '6px', border: 'none', background: '#dc3545', color: '#fff', cursor: 'pointer' }}
                             >
-                              <FaTrash size={13} />
+                              <LuTrash2 size={13} />
                             </button>
                           </td>
                         )}
@@ -480,13 +496,15 @@ const Finance = () => {
                 </tbody>
               </table>
             </div>
+            <Pagination {...ledgerPagination} />
           </div>
         </section>
       ) : (
         <div className="analytics-container animate-fade-in">
+          <FinanceAnalyticsCharts monthlyStats={monthlyStats} dealerStats={dealerStats} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '2rem' }}>
             <section className="finance-section">
-              <h2><FaCalendarAlt style={{ color: 'var(--primary)' }} /> Monthly Performance</h2>
+              <h2><LuCalendar style={{ color: 'var(--primary)' }} /> Monthly Performance</h2>
               <div className="glass-card" style={{ padding: '0' }}>
                 <div className="premium-table-container">
                   <table className="premium-table">
@@ -517,7 +535,7 @@ const Finance = () => {
 
             {user.role !== 'dealer' && (
               <section className="finance-section">
-                <h2><FaUserTie style={{ color: 'var(--primary)' }} /> Team Performance</h2>
+                <h2><LuBriefcase style={{ color: 'var(--primary)' }} /> Team Performance</h2>
                 <div className="glass-card" style={{ padding: '0' }}>
                   <TableToolbar
                     columns={TEAM_PERFORMANCE_COLUMNS}
@@ -546,7 +564,7 @@ const Finance = () => {
                         {filteredDealerStats.length === 0 ? (
                           <tr><td colSpan="3" className="empty-state">No team data available</td></tr>
                         ) : (
-                          filteredDealerStats.map((stat, i) => (
+                          pagedDealerStats.map((stat, i) => (
                             <tr key={i}>
                               <td data-label="Salesperson" style={{ fontWeight: '700' }}>{stat.dealer_name}</td>
                               <td data-label="Volume">Rs. {parseFloat(stat.total_revenue).toLocaleString()}</td>
@@ -557,6 +575,7 @@ const Finance = () => {
                       </tbody>
                     </table>
                   </div>
+                  <Pagination {...teamPagination} />
                 </div>
               </section>
             )}
@@ -570,7 +589,7 @@ const Finance = () => {
           <div className="modal-content">
             <div className="modal-header">
               <h2>Edit Finance Entry</h2>
-              <button onClick={() => setEditEntry(null)} className="close-modal-btn"><FaTimes /></button>
+              <button onClick={() => setEditEntry(null)} className="close-modal-btn"><LuX /></button>
             </div>
             <form onSubmit={handleEditSubmit}>
               {canManage && (
@@ -625,7 +644,7 @@ const Finance = () => {
           <div className="modal-content">
             <div className="modal-header">
               <h2>New Finance Entry</h2>
-              <button onClick={() => setShowModal(false)} className="close-modal-btn"><FaTimes /></button>
+              <button onClick={() => setShowModal(false)} className="close-modal-btn"><LuX /></button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">

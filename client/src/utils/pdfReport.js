@@ -23,12 +23,12 @@ import autoTable from 'jspdf-autotable';
 
 export const BRAND = {
   company: 'Universal Holdings',
-  system: 'Digi Dealer Pro',
+  system: 'Plot Ledge',
   notice: 'Confidential — for internal use only',
 
-  primary: [84, 105, 212],      // --primary #5469d4
-  primaryDark: [48, 64, 148],
-  primaryTint: [242, 244, 253],
+  primary: [15, 81, 50],      // --primary #0f5132
+  primaryDark: [11, 61, 38],
+  primaryTint: [238, 246, 241],
   ink: [30, 35, 45],
   soft: [98, 108, 125],
   muted: [140, 149, 163],

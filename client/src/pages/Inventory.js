@@ -3,10 +3,20 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import {
-  FaChevronDown, FaChevronUp, FaCheckCircle, FaFolder, FaFolderOpen,
-  FaEye, FaArrowLeft, FaTrash, FaPlus
-} from 'react-icons/fa';
+  LuChevronDown,
+  LuChevronUp,
+  LuCheckCircle2,
+  LuFolder,
+  LuFolderOpen,
+  LuEye,
+  LuArrowLeft,
+  LuTrash2,
+  LuPlus
+} from 'react-icons/lu';
+import InventoryCharts from '../components/charts/InventoryCharts';
+import Pagination, { usePagerState, paginate } from '../components/Pagination';
 import './Inventory.css';
+import { notify, confirmDialog } from '../utils/notify';
 
 const INVENTORY_CATEGORY_LABELS = {
   plot: 'Plot',
@@ -30,6 +40,7 @@ const Inventory = () => {
   const { isAdmin, isAccountant, isEmployee, user } = useAuth();
   const canEdit = isAdmin || isAccountant;
   const [inventory, setInventory] = useState([]);
+  const plotPager = usePagerState();
   const [salespersons, setSalespersons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -142,18 +153,18 @@ const Inventory = () => {
       setBalanceProjects(prev => [...prev, response.data].sort((a, b) => a.name.localeCompare(b.name)));
       setFormData(prev => ({ ...prev, project_id: response.data.id }));
     } catch (error) {
-      alert(error.response?.data?.message || 'Error creating project');
+      notify(error.response?.data?.message || 'Error creating project');
     }
   };
 
   const handleDeleteProjectQuick = async (proj) => {
-    if (!window.confirm(`Delete project "${proj.name}"? Inventory in this project will become unassigned.`)) return;
+    if (!await confirmDialog(`Delete project "${proj.name}"? Inventory in this project will become unassigned.`)) return;
     try {
       await api.delete(`/balance-projects/${proj.id}`);
       setBalanceProjects(prev => prev.filter(p => p.id !== proj.id));
       fetchInventory();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error deleting project');
+      notify(error.response?.data?.message || 'Error deleting project');
     }
   };
 
@@ -224,7 +235,7 @@ const Inventory = () => {
       });
     } catch (error) {
       console.error('Error saving inventory:', error);
-      alert(error.response?.data?.message || 'Error saving inventory');
+      notify(error.response?.data?.message || 'Error saving inventory');
     }
   };
 
@@ -251,12 +262,12 @@ const Inventory = () => {
   const handleUpdatePlot = async (plotId) => {
     try {
       await api.put(`/inventory/plots/${plotId}`, plotEditForm);
-      alert('Plot updated successfully');
+      notify('Plot updated successfully');
       setEditingPlotId(null);
       // Refresh main inventory list (plots are embedded in it)
       fetchInventory();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error updating plot');
+      notify(error.response?.data?.message || 'Error updating plot');
     }
   };
 
@@ -280,13 +291,13 @@ const Inventory = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this inventory item?')) {
+    if (await confirmDialog('Are you sure you want to delete this inventory item?')) {
       try {
         await api.delete(`/inventory/${id}`);
         fetchInventory();
       } catch (error) {
         console.error('Error deleting inventory:', error);
-        alert('Error deleting inventory');
+        notify('Error deleting inventory');
       }
     }
   };
@@ -376,14 +387,14 @@ const Inventory = () => {
     try {
       // Validate investors array
       if (paymentForm.investors.length === 0) {
-        alert('Please add at least one investor');
+        notify('Please add at least one investor');
         return;
       }
 
       // Validate all investors have ID and amount
       for (const inv of paymentForm.investors) {
         if (!inv.investor_id || !inv.amount || parseFloat(inv.amount) <= 0) {
-          alert('Please fill in all investor fields with valid amounts');
+          notify('Please fill in all investor fields with valid amounts');
           return;
         }
       }
@@ -399,7 +410,7 @@ const Inventory = () => {
         notes: paymentForm.notes || null
       });
 
-      alert('Payment submitted successfully!');
+      notify('Payment submitted successfully!');
       setShowPaymentModal(null);
       setPaymentForm({
         inventory_id: null,
@@ -412,7 +423,7 @@ const Inventory = () => {
       fetchInvestorBalances();
     } catch (error) {
       console.error('Error submitting payment:', error);
-      alert(error.response?.data?.message || 'Error submitting payment');
+      notify(error.response?.data?.message || 'Error submitting payment');
     }
   };
 
@@ -470,7 +481,7 @@ const Inventory = () => {
   const renderProjectCard = (proj) => (
     <div key={proj.key} className={`project-card glass-card ${proj.isGeneral ? 'project-card-general' : ''}`}>
       <div className="project-card-icon">
-        {proj.isGeneral ? <FaFolder /> : <FaFolderOpen />}
+        {proj.isGeneral ? <LuFolder /> : <LuFolderOpen />}
       </div>
       <div className="project-card-body">
         <div className="project-card-name">{proj.name}</div>
@@ -491,12 +502,12 @@ const Inventory = () => {
           className="project-view-btn"
           onClick={() => { setSelectedProjectKey(proj.key); setView('plots'); }}
         >
-          <FaEye /> View Plots
+          <LuEye /> View Plots
         </button>
         {!proj.isGeneral && canEdit && (
           <div className="project-edit-actions">
             <button className="project-icon-btn delete" onClick={() => handleDeleteProjectQuick(proj)} title="Delete project">
-              <FaTrash />
+              <LuTrash2 />
             </button>
           </div>
         )}
@@ -520,11 +531,12 @@ const Inventory = () => {
           <div className="header-actions">
             {canEdit && (
               <button className="premium-btn premium-btn-primary" onClick={handleAddProjectQuick}>
-                <FaPlus /> New Project
+                <LuPlus /> New Project
               </button>
             )}
           </div>
         </div>
+        <InventoryCharts items={inventory} byProject scope="All projects" />
         <div className="projects-grid">
           {renderProjectCard(unassigned)}
           {projectCards.map(proj => renderProjectCard(proj))}
@@ -540,6 +552,7 @@ const Inventory = () => {
 
   const itemsInSelectedProject = filteredInventory.filter(item => getProjectKey(item) === selectedProjectKey);
   const plotsInSelectedProject = getPlotsFromItems(itemsInSelectedProject);
+  const { pageItems: pagedPlots, pagination: plotsPagination } = paginate(plotsInSelectedProject, plotPager);
 
   return (
     <div className="premium-page">
@@ -571,15 +584,17 @@ const Inventory = () => {
 
       <div className="project-breadcrumb">
         <button className="back-to-projects-btn" onClick={() => { setView('projects'); setSelectedProjectKey(null); }}>
-          <FaArrowLeft /> All Projects
+          <LuArrowLeft /> All Projects
         </button>
         <span className="breadcrumb-sep">/</span>
         <span className="breadcrumb-project">
           {selectedProjectSummary.isGeneral
-            ? <><FaFolder style={{ marginRight: '0.5rem', color: 'var(--text-muted)' }} />{selectedProjectSummary.name}</>
-            : <><FaFolderOpen style={{ marginRight: '0.5rem', color: 'var(--primary)' }} />{selectedProjectSummary.name}</>}
+            ? <><LuFolder style={{ marginRight: '0.5rem', color: 'var(--text-muted)' }} />{selectedProjectSummary.name}</>
+            : <><LuFolderOpen style={{ marginRight: '0.5rem', color: 'var(--primary)' }} />{selectedProjectSummary.name}</>}
         </span>
       </div>
+
+      <InventoryCharts items={itemsInSelectedProject} scope={selectedProjectSummary.name} />
 
       <div className="glass-card">
         <TableToolbar
@@ -619,7 +634,7 @@ const Inventory = () => {
                 <td colSpan={canEdit ? 11 : 8} className="empty-state">No plots in this project yet</td>
               </tr>
             ) : (
-              plotsInSelectedProject.map(plot => {
+              pagedPlots.map(plot => {
                 const hasPossibleDeal = plot.status !== 'available';
                 const isExpanded = !!expandedPlotRows[plot.id];
                 const deal = dealInfo[plot.id];
@@ -708,7 +723,7 @@ const Inventory = () => {
                           <td>
                             {hasPossibleDeal && (
                               <button className="expand-btn" onClick={() => toggleDealRow(plot.id)} title="View linked deal">
-                                {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
+                                {isExpanded ? <LuChevronUp /> : <LuChevronDown />}
                               </button>
                             )}
                           </td>
@@ -782,7 +797,7 @@ const Inventory = () => {
                       <tr className="expanded-details-row">
                         <td colSpan={colSpan}>
                           <div className="linked-entries-detail">
-                            <h4><FaCheckCircle color="var(--success)" /> Linked Deal</h4>
+                            <h4><LuCheckCircle2 color="var(--success)" /> Linked Deal</h4>
                             {deal === 'loading' && <p>Loading...</p>}
                             {deal === null && <p>No deal found for this plot.</p>}
                             {deal && deal !== 'loading' && (
@@ -815,6 +830,7 @@ const Inventory = () => {
           </tbody>
         </table>
       </div>
+      <Pagination {...plotsPagination} />
     </div>
 
       {showModal && (

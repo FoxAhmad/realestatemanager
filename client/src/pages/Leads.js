@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { FaUserPlus, FaHistory, FaUserTag, FaExchangeAlt, FaEdit, FaTrash } from 'react-icons/fa';
+import { LuUserPlus, LuHistory, LuUserCheck, LuArrowLeftRight, LuPencil, LuTrash2 } from 'react-icons/lu';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './Leads.css';
+import { notify, confirmDialog } from '../utils/notify';
 
 const LEAD_COLUMNS = [
   { key: 'name', label: 'Lead Name', type: 'text' },
@@ -45,6 +47,7 @@ const Leads = () => {
     search, setSearch,
     filters, setFilter, clearFilters,
     filteredData: filteredLeads,
+    pagedData: pagedLeads, pagination: leadsPagination,
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
@@ -110,7 +113,7 @@ const Leads = () => {
       });
     } catch (error) {
       console.error('Error saving lead:', error);
-      alert(error.response?.data?.message || 'Error saving lead');
+      notify(error.response?.data?.message || 'Error saving lead');
     }
   };
 
@@ -121,10 +124,10 @@ const Leads = () => {
       fetchLeads();
       setShowAssignModal(false);
       setAssignmentData({ dealer_id: '' });
-      alert('Lead assigned successfully');
+      notify('Lead assigned successfully');
     } catch (error) {
       console.error('Error assigning lead:', error);
-      alert(error.response?.data?.message || 'Error assigning lead');
+      notify(error.response?.data?.message || 'Error assigning lead');
     }
   };
 
@@ -143,13 +146,13 @@ const Leads = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this lead?')) {
+    if (await confirmDialog('Are you sure you want to delete this lead?')) {
       try {
         await api.delete(`/leads/${id}`);
         fetchLeads();
       } catch (error) {
         console.error('Error deleting lead:', error);
-        alert('Error deleting lead');
+        notify('Error deleting lead');
       }
     }
   };
@@ -185,7 +188,7 @@ const Leads = () => {
               setShowModal(true);
             }}
           >
-            <FaUserPlus /> Add New Lead
+            <LuUserPlus /> Add New Lead
           </button>
         </div>
       </div>
@@ -226,7 +229,7 @@ const Leads = () => {
                   </td>
                 </tr>
               ) : (
-                filteredLeads.map((lead) => (
+                pagedLeads.map((lead) => (
                   <tr key={lead.id}>
                     <td data-label="Lead Name" style={{ fontWeight: '700' }}>{lead.name}</td>
                     <td data-label="Contact info">
@@ -253,7 +256,7 @@ const Leads = () => {
                               setShowAssignModal(true);
                             }}
                           >
-                            <FaExchangeAlt />
+                            <LuArrowLeftRight />
                           </button>
                         )}
                         <button
@@ -262,7 +265,7 @@ const Leads = () => {
                           title="View History"
                           onClick={() => fetchHistory(lead.id)}
                         >
-                          <FaHistory />
+                          <LuHistory />
                         </button>
                         <button
                           className="premium-btn premium-btn-secondary"
@@ -270,7 +273,7 @@ const Leads = () => {
                           title="Edit"
                           onClick={() => handleEdit(lead)}
                         >
-                          <FaEdit />
+                          <LuPencil />
                         </button>
                         {isAdmin && (
                           <button
@@ -279,7 +282,7 @@ const Leads = () => {
                             title="Delete"
                             onClick={() => handleDelete(lead.id)}
                           >
-                            <FaTrash />
+                            <LuTrash2 />
                           </button>
                         )}
                       </div>
@@ -290,6 +293,7 @@ const Leads = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...leadsPagination} />
       </div>
 
       {/* Add/Edit Modal */}
