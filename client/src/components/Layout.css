@@ -497,3 +497,42 @@
 .user-menu-item:hover { background: #f6faf7; }
 .user-menu-item svg { color: var(--primary); }
 .user-menu-logout { margin-top: 0.2rem; border-top: 1px solid #f4f1e8; border-radius: 0 0 10px 10px; }
+
+
+/* Label shown beside an icon while the sidebar is collapsed */
+.sidebar-tip {
+  position: fixed;
+  z-index: 300;
+  transform: translateY(-50%);
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  background: #14201a;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  animation: sidebar-tip-in 0.12s ease-out;
+}
+
+.sidebar-tip::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  background: #14201a;
+  transform: rotate(45deg);
+}
+
+@keyframes sidebar-tip-in {
+  from { opacity: 0; transform: translateY(-50%) translateX(-4px); }
+  to { opacity: 1; transform: translateY(-50%); }
+}
+
+@media (max-width: 768px) {
+  .sidebar-tip { display: none; }
+}

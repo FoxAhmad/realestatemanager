@@ -39,6 +39,7 @@ const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobileViewport());
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [navTip, setNavTip] = useState(null);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -142,12 +143,32 @@ const Layout = () => {
             {sidebarOpen ? <FaChevronLeft /> : <FaChevronRight />}
           </button>
 
-          <nav className="sidebar-nav">
+          <nav
+            className="sidebar-nav"
+            onMouseOver={(e) => {
+              if (sidebarOpen) return;
+              const link = e.target.closest && e.target.closest('a.sidebar-submenu-item');
+              if (!link) return;
+              const r = link.getBoundingClientRect();
+              setNavTip({ label: link.getAttribute('data-label') || link.title, top: r.top + r.height / 2, left: r.right + 10 });
+            }}
+            onMouseLeave={() => setNavTip(null)}
+            onScroll={() => setNavTip(null)}
+            onFocus={(e) => {
+              if (sidebarOpen) return;
+              const link = e.target.closest && e.target.closest('a.sidebar-submenu-item');
+              if (!link) return;
+              const r = link.getBoundingClientRect();
+              setNavTip({ label: link.getAttribute('data-label') || link.title, top: r.top + r.height / 2, left: r.right + 10 });
+            }}
+            onBlur={() => setNavTip(null)}
+          >
             <div className="sidebar-section">
               <Link
                 to="/dashboard"
                 className={`sidebar-submenu-item ${isActive('/dashboard') ? 'active' : ''}`}
-                title="Dashboard"
+                aria-label="Dashboard"
+                data-label="Dashboard"
                 onClick={closeSidebarOnMobile}
               >
                 <FaHome className="sidebar-icon" />
@@ -160,7 +181,8 @@ const Layout = () => {
                 <Link
                   to="/dealers"
                   className={`sidebar-submenu-item ${isActive('/dealers') ? 'active' : ''}`}
-                  title="Salespersons"
+                  aria-label="Salespersons"
+                  data-label="Salespersons"
                   onClick={closeSidebarOnMobile}
                 >
                   <FaUserTie className="sidebar-icon" />
@@ -173,7 +195,8 @@ const Layout = () => {
               <Link
                 to="/finance"
                 className={`sidebar-submenu-item ${isActive('/finance') ? 'active' : ''}`}
-                title="Finance"
+                aria-label="Finance"
+                data-label="Finance"
                 onClick={closeSidebarOnMobile}
               >
                 <FaChartLine className="sidebar-icon" />
@@ -186,7 +209,8 @@ const Layout = () => {
                 <Link
                   to="/manage-balances"
                   className={`sidebar-submenu-item ${isActive('/manage-balances') ? 'active' : ''}`}
-                  title="Manage Balances"
+                  aria-label="Manage Balances"
+                  data-label="Manage Balances"
                   onClick={closeSidebarOnMobile}
                 >
                   <FaWallet className="sidebar-icon" />
@@ -200,7 +224,8 @@ const Layout = () => {
                 <Link
                   to="/forms-ledger"
                   className={`sidebar-submenu-item ${isActive('/forms-ledger') ? 'active' : ''}`}
-                  title="Forms Ledger"
+                  aria-label="Forms Ledger"
+                  data-label="Forms Ledger"
                   onClick={closeSidebarOnMobile}
                 >
                   <FaFileContract className="sidebar-icon" />
@@ -214,7 +239,8 @@ const Layout = () => {
                 <Link
                   to="/slip-record"
                   className={`sidebar-submenu-item ${isActive('/slip-record') ? 'active' : ''}`}
-                  title="Slip Record"
+                  aria-label="Slip Record"
+                  data-label="Slip Record"
                   onClick={closeSidebarOnMobile}
                 >
                   <FaReceipt className="sidebar-icon" />
@@ -228,7 +254,8 @@ const Layout = () => {
                 <Link
                   to="/customers"
                   className={`sidebar-submenu-item ${isActive('/customers') ? 'active' : ''}`}
-                  title="Customers"
+                  aria-label="Customers"
+                  data-label="Customers"
                   onClick={closeSidebarOnMobile}
                 >
                   <FaUserFriends className="sidebar-icon" />
@@ -242,7 +269,8 @@ const Layout = () => {
                 <Link
                   to="/leads"
                   className={`sidebar-submenu-item ${isActive('/leads') ? 'active' : ''}`}
-                  title="Leads"
+                  aria-label="Leads"
+                  data-label="Leads"
                   onClick={closeSidebarOnMobile}
                 >
                   <FaBullhorn className="sidebar-icon" />
@@ -255,7 +283,8 @@ const Layout = () => {
               <Link
                 to="/inventory"
                 className={`sidebar-submenu-item ${isActive('/inventory') ? 'active' : ''}`}
-                title="Inventory"
+                aria-label="Inventory"
+                data-label="Inventory"
                 onClick={closeSidebarOnMobile}
               >
                 <FaWarehouse className="sidebar-icon" />
@@ -267,7 +296,8 @@ const Layout = () => {
               <Link
                 to="/deals"
                 className={`sidebar-submenu-item ${isActive('/deals') ? 'active' : ''}`}
-                title="Deals"
+                aria-label="Deals"
+                data-label="Deals"
                 onClick={closeSidebarOnMobile}
               >
                 <FaHandshake className="sidebar-icon" />
@@ -280,7 +310,8 @@ const Layout = () => {
                 <Link
                   to="/employees"
                   className={`sidebar-submenu-item ${isActive('/employees') ? 'active' : ''}`}
-                  title="Employees"
+                  aria-label="User Roles"
+                  data-label="User Roles"
                   onClick={closeSidebarOnMobile}
                 >
                   <FaUserShield className="sidebar-icon" />
@@ -294,7 +325,8 @@ const Layout = () => {
                 <Link
                   to="/ledger"
                   className={`sidebar-submenu-item ${isActive('/ledger') ? 'active' : ''}`}
-                  title="General Ledger"
+                  aria-label="General Ledger"
+                  data-label="General Ledger"
                   onClick={closeSidebarOnMobile}
                 >
                   <FaBalanceScale className="sidebar-icon" />
@@ -308,7 +340,8 @@ const Layout = () => {
                 <Link
                   to="/dealer-exchanges"
                   className={`sidebar-submenu-item ${isActive('/dealer-exchanges') ? 'active' : ''}`}
-                  title="Dealer Mutuals"
+                  aria-label="Dealer Mutuals"
+                  data-label="Dealer Mutuals"
                   onClick={closeSidebarOnMobile}
                 >
                   <FaExchangeAlt className="sidebar-icon" />
@@ -322,7 +355,8 @@ const Layout = () => {
                 <Link
                   to="/loans-and-investments"
                   className={`sidebar-submenu-item ${isActive('/loans-and-investments') ? 'active' : ''}`}
-                  title="Loans & Investments"
+                  aria-label="Loans & Investments"
+                  data-label="Loans & Investments"
                   onClick={closeSidebarOnMobile}
                 >
                   <FaPiggyBank className="sidebar-icon" />
@@ -335,7 +369,8 @@ const Layout = () => {
               <Link
                 to="/payments"
                 className={`sidebar-submenu-item ${isActive('/payments') ? 'active' : ''}`}
-                title="Payments"
+                aria-label="Payments"
+                data-label="Payments"
                 onClick={closeSidebarOnMobile}
               >
                 <FaDollarSign className="sidebar-icon" />
@@ -347,7 +382,8 @@ const Layout = () => {
               <Link
                 to="/investors"
                 className={`sidebar-submenu-item ${isActive('/investors') ? 'active' : ''}`}
-                title="Investors"
+                aria-label="Investors"
+                data-label="Investors"
                 onClick={closeSidebarOnMobile}
               >
                 <FaMoneyBillWave className="sidebar-icon" />
@@ -358,7 +394,8 @@ const Layout = () => {
               <Link
                 to="/settings"
                 className={`sidebar-submenu-item ${isActive('/settings') ? 'active' : ''}`}
-                title="Settings"
+                aria-label="Settings"
+                data-label="Settings"
                 onClick={closeSidebarOnMobile}
               >
                 <FaCog className="sidebar-icon" />
@@ -374,6 +411,12 @@ const Layout = () => {
           <Outlet />
         </main>
       </div>
+
+      {navTip && !sidebarOpen && (
+        <div className="sidebar-tip" style={{ top: navTip.top, left: navTip.left }} role="tooltip">
+          {navTip.label}
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="app-footer">
