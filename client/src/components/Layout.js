@@ -35,6 +35,20 @@ const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidt
 const Layout = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
+
+  // Browser tab title follows the page, e.g. "Deals · Plot Ledge".
+  useEffect(() => {
+    const titles = {
+      dashboard: 'Dashboard', dealers: 'Salespersons', finance: 'Finance', 'manage-balances': 'Manage Balances',
+      'forms-ledger': 'Forms Ledger', 'slip-record': 'Slip Record', customers: 'Customers', leads: 'Leads',
+      inventory: 'Inventory', deals: 'Deals', employees: 'User Roles', ledger: 'General Ledger',
+      'dealer-exchanges': 'Dealer Mutuals', 'loans-and-investments': 'Loans & Investments', payments: 'Payments',
+      investors: 'Investors', settings: 'Settings',
+    };
+    const seg = location.pathname.split('/').filter(Boolean)[0];
+    const name = location.pathname.startsWith('/deals/') ? 'Deal details' : titles[seg];
+    document.title = name ? `${name} · Plot Ledge` : 'Plot Ledge';
+  }, [location.pathname]);
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobileViewport());
 
   const [menuOpen, setMenuOpen] = useState(false);

@@ -273,3 +273,10 @@ svg[stroke="currentColor"] { stroke-width: 1.9; }
 .sidebar-icon.sidebar-icon { font-size: 1.15rem; }
 .table-search-icon { font-size: 0.9rem; }
 .premium-btn svg { font-size: 0.95rem; }
+
+/* ---- Large money figures never wrap onto two lines ---- */
+.amount.amount {
+  white-space: nowrap;
+  font-size: clamp(1.6rem, 2.1vw, 2.25rem);
+  font-variant-numeric: tabular-nums;
+}
