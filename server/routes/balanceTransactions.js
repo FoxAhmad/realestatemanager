@@ -108,7 +108,7 @@ router.get('/:accountId', auth, async (req, res) => {
 /**
  * Create a balance update transaction
  */
-router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
+router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), db.keepContext, async (req, res) => {
   const client = await db.connect();
   try {
     const { 
@@ -375,7 +375,7 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
   /**
    * Update a balance transaction (Text fields and Proof only)
    */
-  router.put('/:id', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
+  router.put('/:id', auth, adminAndAccountantOnly, upload.single('proof_file'), db.keepContext, async (req, res) => {
     try {
       const { date, description, voucher_no, instrument, instrument_number, user_id, line_id } = req.body;
 

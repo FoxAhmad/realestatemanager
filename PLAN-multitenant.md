@@ -185,3 +185,25 @@ Fresh backup → maintenance window → run migration → run guard + count chec
 ## 8. Not included (YAGNI, add when needed)
 
 Subdomain tenant routing, separate `features`/`subscriptions` tables, billing integration, per-tenant database/schema, branch merge tool.
+
+---
+
+## Implementation status (2026-10-13) — implemented, NOT committed or pushed
+
+Rollback: `backups/pre-multitenant/` (44 files + `MANIFEST.txt`), git tag `pre-multitenant-2026-10-13`, and `neon_backup.dump`.
+
+**Deviations from the plan above**
+- **Isolation is done in the database, not by editing ~330 queries.** Each request runs on a connection switched to the non-owner role `crm_app`, with `app.*` settings the RLS policies read; `tenant_id`/`branch_id` columns default from that context. Routes are unchanged apart from the few listed below. Code: `server/config/database.js`, `server/config/multiTenant.js`.
+- **Standard accounts (ids 1–9 + the 4 parent accounts) are shared by all tenants** (`accounts.tenant_id IS NULL`); only per-tenant sub-accounts (loans/investments) are private. This keeps every hard-coded account id (client and server) valid, so no `accMap` refactor was needed.
+- **Strict mode** (`DB_STRICT=1`, set in `server/index.js`): a `db.query` with no tenant context is rejected. Boot, login and tenant admin use `db.admin` (owner) explicitly. One-off scripts are not strict and default to the first tenant (`TENANT_ID` env overrides).
+- Branch-scoped tables include the child tables (plots, transaction lines, …) so ledger sums respect branches. Tenant-wide: users, agencies, investors, app_settings, balance_projects, dealer_exchanges, agreements.
+- No separate uploads change: proofs are uploaded from memory (multer memoryStorage), not stored in a shared local folder.
+- The migration runs on every boot from `dbInit` (idempotent) instead of a separate script.
+- Branch assignment lives on the new Branches page, not on Dealers/Employees.
+
+**Files changed**: `server/config/{database,dbInit}.js`, `server/index.js`, `server/middleware/auth.js`, `server/routes/{auth,dealers,settings,slips,finance,balanceTransactions,dealerExchanges,leads}.js`, `client/src/{App.js,services/api.js,context/AuthContext.js,components/Layout.js}`, `package.json` (test script).
+**New**: `server/config/multiTenant.js`, `server/services/tenantService.js`, `server/routes/{branches,tenants}.js`, `server/scripts/create_super_admin.js`, `server/tests/*`, `client/src/pages/Branches.js`, `backup-affected-files.js`.
+
+**Verified** (throwaway Postgres 18 on port 5544, restored from `neon_backup.dump`): migration is idempotent; row counts, per-account ledger totals and account ids identical before/after; `npm test` 17/17 (6 pure + 11 DB); real server booted and exercised over HTTP (two tenants, plan gating, branch header, multipart ledger write); client builds.
+**Not verified**: the migration on Neon itself (the `crm_app` role must be creatable and `SET ROLE`-able — otherwise boot stops with a clear error; `ALLOW_NO_RLS=true` is a single-tenant-only escape hatch); the new UI in a browser.
+**Operating notes**: existing company becomes tenant `default` on plan `platinum` (set `DEFAULT_TENANT_PLAN=basic` before the first boot to change). Create the first platform admin with `node server/scripts/create_super_admin.js <email> <password>`, then use `POST /api/tenants`. There is no super_admin UI.

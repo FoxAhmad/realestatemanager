@@ -13,6 +13,12 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Selected branch (Platinum multi-branch). The server validates it against the user's allowed
+    // branches and ignores it for single-branch plans.
+    const branchId = localStorage.getItem('branchId');
+    if (branchId) {
+      config.headers['X-Branch-Id'] = branchId;
+    }
     return config;
   },
   (error) => {
@@ -31,6 +37,7 @@ api.interceptors.response.use(
       // 403 is also used for role restrictions, so only treat it as a dead session on 401.
       if (status === 401) {
         localStorage.removeItem('token');
+        localStorage.removeItem('branchId');
         window.location.assign('/login');
       }
     }

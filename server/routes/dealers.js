@@ -82,6 +82,9 @@ router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
     if (!name || !email) {
       return res.status(400).json({ message: 'Name and email are required' });
     }
+    if (role && !['admin', 'dealer', 'accountant'].includes(role)) {
+      return res.status(400).json({ message: 'Invalid role provided' });
+    }
 
     let result;
     if (password) {

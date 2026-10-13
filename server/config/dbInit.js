@@ -1,5 +1,7 @@
-const db = require('./database');
+// Boot/migration work runs as the table owner (no tenant context, no RLS).
+const db = require('./database').admin;
 const bcrypt = require('bcryptjs');
+const { migrateMultiTenant } = require('./multiTenant');
 
 const initDatabase = async () => {
   try {
@@ -23,7 +25,7 @@ const initDatabase = async () => {
     } catch (e) { /* ignore */ }
     try {
       await db.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`);
-      await db.query(`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'dealer', 'accountant'))`);
+      await db.query(`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'dealer', 'accountant', 'super_admin'))`);
     } catch (e) {
       console.log('Note: users role check updates error:', e.message);
     }
@@ -601,14 +603,7 @@ const initDatabase = async () => {
       )
     `);
 
-    // Seed default settings
-    await db.query(`
-      INSERT INTO app_settings (setting_key, setting_value, description)
-      VALUES 
-        ('ADJUSTMENT_FORM_DEFAULT_COST', '20000', 'Default cost price for adjustment forms (certificates)'),
-        ('ADJUSTMENT_FORM_CUSTOMER_VALUE', '40000', 'Default value credited toward deal for adjustment forms')
-      ON CONFLICT (setting_key) DO NOTHING
-    `);
+    // Default settings are seeded per tenant by migrateMultiTenant / tenantService.createTenant.
 
     // Add indexes for accounting tables
     await db.query(`
@@ -783,29 +778,32 @@ const initDatabase = async () => {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_slips_slip_no ON slips(slip_no)`);
     await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_slips_source ON slips(source_type, source_id) WHERE source_id IS NOT NULL`);
 
+    // Multi-tenancy: tenants, branches, tenant_id/branch_id columns, RLS policies (idempotent).
+    await migrateMultiTenant();
+
     // Create default admin user (password: admin123)
     const hashedPassword = await bcrypt.hash('admin123', 10);
 
     await db.query(`
-      INSERT INTO users (name, email, password, role, is_employee) 
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO users (name, email, password, role, is_employee, tenant_id)
+      SELECT $1, $2, $3, $4, $5, (SELECT id FROM tenants ORDER BY id LIMIT 1)
       ON CONFLICT (email) DO NOTHING
     `, ['Azam', 'admin@uhcrm.com', hashedPassword, 'admin', true]);
 
     // Seed Default Chart of Accounts
     try {
       await db.query(`
-        INSERT INTO accounts (id, name, type)
+        INSERT INTO accounts (id, name, type, tenant_id)
         VALUES 
-          (1, 'Cash / Bank', 'Asset'),
-          (2, 'Accounts Receivable', 'Asset'),
-          (3, 'Dealer Advances', 'Liability'),
-          (4, 'Savings Deposits', 'Liability'),
-          (5, 'Commission Payable', 'Liability'),
-          (6, 'Corporate Revenue', 'Revenue'),
-          (7, 'Dealer Commission Expense', 'Expense'),
-          (8, 'Advance for Certificate', 'Liability'),
-          (9, 'Dealer Finance', 'Liability')
+          (1, 'Cash / Bank', 'Asset', NULL),
+          (2, 'Accounts Receivable', 'Asset', NULL),
+          (3, 'Dealer Advances', 'Liability', NULL),
+          (4, 'Savings Deposits', 'Liability', NULL),
+          (5, 'Commission Payable', 'Liability', NULL),
+          (6, 'Corporate Revenue', 'Revenue', NULL),
+          (7, 'Dealer Commission Expense', 'Expense', NULL),
+          (8, 'Advance for Certificate', 'Liability', NULL),
+          (9, 'Dealer Finance', 'Liability', NULL)
         ON CONFLICT (id) DO UPDATE SET type = EXCLUDED.type, name = EXCLUDED.name
       `);
       // Update sequence if hardcoded IDs are used
@@ -826,8 +824,8 @@ const initDatabase = async () => {
       ];
       for (const [name, type] of newParentAccounts) {
         await db.query(`
-          INSERT INTO accounts (name, type)
-          SELECT $1::varchar, $2::varchar
+          INSERT INTO accounts (name, type, tenant_id)
+          SELECT $1::varchar, $2::varchar, NULL
           WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = $1::varchar AND parent_id IS NULL)
         `, [name, type]);
       }

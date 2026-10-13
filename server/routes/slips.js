@@ -96,7 +96,7 @@ router.post('/import', auth, adminAndAccountantOnly, async (req, res) => {
         WHERE dp.deal_id = p.deal_id
       ) plots ON true
       WHERE p.voucher_no IS NOT NULL AND TRIM(p.voucher_no) <> ''
-      ON CONFLICT (source_type, source_id) WHERE source_id IS NOT NULL DO NOTHING
+      ON CONFLICT (tenant_id, source_type, source_id) WHERE source_id IS NOT NULL DO NOTHING
       RETURNING id
     `, [customerValue]);
 
@@ -120,7 +120,7 @@ router.post('/import', auth, adminAndAccountantOnly, async (req, res) => {
         WHERE dp.deal_id = da.deal_id
       ) plots ON true
       WHERE t.voucher_no IS NOT NULL AND TRIM(t.voucher_no) <> ''
-      ON CONFLICT (source_type, source_id) WHERE source_id IS NOT NULL DO NOTHING
+      ON CONFLICT (tenant_id, source_type, source_id) WHERE source_id IS NOT NULL DO NOTHING
       RETURNING id
     `);
 

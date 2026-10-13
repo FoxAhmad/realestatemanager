@@ -26,14 +26,24 @@ import {
   LuUsers2,
   LuMegaphone,
   LuScale,
-  LuSettings
+  LuSettings,
+  LuGitBranch
 } from 'react-icons/lu';
+import BranchPicker from './BranchPicker';
 import './Layout.css';
+
+// Two-letter form for narrow screens: "Union Test" -> "UT", "Lahore" -> "La".
+const branchInitials = (name = '') => {
+  const words = name.trim().split(/s+/).filter(Boolean);
+  if (words.length > 1) return (words[0][0] + words[1][0]).toUpperCase();
+  return words[0] ? words[0][0].toUpperCase() + (words[0][1] || '').toLowerCase() : '?';
+};
 
 const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidth <= 768;
 
 const Layout = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, branches, currentBranch, needsBranch, setBranch } = useAuth();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const location = useLocation();
 
   // Browser tab title follows the page, e.g. "Deals · Plot Ledge".
@@ -103,6 +113,20 @@ const Layout = () => {
             </div>
           </div>
           <div className="navbar-user-section" ref={menuRef}>
+            {currentBranch && !location.pathname.startsWith('/branches') && (
+              <button
+                type="button"
+                className="branch-label"
+                title="Switch branch"
+                aria-label={`Current branch: ${currentBranch.name}. Switch branch`}
+                onClick={() => setPickerOpen(true)}
+              >
+                <LuGitBranch aria-hidden="true" />
+                <span className="branch-name">{currentBranch.name}</span>
+                <span className="branch-short">{branchInitials(currentBranch.name)}</span>
+                <LuArrowLeftRight aria-hidden="true" className="branch-label-swap" />
+              </button>
+            )}
             <button
               type="button"
               className={`user-chip ${menuOpen ? 'open' : ''}`}
@@ -403,6 +427,20 @@ const Layout = () => {
                 {sidebarOpen && <span>Investors</span>}
               </Link>
             </div>
+            {user?.role === 'admin' && (
+              <div className="sidebar-section">
+                <Link
+                  to="/branches"
+                  className={`sidebar-submenu-item ${isActive('/branches') ? 'active' : ''}`}
+                  aria-label="Branches"
+                  data-label="Branches"
+                  onClick={closeSidebarOnMobile}
+                >
+                  <LuGitBranch className="sidebar-icon" />
+                  {sidebarOpen && <span>Branches</span>}
+                </Link>
+              </div>
+            )}
             <div className="sidebar-section">
               <Link
                 to="/settings"
@@ -421,7 +459,20 @@ const Layout = () => {
 
         {/* Main Content Area */}
         <main className="main-content">
-          <Outlet />
+          {needsBranch ? (
+            <BranchPicker branches={branches} onPick={setBranch} onLogout={logout} />
+          ) : (
+            // key: switching branch remounts the page so it refetches against the new branch
+            <Outlet key={currentBranch ? currentBranch.id : 'all'} />
+          )}
+          {pickerOpen && !needsBranch && (
+            <BranchPicker
+              branches={branches}
+              currentId={currentBranch?.id}
+              onPick={(id) => { setBranch(id); setPickerOpen(false); }}
+              onClose={() => setPickerOpen(false)}
+            />
+          )}
         </main>
       </div>
 

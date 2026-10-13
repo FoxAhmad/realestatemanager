@@ -1,3 +1,6 @@
+// Reject DB access that has no tenant context (see config/database.js). Must be set before database is loaded.
+process.env.DB_STRICT = '1';
+
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -37,6 +40,8 @@ app.use('/api/balance-projects', require('./routes/balanceProjects'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/agencies', require('./routes/agencies'));
 app.use('/api/slips', require('./routes/slips'));
+app.use('/api/branches', require('./routes/branches'));
+app.use('/api/tenants', require('./routes/tenants'));
 
 // Initialize database and start server.
 // The database may be asleep or briefly unreachable, so retry with a growing delay
@@ -47,7 +52,7 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const connectAndInit = async () => {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     try {
-      await db.query('SELECT NOW()');
+      await db.admin.query('SELECT NOW()');
       console.log('PostgreSQL Database connected successfully');
       await initDatabase();
       return;

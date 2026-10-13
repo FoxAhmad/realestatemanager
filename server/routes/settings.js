@@ -27,7 +27,7 @@ router.put('/:key', auth, adminAndAccountantOnly, async (req, res) => {
     const result = await db.query(
       `INSERT INTO app_settings (setting_key, setting_value, description)
        VALUES ($1, $2, $3)
-       ON CONFLICT (setting_key)
+       ON CONFLICT (tenant_id, setting_key)
        DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
       [req.params.key, value.toString(), description || null]

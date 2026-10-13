@@ -134,7 +134,7 @@ router.get('/entries', auth, async (req, res) => {
 });
 
 // Add Finance Entry
-router.post('/entries', auth, upload.single('proof_file'), async (req, res) => {
+router.post('/entries', auth, upload.single('proof_file'), db.keepContext, async (req, res) => {
     const client = await db.connect();
     try {
         const { amount, type, description, date, voucher_no, instrument, instrument_number, target_type, agency_id, customer_id, project_id, balance_account_id } = req.body;
@@ -369,7 +369,7 @@ router.get('/by-dealer', auth, adminAndAccountantOnly, async (req, res) => {
 // is created on demand via ledgerService.findOrCreateSubAccount.
 
 // Give or take a loan
-router.post('/loans', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
+router.post('/loans', auth, adminAndAccountantOnly, upload.single('proof_file'), db.keepContext, async (req, res) => {
   const client = await db.connect();
   try {
     const { direction, counterparty_name, amount, date, description, voucher_no, instrument, instrument_number } = req.body;
@@ -431,7 +431,7 @@ router.post('/loans', auth, adminAndAccountantOnly, upload.single('proof_file'),
 });
 
 // Repay a loan (either a loan we gave being paid back to us, or a loan we took being repaid by us)
-router.post('/loans/:account_id/repay', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
+router.post('/loans/:account_id/repay', auth, adminAndAccountantOnly, upload.single('proof_file'), db.keepContext, async (req, res) => {
   const client = await db.connect();
   try {
     const accountId = parseInt(req.params.account_id);
@@ -538,7 +538,7 @@ router.get('/loans', auth, adminAndAccountantOnly, async (req, res) => {
 });
 
 // Make or return an investment
-router.post('/investments', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
+router.post('/investments', auth, adminAndAccountantOnly, upload.single('proof_file'), db.keepContext, async (req, res) => {
   const client = await db.connect();
   try {
     const { direction, venture_name, amount, date, description, voucher_no, instrument, instrument_number } = req.body;
@@ -607,7 +607,7 @@ router.get('/investments', auth, adminAndAccountantOnly, async (req, res) => {
 });
 
 // Owner draws profit out, or puts capital back in
-router.post('/owner-transactions', auth, adminAndAccountantOnly, upload.single('proof_file'), async (req, res) => {
+router.post('/owner-transactions', auth, adminAndAccountantOnly, upload.single('proof_file'), db.keepContext, async (req, res) => {
   const client = await db.connect();
   try {
     const { direction, amount, date, description, voucher_no, instrument, instrument_number } = req.body;

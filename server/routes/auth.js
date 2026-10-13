@@ -3,10 +3,22 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/database');
+const { auth, adminOnly } = require('../middleware/auth');
+const tenantService = require('../services/tenantService');
+
+// Tenant/plan/branch info the client needs after login (none for platform super_admins).
+const sessionInfo = async (user) => {
+  if (user.role === 'super_admin') return { tenant: null, branches: [] };
+  const ctx = await tenantService.loadContext(user);
+  return {
+    tenant: { id: ctx.tenant.id, name: ctx.tenant.name, plan: ctx.tenant.plan },
+    branches: ctx.branches.filter((b) => ctx.readBranchIds.includes(b.id)),
+  };
+};
 
 // Register - Admin only (for creating admin accounts)
 // Dealers can only be created through /api/dealers endpoint (admin only)
-router.post('/register', require('../middleware/auth').adminOnly, async (req, res) => {
+router.post('/register', auth, adminOnly, async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
@@ -49,7 +61,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
 
-    const result = await db.query(
+    const result = await db.admin.query(
       'SELECT * FROM users WHERE email = $1',
       [email]
     );
@@ -67,18 +79,19 @@ router.post('/login', async (req, res) => {
 
     // Only allow login for admin, accountant, and dealer roles
     // Salespersons can only login with accounts created by admin through /api/dealers
-    if (user.role !== 'admin' && user.role !== 'dealer' && user.role !== 'accountant') {
+    if (!['admin', 'dealer', 'accountant', 'super_admin'].includes(user.role)) {
       return res.status(403).json({ 
         message: 'Access denied. Only admin, accountant, and salesperson accounts can login. Salespersons must be created by admin.' 
       });
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
     );
 
+    const info = await sessionInfo(user);
     res.json({
       token,
       user: {
@@ -86,7 +99,8 @@ router.post('/login', async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role
-      }
+      },
+      ...info
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -94,10 +108,10 @@ router.post('/login', async (req, res) => {
 });
 
 // Get current user
-router.get('/me', require('../middleware/auth').auth, async (req, res) => {
+router.get('/me', auth, async (req, res) => {
   try {
-    const result = await db.query(
-      'SELECT id, name, email, role FROM users WHERE id = $1',
+    const result = await db.admin.query(
+      'SELECT id, name, email, role, tenant_id FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -105,7 +119,7 @@ router.get('/me', require('../middleware/auth').auth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json(result.rows[0]);
+    res.json({ ...result.rows[0], ...(await sessionInfo(result.rows[0])) });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

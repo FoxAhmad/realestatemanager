@@ -75,7 +75,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // Upload Excel/CSV file and import leads (Admin only)
-router.post('/upload', auth, adminOnly, upload.single('file'), async (req, res) => {
+router.post('/upload', auth, adminOnly, upload.single('file'), db.keepContext, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });

@@ -210,7 +210,7 @@ router.get('/balances', auth, async (req, res) => {
 });
 
 // Create new mutual exchange
-router.post('/', auth, upload.single('proof_file'), async (req, res) => {
+router.post('/', auth, upload.single('proof_file'), db.keepContext, async (req, res) => {
   try {
     let { receiver_id, amount, exchange_date, detail, direction, override_sender_id } = req.body;
 
@@ -298,7 +298,7 @@ const resolveBaseUser = (req, existing) => {
  * these rows on every read — but each one is mirrored into the ledger as a TRANSFER;
  * editing one deletes and recreates that mirrored transaction with the new values.
  */
-router.put('/:id', auth, upload.single('proof_file'), async (req, res) => {
+router.put('/:id', auth, upload.single('proof_file'), db.keepContext, async (req, res) => {
   try {
     const { receiver_id, amount, exchange_date, detail, direction } = req.body;
 
