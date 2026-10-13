@@ -4,6 +4,8 @@ const db = require('../config/database');
 const pool = db.admin; // owner-level: every statement below carries an explicit tenant_id
 
 const httpError = (status, message, code) => Object.assign(new Error(message), { status, code });
+const PLANS = ['basic', 'pro', 'platinum'];
+const STATUSES = ['active', 'suspended'];
 const isPlatinum = (tenant) => tenant.plan === 'platinum' && tenant.status === 'active';
 
 // Subscription entitlement. Called inside the service functions (not only routes) so no caller can skip it.
@@ -157,6 +159,7 @@ const setBranchUsers = async (tenantId, branchId, userIds, actorId) => {
 
 const createTenant = async ({ name, slug, plan = 'basic', adminName, adminEmail, adminPassword }, actorId) => {
   if (!name || !slug || !adminName || !adminEmail || !adminPassword) throw httpError(400, 'name, slug, adminName, adminEmail and adminPassword are required');
+  if (!PLANS.includes(plan)) throw httpError(400, `plan must be one of: ${PLANS.join(', ')}`);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -187,6 +190,8 @@ const createTenant = async ({ name, slug, plan = 'basic', adminName, adminEmail,
 
 // Downgrade/upgrade never deletes anything; see resolveBranchAccess for what a downgrade freezes.
 const updateTenant = async (tenantId, { plan, status }, actorId) => {
+  if (plan && !PLANS.includes(plan)) throw httpError(400, `plan must be one of: ${PLANS.join(', ')}`);
+  if (status && !STATUSES.includes(status)) throw httpError(400, `status must be one of: ${STATUSES.join(', ')}`);
   const r = await pool.query(
     'UPDATE tenants SET plan = COALESCE($1, plan), status = COALESCE($2, status) WHERE id = $3 RETURNING id, name, slug, plan, status',
     [plan || null, status || null, tenantId]
@@ -198,7 +203,8 @@ const updateTenant = async (tenantId, { plan, status }, actorId) => {
 
 const listTenants = async () =>
   (await pool.query(
-    `SELECT t.id, t.name, t.slug, t.plan, t.status, (SELECT COUNT(*) FROM branches b WHERE b.tenant_id = t.id)::int AS branch_count
+    `SELECT t.id, t.name, t.slug, t.plan, t.status, (SELECT COUNT(*) FROM branches b WHERE b.tenant_id = t.id)::int AS branch_count,
+            (SELECT COUNT(*) FROM users u WHERE u.tenant_id = t.id)::int AS user_count
      FROM tenants t ORDER BY t.id`)).rows;
 
 module.exports = {

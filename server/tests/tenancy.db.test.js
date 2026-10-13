@@ -22,6 +22,11 @@ if (process.env.RUN_DB_TESTS !== '1') {
   const q = (ctx, sql, params) => db.runAs(ctx, () => db.query(sql, params));
 
   test.before(async () => {
+    // These tests create tenants and rows. Never run them on a real database (DATABASE_URL in .env wins over DB_*).
+    const { rows } = await db.admin.query('SELECT current_database() AS name');
+    if (!/test/i.test(rows[0].name)) {
+      throw new Error(`Refusing to run on database "${rows[0].name}": its name must contain "test". Unset DATABASE_URL (DATABASE_URL= npm test) and set DB_NAME.`);
+    }
     await initDatabase();
     A = await ts.createTenant({ name: 'A', slug: `a-${uniq}`, plan: 'platinum', adminName: 'A', adminEmail: `a-${uniq}@t.test`, adminPassword: 'x' });
     B = await ts.createTenant({ name: 'B', slug: `b-${uniq}`, plan: 'basic', adminName: 'B', adminEmail: `b-${uniq}@t.test`, adminPassword: 'x' });

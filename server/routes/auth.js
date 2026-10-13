@@ -103,6 +103,7 @@ router.post('/login', async (req, res) => {
       ...info
     });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message, code: error.code });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -121,6 +122,7 @@ router.get('/me', auth, async (req, res) => {
 
     res.json({ ...result.rows[0], ...(await sessionInfo(result.rows[0])) });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message, code: error.code });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -138,7 +140,7 @@ router.put('/profile', require('../middleware/auth').auth, async (req, res) => {
       return res.status(400).json({ message: 'Please enter a valid email address' });
     }
 
-    const result = await db.query(
+    const result = await db.admin.query( // own row only (WHERE id = req.user.id); works for super_admin too
       'UPDATE users SET name = $1, email = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING id, name, email, role',
       [name, email, req.user.id]
     );
@@ -168,7 +170,7 @@ router.put('/password', require('../middleware/auth').auth, async (req, res) => 
       return res.status(400).json({ message: 'New password must be at least 8 characters' });
     }
 
-    const found = await db.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+    const found = await db.admin.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
     if (found.rows.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -179,7 +181,7 @@ router.put('/password', require('../middleware/auth').auth, async (req, res) => 
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
-    await db.query('UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [hashed, req.user.id]);
+    await db.admin.query('UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [hashed, req.user.id]);
 
     res.json({ message: 'Password updated' });
   } catch (error) {

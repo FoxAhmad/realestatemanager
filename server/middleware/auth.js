@@ -25,7 +25,12 @@ const auth = async (req, res, next) => {
     req.user = { ...decoded, role: user.role, tenant_id: user.tenant_id };
 
     // Platform super_admins belong to no tenant: no context, so tenant tables are invisible to them.
-    if (user.role === 'super_admin') return next();
+    if (user.role === 'super_admin') {
+      if (!/^\/api\/(tenants|auth)(\/|$)/.test(req.baseUrl)) {
+        return res.status(403).json({ message: 'Platform admins can only use the tenant management API' });
+      }
+      return next();
+    }
 
     const ctx = await tenantService.loadContext(user, req.header('X-Branch-Id'));
     req.tenant = ctx.tenant;

@@ -23,9 +23,15 @@ import SlipRecord from './pages/SlipRecord';
 import LoansAndInvestments from './pages/LoansAndInvestments';
 import Settings from './pages/Settings';
 import Branches from './pages/Branches';
+import Tenants from './pages/Tenants';
+import PlatformDashboard from './pages/PlatformDashboard';
+import { useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import NotifyHost from './components/NotifyHost';
 import './App.css';
+
+// Platform admins get the platform overview; everyone else the tenant dashboard.
+const DashboardHome = () => (useAuth().isSuperAdmin ? <PlatformDashboard /> : <Dashboard />);
 
 function App() {
   return (
@@ -43,7 +49,7 @@ function App() {
             }
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="dashboard" element={<DashboardHome />} />
             <Route path="dealers" element={<Dealers />} />
             <Route path="employees" element={<Employees />} />
             <Route path="customers" element={<Customers />} />
@@ -63,6 +69,7 @@ function App() {
             <Route path="profile" element={<Navigate to="/settings" replace />} />
             <Route path="settings" element={<Settings />} />
             <Route path="branches" element={<Branches />} />
+            <Route path="tenants" element={<Tenants />} />
             <Route path="loans-and-investments" element={<LoansAndInvestments />} />
           </Route>
         </Routes>

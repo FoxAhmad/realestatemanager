@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LuChevronLeft,
@@ -27,7 +27,8 @@ import {
   LuMegaphone,
   LuScale,
   LuSettings,
-  LuGitBranch
+  LuGitBranch,
+  LuBuilding2
 } from 'react-icons/lu';
 import BranchPicker from './BranchPicker';
 import './Layout.css';
@@ -42,7 +43,7 @@ const branchInitials = (name = '') => {
 const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidth <= 768;
 
 const Layout = () => {
-  const { user, logout, branches, currentBranch, needsBranch, setBranch } = useAuth();
+  const { user, logout, branches, currentBranch, needsBranch, setBranch, isSuperAdmin } = useAuth();
   const [pickerOpen, setPickerOpen] = useState(false);
   const location = useLocation();
 
@@ -90,6 +91,11 @@ const Layout = () => {
   const closeSidebarOnMobile = () => {
     if (isMobileViewport()) setSidebarOpen(false);
   };
+
+  // Platform admins only get the platform pages; tenant pages have no data for them.
+  if (isSuperAdmin && !['/dashboard', '/tenants', '/settings'].includes(location.pathname)) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="layout">
@@ -212,6 +218,24 @@ const Layout = () => {
                 {sidebarOpen && <span>Dashboard</span>}
               </Link>
             </div>
+
+            {isSuperAdmin && (
+              <div className="sidebar-section">
+                <Link
+                  to="/tenants"
+                  className={`sidebar-submenu-item ${isActive('/tenants') ? 'active' : ''}`}
+                  aria-label="Tenants"
+                  data-label="Tenants"
+                  onClick={closeSidebarOnMobile}
+                >
+                  <LuBuilding2 className="sidebar-icon" />
+                  {sidebarOpen && <span>Tenants</span>}
+                </Link>
+              </div>
+            )}
+
+            {!isSuperAdmin && (
+              <>
 
             {(user?.role === 'admin' || user?.role === 'accountant') && (
               <div className="sidebar-section">
@@ -427,6 +451,9 @@ const Layout = () => {
                 {sidebarOpen && <span>Investors</span>}
               </Link>
             </div>
+              </>
+            )}
+
             {user?.role === 'admin' && (
               <div className="sidebar-section">
                 <Link
