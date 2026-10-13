@@ -29,8 +29,12 @@ export const AuthProvider = ({ children }) => {
       const response = await api.get('/auth/me');
       setUser(response.data);
     } catch (error) {
-      localStorage.removeItem('token');
-      setToken(null);
+      // Only drop the session when the server rejects the token; a network blip or a
+      // server restart should not sign the user out.
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        localStorage.removeItem('token');
+        setToken(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -61,8 +65,11 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const updateUser = (next) => setUser((prev) => ({ ...(prev || {}), ...next }));
+
   const value = {
     user,
+    updateUser,
     loading,
     login,
     logout,

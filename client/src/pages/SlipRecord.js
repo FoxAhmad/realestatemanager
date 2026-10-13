@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaPlus, FaEdit, FaTrash, FaFileImport, FaReceipt } from 'react-icons/fa';
+import { LuPlus, LuPencil, LuTrash2, LuFileInput, LuReceipt } from 'react-icons/lu';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './SlipRecord.css';
+import { notify, confirmDialog } from '../utils/notify';
 
 const SLIP_STATUS_LABELS = {
   available: 'Available',
@@ -114,6 +116,7 @@ const SlipRecord = () => {
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
+    pagedData: pagedSlips, pagination,
   } = useTableFilters(slips, SLIP_COLUMNS);
 
   const totals = filteredSlips.reduce((acc, s) => ({
@@ -187,17 +190,17 @@ const SlipRecord = () => {
       fetchSlips();
       closeModal();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error saving slip record');
+      notify(error.response?.data?.message || 'Error saving slip record');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this slip record permanently?')) return;
+    if (!await confirmDialog('Delete this slip record permanently?')) return;
     try {
       await api.delete(`/slips/${id}`);
       fetchSlips();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error deleting slip record');
+      notify(error.response?.data?.message || 'Error deleting slip record');
     }
   };
 
@@ -206,11 +209,11 @@ const SlipRecord = () => {
     try {
       const response = await api.post('/slips/import');
       const { pulled, fixed } = response.data;
-      alert(`Pulled ${pulled} new slip(s) from existing receipts.`
+      notify(`Pulled ${pulled} new slip(s) from existing receipts.`
         + (fixed ? ` Corrected ${fixed} CADN slip(s) to the forms investment/qty split.` : ''));
       fetchSlips();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error pulling existing receipts');
+      notify(error.response?.data?.message || 'Error pulling existing receipts');
     } finally {
       setImporting(false);
     }
@@ -228,10 +231,10 @@ const SlipRecord = () => {
         {canManage && (
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button className="premium-btn premium-btn-secondary" onClick={handleImport} disabled={importing}>
-              <FaFileImport /> {importing ? 'Pulling...' : 'Pull Existing Receipts'}
+              <LuFileInput /> {importing ? 'Pulling...' : 'Pull Existing Receipts'}
             </button>
             <button className="premium-btn premium-btn-primary" onClick={openCreateModal}>
-              <FaPlus /> Add Slip
+              <LuPlus /> Add Slip
             </button>
           </div>
         )}
@@ -298,9 +301,9 @@ const SlipRecord = () => {
                   </td>
                 </tr>
               ) : (
-                filteredSlips.map((s, idx) => (
+                pagedSlips.map((s, idx) => (
                   <tr key={s.id}>
-                    <td data-label="S.No">{idx + 1}</td>
+                    <td data-label="S.No">{(pagination.page - 1) * pagination.pageSize + idx + 1}</td>
                     <td data-label="Date">{new Date(s.slip_date).toLocaleDateString()}</td>
                     <td data-label="Plot">
                       {s.deal_id ? (
@@ -341,16 +344,20 @@ const SlipRecord = () => {
                           <button
                             className="premium-btn premium-btn-secondary"
                             style={{ padding: '0.4rem 0.7rem' }}
+                            aria-label="Edit slip"
+                            title="Edit slip"
                             onClick={() => openEditModal(s)}
                           >
-                            <FaEdit />
+                            <LuPencil />
                           </button>
                           <button
                             className="premium-btn premium-btn-danger"
                             style={{ padding: '0.4rem 0.7rem' }}
+                            aria-label="Delete slip"
+                            title="Delete slip"
                             onClick={() => handleDelete(s.id)}
                           >
-                            <FaTrash />
+                            <LuTrash2 />
                           </button>
                         </div>
                       </td>
@@ -361,12 +368,13 @@ const SlipRecord = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...pagination} />
       </div>
 
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2><FaReceipt style={{ marginRight: '0.5rem' }} />{editingId ? 'Edit Slip Record' : 'Add Slip Record'}</h2>
+            <h2><LuReceipt style={{ marginRight: '0.5rem' }} />{editingId ? 'Edit Slip Record' : 'Add Slip Record'}</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label>Link to Deal (optional)</label>

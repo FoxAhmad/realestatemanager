@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { FaPlus, FaTimes, FaHandHoldingUsd, FaChartLine, FaUserTie, FaUndo } from 'react-icons/fa';
+import { LuPlus, LuX, LuHelpingHand, LuLineChart, LuBriefcase, LuUndo2 } from 'react-icons/lu';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './LoansAndInvestments.css';
+import { notify } from '../utils/notify';
 
 const LOAN_RECEIVABLE_COLUMNS = [
   { key: 'name', label: 'Name', type: 'text' },
@@ -97,6 +99,7 @@ const LoansAndInvestments = () => {
     uniqueValues: receivableUniqueValues,
     showFilters: showReceivableFilters, setShowFilters: setShowReceivableFilters,
     activeFilterCount: receivableActiveFilterCount,
+    pagedData: pagedLoansReceivable, pagination: receivablePagination,
   } = useTableFilters(loans.receivable, LOAN_RECEIVABLE_COLUMNS);
 
   const {
@@ -106,6 +109,7 @@ const LoansAndInvestments = () => {
     uniqueValues: payableUniqueValues,
     showFilters: showPayableFilters, setShowFilters: setShowPayableFilters,
     activeFilterCount: payableActiveFilterCount,
+    pagedData: pagedLoansPayable, pagination: payablePagination,
   } = useTableFilters(loans.payable, LOAN_PAYABLE_COLUMNS);
 
   const {
@@ -115,6 +119,7 @@ const LoansAndInvestments = () => {
     uniqueValues: investmentsUniqueValues,
     showFilters: showInvestmentsFilters, setShowFilters: setShowInvestmentsFilters,
     activeFilterCount: investmentsActiveFilterCount,
+    pagedData: pagedInvestments, pagination: investmentsPagination,
   } = useTableFilters(investments, INVESTMENT_COLUMNS);
 
   const handleInputChange = (e) => {
@@ -174,7 +179,7 @@ const LoansAndInvestments = () => {
       setFormData(emptyForm);
       fetchAll();
     } catch (err) {
-      alert('Error saving entry: ' + (err.response?.data?.message || err.message));
+      notify('Error saving entry: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -198,7 +203,7 @@ const LoansAndInvestments = () => {
       setRepayTarget(null);
       fetchAll();
     } catch (err) {
-      alert('Error recording repayment: ' + (err.response?.data?.message || err.message));
+      notify('Error recording repayment: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -213,26 +218,26 @@ const LoansAndInvestments = () => {
         </div>
         <div className="header-actions">
           <button className="premium-btn premium-btn-primary" onClick={() => setShowModal(true)}>
-            <FaPlus /> Add Entry
+            <LuPlus /> Add Entry
           </button>
         </div>
       </div>
 
       <div className="li-summary-grid">
         <div className="li-summary-card">
-          <label><FaHandHoldingUsd /> Owed To Us</label>
+          <label><LuHelpingHand /> Owed To Us</label>
           <span className="amount">Rs. {totalOutstanding(loans.receivable).toLocaleString()}</span>
         </div>
         <div className="li-summary-card">
-          <label><FaUserTie /> We Owe</label>
+          <label><LuBriefcase /> We Owe</label>
           <span className="amount">Rs. {totalOutstanding(loans.payable).toLocaleString()}</span>
         </div>
         <div className="li-summary-card">
-          <label><FaChartLine /> Invested (Outstanding)</label>
+          <label><LuLineChart /> Invested (Outstanding)</label>
           <span className="amount">Rs. {totalOutstanding(investments).toLocaleString()}</span>
         </div>
         <div className="li-summary-card">
-          <label><FaUndo /> Owner Equity</label>
+          <label><LuUndo2 /> Owner Equity</label>
           <span className="amount">Rs. {ownerBalance.toLocaleString()}</span>
         </div>
       </div>
@@ -272,7 +277,7 @@ const LoansAndInvestments = () => {
                 {filteredLoansReceivable.length === 0 && (
                   <tr className="li-empty-row"><td colSpan="3">No loans given out yet.</td></tr>
                 )}
-                {filteredLoansReceivable.map(row => (
+                {pagedLoansReceivable.map(row => (
                   <tr key={row.account_id}>
                     <td data-label="Name">{row.name}</td>
                     <td data-label="Outstanding">
@@ -292,6 +297,7 @@ const LoansAndInvestments = () => {
               </tbody>
             </table>
           </div>
+          <Pagination {...receivablePagination} />
 
           <h3 style={{ margin: '1.5rem 0 0.75rem' }}>Loans Payable &mdash; we owe</h3>
           <TableToolbar
@@ -317,7 +323,7 @@ const LoansAndInvestments = () => {
                 {filteredLoansPayable.length === 0 && (
                   <tr className="li-empty-row"><td colSpan="3">No loans taken yet.</td></tr>
                 )}
-                {filteredLoansPayable.map(row => (
+                {pagedLoansPayable.map(row => (
                   <tr key={row.account_id}>
                     <td data-label="Name">{row.name}</td>
                     <td data-label="Outstanding">
@@ -337,6 +343,7 @@ const LoansAndInvestments = () => {
               </tbody>
             </table>
           </div>
+          <Pagination {...payablePagination} />
         </>
       )}
 
@@ -365,7 +372,7 @@ const LoansAndInvestments = () => {
               {filteredInvestments.length === 0 && (
                 <tr className="li-empty-row"><td colSpan="2">No investments recorded yet.</td></tr>
               )}
-              {filteredInvestments.map(row => (
+              {pagedInvestments.map(row => (
                 <tr key={row.account_id}>
                   <td data-label="Venture">{row.name}</td>
                   <td data-label="Outstanding">
@@ -378,6 +385,7 @@ const LoansAndInvestments = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...investmentsPagination} />
         </>
       )}
 
@@ -386,7 +394,7 @@ const LoansAndInvestments = () => {
           <div className="modal-content">
             <div className="modal-header">
               <h2>New Loan / Investment Entry</h2>
-              <button onClick={() => setShowModal(false)} className="close-modal-btn"><FaTimes /></button>
+              <button onClick={() => setShowModal(false)} className="close-modal-btn"><LuX /></button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -466,7 +474,7 @@ const LoansAndInvestments = () => {
           <div className="modal-content">
             <div className="modal-header">
               <h2>{repayTarget.isReceivable ? 'Record Repayment' : 'Repay Loan'} &mdash; {repayTarget.name}</h2>
-              <button onClick={() => setRepayTarget(null)} className="close-modal-btn"><FaTimes /></button>
+              <button onClick={() => setRepayTarget(null)} className="close-modal-btn"><LuX /></button>
             </div>
             <form onSubmit={handleRepaySubmit}>
               <div className="form-group">

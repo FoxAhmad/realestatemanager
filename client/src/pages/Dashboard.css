@@ -1,14 +1,14 @@
 .welcome-section h1 {
   margin: 0;
   font-size: 2.25rem;
-  color: #1a1f36;
+  color: #14201a;
   font-weight: 800;
   letter-spacing: -0.5px;
 }
 
 .welcome-section p {
   margin: 0.5rem 0 0 0;
-  color: #5469d4;
+  color: #0f5132;
   font-size: 1.1rem;
   font-weight: 500;
 }
@@ -87,7 +87,7 @@
 .card-info .value {
   font-size: 1.75rem;
   font-weight: 800;
-  color: #1a1f36;
+  color: #14201a;
 }
 
 /* Main Grid */
@@ -111,7 +111,7 @@
 .section-header h2 {
   margin: 0;
   font-size: 1.4rem;
-  color: #1a1f36;
+  color: #14201a;
   font-weight: 700;
 }
 
@@ -127,7 +127,7 @@
 
 .header-icon.finance { background: #fee2e2; color: #ef4444; }
 .header-icon.mutuals { background: #dcfce7; color: #22c55e; }
-.header-icon.inventory { background: #e0e7ff; color: #6366f1; }
+.header-icon.inventory { background: #dcfce7; color: #16a34a; }
 
 /* Finance Items */
 .finance-grid {
@@ -153,7 +153,7 @@
   font-weight: 700;
 }
 
-.stat-value.revenue { color: #5469d4; }
+.stat-value.revenue { color: #0f5132; }
 .stat-value.profit { color: #22c55e; }
 
 /* Mutuals */
@@ -217,7 +217,7 @@
 .ops-value {
   font-size: 1.35rem;
   font-weight: 800;
-  color: #1a1f36;
+  color: #14201a;
 }
 
 .ops-label {
@@ -361,7 +361,7 @@
 .project-balance-table td {
   padding: 0.9rem 1rem;
   font-size: 0.95rem;
-  color: #1a1f36;
+  color: #14201a;
   border-bottom: 1px solid #f1f5f9;
   white-space: nowrap;
 }
@@ -380,7 +380,7 @@
 
 .project-total-cell {
   font-weight: 800;
-  color: #5469d4;
+  color: #0f5132;
 }
 
 .project-unassigned-row {
@@ -442,3 +442,111 @@
     color: #94a3b8;
   }
 }
+
+
+/* ---- Ledger balance cards (top of the dashboard) ---- */
+.topline-ledger-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 900px) {
+  .topline-ledger-row { grid-template-columns: minmax(0, 1fr); }
+}
+
+.ledger-card.ledger-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 1.25rem 1.35rem 1.15rem;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #ece8dc;
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(2, 44, 34, 0.04);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.ledger-card.ledger-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--ledger-accent);
+}
+
+.ledger-card.ledger-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--ledger-accent);
+  box-shadow: 0 14px 34px rgba(2, 44, 34, 0.09);
+}
+
+.ledger-gold { --ledger-accent: #f59e0b; --ledger-tint: #fef3c7; --ledger-ink: #92400e; }
+.ledger-green { --ledger-accent: #16a34a; --ledger-tint: #d1fae5; --ledger-ink: #065f46; }
+.ledger-deep { --ledger-accent: #0f5132; --ledger-tint: #dcebe3; --ledger-ink: #0f5132; }
+
+.ledger-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.9rem;
+}
+
+.ledger-card .card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  font-size: 1.2rem;
+  background: var(--ledger-tint);
+  color: var(--ledger-ink);
+}
+
+.ledger-share {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--ledger-tint);
+  color: var(--ledger-ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-card > .label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ledger-card > .value {
+  margin: 0.2rem 0 0.9rem;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(1.5rem, 2vw, 1.95rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-main);
+}
+
+/* ---- Section header icon tiles: same look as the ledger balance cards (44px soft tile, thin icon) ---- */
+.header-icon.header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  font-size: 1.2rem;
+  box-shadow: none;
+}
+
+.header-icon.finance { background: #fef3c7; color: #92400e; }
+.header-icon.mutuals { background: #d1fae5; color: #065f46; }
+.header-icon.inventory { background: #dcebe3; color: #0f5132; }
+
+.section-header { gap: 0.85rem; }
+.section-header h2 { font-size: 1.25rem; }
+
+.ops-icon { color: var(--primary); font-size: 1.25rem; }

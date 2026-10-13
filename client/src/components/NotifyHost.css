@@ -1,0 +1,134 @@
+.toast-stack {
+  position: fixed;
+  z-index: 10000;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: min(380px, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #ece8dc;
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(2, 44, 34, 0.16);
+  animation: toast-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.toast p { flex: 1; margin: 0.15rem 0 0; font-size: 0.88rem; line-height: 1.4; color: var(--text-main); }
+
+.toast-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+}
+
+.toast-icon svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.toast-success { border-left-color: #16a34a; }
+.toast-success .toast-icon { background: #d1fae5; color: #065f46; }
+.toast-error { border-left-color: #b42318; }
+.toast-error .toast-icon { background: #fee2e2; color: #991b1b; }
+.toast-info { border-left-color: #f59e0b; }
+.toast-info .toast-icon { background: #fef3c7; color: #92400e; }
+
+.toast-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.2rem;
+}
+
+@keyframes toast-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(2, 44, 34, 0.45);
+  backdrop-filter: blur(3px);
+  animation: confirm-fade 0.15s ease-out;
+}
+
+.confirm-card {
+  width: min(420px, 100%);
+  padding: 1.6rem;
+  border-radius: 18px;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+  animation: confirm-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.confirm-badge {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  margin: 0 auto 0.9rem;
+  border-radius: 50%;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.confirm-badge.danger { background: #fee2e2; color: #b42318; }
+
+.confirm-card h3 { margin: 0 0 0.5rem; font-size: 1.15rem; color: var(--text-main); }
+
+.confirm-card p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  white-space: pre-line;
+}
+
+.confirm-actions { display: flex; gap: 0.7rem; margin-top: 1.4rem; }
+
+.confirm-btn {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.confirm-btn:active { transform: translateY(1px); }
+.confirm-btn.ghost { background: #fff; border-color: #e2e8f0; color: var(--text-main); }
+.confirm-btn.ghost:hover { background: #f8fafc; }
+.confirm-btn.primary { background: var(--primary); color: #fff; }
+.confirm-btn.primary:hover { background: var(--primary-hover); }
+.confirm-btn.danger { background: #b42318; color: #fff; }
+.confirm-btn.danger:hover { background: #991b1b; }
+.confirm-btn:focus-visible { outline: 3px solid rgba(22, 163, 74, 0.4); outline-offset: 2px; }
+
+@keyframes confirm-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes confirm-pop { from { opacity: 0; transform: scale(0.95) translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .toast, .confirm-backdrop, .confirm-card { animation: none; }
+}

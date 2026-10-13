@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './Customers.css';
+import { notify, confirmDialog } from '../utils/notify';
 
 const CUSTOMER_COLUMNS = [
   { key: 'name', label: 'Customer Name', type: 'text' },
@@ -36,6 +38,8 @@ const Customers = () => {
     search, setSearch,
     filters, setFilter, clearFilters,
     filteredData: filteredCustomers,
+    pagedData: pagedCustomers,
+    pagination: customersPagination,
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
@@ -73,7 +77,7 @@ const Customers = () => {
       setFormData({ name: '', cnic: '', phone_number: '', email: '', address: '', status: 'potential' });
     } catch (error) {
       console.error('Error saving customer:', error);
-      alert(error.response?.data?.message || 'Error saving customer');
+      notify(error.response?.data?.message || 'Error saving customer');
     }
   };
 
@@ -91,13 +95,13 @@ const Customers = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this customer?')) {
+    if (await confirmDialog('Are you sure you want to delete this customer?')) {
       try {
         await api.delete(`/customers/${id}`);
         fetchCustomers();
       } catch (error) {
         console.error('Error deleting customer:', error);
-        alert('Error deleting customer');
+        notify('Error deleting customer');
       }
     }
   };
@@ -161,7 +165,7 @@ const Customers = () => {
                   </td>
                 </tr>
               ) : (
-                filteredCustomers.map((customer) => (
+                pagedCustomers.map((customer) => (
                   <tr key={customer.id}>
                     <td data-label="Customer Name" style={{ fontWeight: '700' }}>{customer.name}</td>
                     <td data-label="Identity (CNIC)">{customer.cnic || '-'}</td>
@@ -211,6 +215,7 @@ const Customers = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...customersPagination} />
       </div>
 
       {showModal && (

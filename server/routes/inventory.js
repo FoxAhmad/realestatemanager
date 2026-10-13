@@ -32,10 +32,13 @@ router.get('/', auth, async (req, res) => {
         ORDER BY i.created_at DESC
       `);
 
-      // Fetch all plot assignments with details for each inventory item
-      for (let item of result.rows) {
+      // Fetch plot assignments for every inventory item in ONE query (was one query per item).
+      const ids = result.rows.map(item => item.id);
+      const plotsByInventory = new Map();
+      if (ids.length > 0) {
         const plotsResult = await db.query(`
           SELECT
+            ip.inventory_id,
             ip.id as plot_id,
             ip.plot_number,
             ip.status as plot_status,
@@ -50,11 +53,18 @@ router.get('/', auth, async (req, res) => {
             u.name as assigned_to_name
           FROM inventory_plots ip
           LEFT JOIN users u ON ip.assigned_to = u.id
-          WHERE ip.inventory_id = $1
+          WHERE ip.inventory_id = ANY($1::int[])
           ORDER BY ip.plot_number ASC
-        `, [item.id]);
+        `, [ids]);
 
-        item.plots = plotsResult.rows;
+        for (const row of plotsResult.rows) {
+          const { inventory_id, ...plot } = row;
+          if (!plotsByInventory.has(inventory_id)) plotsByInventory.set(inventory_id, []);
+          plotsByInventory.get(inventory_id).push(plot);
+        }
+      }
+      for (let item of result.rows) {
+        item.plots = plotsByInventory.get(item.id) || [];
       }
     } else {
       // Salespersons see ALL assigned inventory (either via inventory.assigned_to OR via plot assignments)
@@ -231,14 +241,26 @@ const parsePlotNumbers = (plotNumbersInput) => {
 // Create inventory (Admin and Accountant)
 router.post('/', auth, adminAndAccountantOnly, async (req, res) => {
   try {
-    const { category, address, price, quantity, plot_numbers, plot_type, plot_category, size, project_id, block, membership_no, registration_no, form_number } = req.body;
+    const { category, price, quantity, plot_numbers, plot_type, plot_category, size, project_id, block, membership_no, registration_no, form_number } = req.body;
 
-    if (!category || !address || !price) {
-      return res.status(400).json({ message: 'Category, address, and price are required' });
+    if (!category || !price) {
+      return res.status(400).json({ message: 'Category and price are required' });
     }
 
     if (!['plot', 'house', 'shop_office'].includes(category)) {
       return res.status(400).json({ message: 'Invalid category. Must be plot, house, or shop_office' });
+    }
+
+    // The form no longer asks for an address; build a label from block + project so
+    // the column (still used by reports/tables) stays populated.
+    let address = (req.body.address || '').trim();
+    if (!address) {
+      let projectName = null;
+      if (project_id) {
+        const p = await db.query('SELECT name FROM balance_projects WHERE id = $1', [project_id]);
+        projectName = p.rows[0]?.name || null;
+      }
+      address = [block && `Block ${block}`, projectName].filter(Boolean).join(', ') || category;
     }
 
     const qty = parseInt(quantity || 1);

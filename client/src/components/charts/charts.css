@@ -1,0 +1,50 @@
+/* Chart blocks for Deals, Deal detail and Payments. Built on the shared .wg-* widget styles. */
+
+.pl-insights { margin-bottom: 1rem; }
+
+.pl-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 1024px) {
+  .pl-split { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Ranked horizontal bars (top payers, payments by type) */
+.pl-rank { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.85rem; }
+.pl-rank li { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.pl-rank-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; font-size: 0.86rem; }
+.pl-rank-head strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-main); }
+.pl-rank-head span { color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pl-rank .wg-fill { width: 100%; flex: none; }
+
+/* Stacked payment progress bar */
+.pl-stack { display: flex; height: 16px; overflow: hidden; border-radius: 999px; background: #f1efe6; }
+.pl-stack-seg { height: 100%; transform-origin: left; transform: scaleX(0); }
+.pl-stack.in .pl-stack-seg { animation: wg-scale-x 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.pl-progress-top { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 0.4rem 1rem; margin-bottom: 0.7rem; }
+.pl-progress-top strong { font-family: var(--font-display, inherit); font-size: 1.6rem; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.pl-progress-top span { font-size: 0.84rem; color: var(--text-muted); }
+.pl-progress-legend { margin-top: 0.8rem; }
+
+/* Payment timeline with cumulative progress */
+.pl-flow { margin: 0; padding: 0; list-style: none; max-height: 340px; overflow-y: auto; }
+.pl-flow li {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.8rem;
+  padding: 0.65rem 0 0.65rem 1.4rem;
+  border-bottom: 1px solid #f4f1e8;
+}
+.pl-flow li:last-child { border-bottom: 0; }
+.pl-flow-dot { position: absolute; left: 0; top: 1.05rem; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--paid); box-shadow: 0 0 0 4px var(--paid-soft); }
+.pl-flow-main { display: flex; flex-direction: column; min-width: 0; }
+.pl-flow-main strong { font-size: 0.88rem; color: var(--text-main); text-transform: capitalize; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-flow-main span { font-size: 0.76rem; color: var(--text-muted); }
+.pl-flow-amount { font-weight: 700; font-size: 0.88rem; color: var(--paid-ink); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.pl-flow-cum { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.6rem; }
+.pl-flow-cum > span { font-size: 0.74rem; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; width: 2.6rem; text-align: right; }

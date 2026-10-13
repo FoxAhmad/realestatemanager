@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaFilePdf } from 'react-icons/fa';
+import { LuFileDown } from 'react-icons/lu';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import { buildDealsListPDF } from '../utils/dealsReport';
+import Pagination from '../components/Pagination';
 import './Deals.css';
+import { notify, confirmDialog } from '../utils/notify';
+import DealsInsights from '../components/charts/DealsInsights';
 
 const DEAL_STATUS_LABELS = {
   in_progress: 'In Progress',
@@ -35,6 +38,7 @@ const Deals = () => {
   const [customers, setCustomers] = useState([]);
   const [dealers, setDealers] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingDealId, setEditingDealId] = useState(null);
@@ -51,7 +55,6 @@ const Deals = () => {
     notes: '',
   });
 
-  const [availablePlots, setAvailablePlots] = useState([]);
   const [customerInput, setCustomerInput] = useState('');
   const [dealerInput, setDealerInput] = useState('');
 
@@ -59,6 +62,8 @@ const Deals = () => {
     search, setSearch,
     filters, setFilter, clearFilters,
     filteredData: filteredDeals,
+    pagedData: pagedDeals,
+    pagination: dealsPagination,
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
@@ -69,6 +74,7 @@ const Deals = () => {
     fetchCustomers();
     fetchDealers();
     fetchInventory();
+    fetchPayments();
   }, []);
 
   const fetchDeals = async () => {
@@ -100,6 +106,16 @@ const Deals = () => {
     }
   };
 
+  // Receipts only feed the charts, so a failure here just leaves the collected side empty.
+  const fetchPayments = async () => {
+    try {
+      const response = await api.get('/payments');
+      setPayments(response.data);
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+    }
+  };
+
   const fetchInventory = async () => {
     try {
       const response = await api.get('/inventory');
@@ -109,33 +125,34 @@ const Deals = () => {
     }
   };
 
-  const fetchPlots = async (inventoryId) => {
-    try {
-      const response = await api.get(`/inventory/${inventoryId}/plots?available_only=true`);
-      setAvailablePlots(response.data);
-    } catch (error) {
-      console.error('Error fetching plots:', error);
-    }
+  // One flat list of every unassigned, available plot across all listings, so the
+  // user picks the plot directly instead of choosing a listing first.
+  const availablePlotOptions = inventory
+    .flatMap((i) => (i.plots || [])
+      .filter((p) => p.plot_status === 'available' && !p.assigned_to_id)
+      .map((p) => ({ ...p, item: i })))
+    .sort((a, b) =>
+      (a.item.project_name || '').localeCompare(b.item.project_name || '') ||
+      (a.block || '').localeCompare(b.block || '') ||
+      String(a.plot_number).localeCompare(String(b.plot_number), undefined, { numeric: true }));
+
+  const plotOptionLabel = (p) => {
+    const where = [p.item.project_name, p.block && `Block ${p.block}`].filter(Boolean).join(' · ');
+    const what = [`Plot ${p.plot_number}`, p.size, p.plot_category].filter(Boolean).join(' · ');
+    return where ? `${where} — ${what}` : what;
   };
 
-  const handleInventoryChange = (e) => {
-    const inventoryId = e.target.value;
-    const selectedInventory = inventory.find(i => i.id === parseInt(inventoryId));
-    
-    setFormData({ 
-      ...formData, 
-      inventory_id: inventoryId, 
-      plot_id: '',
-      property_type: selectedInventory ? selectedInventory.category : '',
-      original_price: selectedInventory ? selectedInventory.price : '',
-      sale_price: selectedInventory ? selectedInventory.price : '', // Default sale price to base price
+  const handlePlotChange = (e) => {
+    const plotId = e.target.value;
+    const selected = availablePlotOptions.find((p) => String(p.plot_id) === plotId);
+    setFormData({
+      ...formData,
+      plot_id: plotId,
+      inventory_id: selected ? selected.item.id : '',
+      property_type: selected ? selected.item.category : '',
+      original_price: selected ? selected.item.price : '',
+      sale_price: selected ? selected.item.price : '', // Default sale price to base price
     });
-    
-    if (inventoryId) {
-      fetchPlots(inventoryId);
-    } else {
-      setAvailablePlots([]);
-    }
   };
 
   const resolveCustomerId = async () => {
@@ -183,7 +200,6 @@ const Deals = () => {
     setFormData(emptyFormData);
     setCustomerInput('');
     setDealerInput('');
-    setAvailablePlots([]);
   };
 
   const handleEditDeal = (deal) => {
@@ -202,13 +218,14 @@ const Deals = () => {
   };
 
   const handleDeleteDeal = async (id) => {
-    if (!window.confirm('Delete this deal? Its payments and adjustments will be removed too, and the plot will become available again.')) return;
+    if (!await confirmDialog('Delete this deal? Its payments and adjustments will be removed too, and the plot will become available again.')) return;
     try {
       await api.delete(`/deals/${id}`);
       fetchDeals();
+      fetchPayments();
     } catch (error) {
       console.error('Error deleting deal:', error);
-      alert(error.response?.data?.message || 'Error deleting deal');
+      notify(error.response?.data?.message || 'Error deleting deal');
     }
   };
 
@@ -217,13 +234,13 @@ const Deals = () => {
     try {
       const dealerName = dealerInput.trim();
       if (!dealerName) {
-        alert('Salesperson name is required');
+        notify('Salesperson name is required');
         return;
       }
       const dealerId = await resolveDealerId();
       const customerId = await resolveCustomerId();
       if (!customerId) {
-        alert('Customer name is required');
+        notify('Customer name is required');
         return;
       }
 
@@ -240,10 +257,11 @@ const Deals = () => {
         await api.post('/deals', { ...formData, customer_id: customerId, dealer_id: dealerId });
       }
       fetchDeals();
+      fetchPayments();
       closeDealModal();
     } catch (error) {
       console.error('Error saving deal:', error);
-      alert(error.response?.data?.message || 'Error saving deal');
+      notify(error.response?.data?.message || 'Error saving deal');
     }
   };
 
@@ -265,7 +283,7 @@ const Deals = () => {
       buildDealsListPDF({ deals: filteredDeals, preparedBy: user?.name });
     } catch (error) {
       console.error('Error exporting deals PDF:', error);
-      alert('Error generating PDF export');
+      notify('Error generating PDF export');
     }
   };
 
@@ -278,7 +296,7 @@ const Deals = () => {
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <button className="premium-btn premium-btn-secondary" onClick={handleExportDeals}>
-            <FaFilePdf /> Export PDF
+            <LuFileDown /> Export PDF
           </button>
           {(isAdmin || isAccountant) && (
             <button
@@ -290,6 +308,8 @@ const Deals = () => {
           )}
         </div>
       </div>
+
+      <DealsInsights deals={filteredDeals} payments={payments} />
 
       <div className="glass-card">
         <TableToolbar
@@ -328,7 +348,7 @@ const Deals = () => {
                   </td>
                 </tr>
               ) : (
-                filteredDeals.map((deal) => (
+                pagedDeals.map((deal) => (
                   <tr key={deal.id}>
                     <td data-label="Deal ID">#{deal.id}</td>
                     <td data-label="Customer Name" style={{ fontWeight: '700' }}>{deal.customer_name}</td>
@@ -382,6 +402,7 @@ const Deals = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...dealsPagination} />
       </div>
 
       {showModal && (
@@ -438,34 +459,17 @@ const Deals = () => {
                   </small>
                 </div>
               ) : (
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Inventory Asset *</label>
-                    <select
-                      value={formData.inventory_id}
-                      onChange={handleInventoryChange}
-                      required
-                    >
-                      <option value="">Choose asset...</option>
-                      {inventory.map((i) => (
-                        <option key={i.id} value={i.id}>{i.category} - {i.address}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Plot Number *</label>
-                    <select
-                      value={formData.plot_id}
-                      onChange={(e) => setFormData({ ...formData, plot_id: e.target.value })}
-                      required
-                    >
-                      <option value="">Choose plot...</option>
-                      {availablePlots.map((p) => (
-                        <option key={p.id} value={p.id}>{p.plot_number} ({p.plot_category})</option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="form-group">
+                  <label>Plot *</label>
+                  <select value={formData.plot_id} onChange={handlePlotChange} required>
+                    <option value="">Choose plot...</option>
+                    {availablePlotOptions.map((p) => (
+                      <option key={p.plot_id} value={p.plot_id}>{plotOptionLabel(p)}</option>
+                    ))}
+                  </select>
+                  <small style={{ color: '#666', display: 'block', marginTop: '0.35rem' }}>
+                    Only unsold plots are listed. Choosing one fills in the type and price below.
+                  </small>
                 </div>
               )}
 

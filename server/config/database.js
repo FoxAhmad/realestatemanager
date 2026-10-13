@@ -22,7 +22,9 @@ const pool = new Pool({
   ...poolConfig,
   max: 10,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  // Hosted databases (Neon) pause when idle; the first connection after a pause can take a while.
+  connectionTimeoutMillis: 30000,
+  keepAlive: true,
 });
 
 // Test connection
@@ -30,9 +32,10 @@ pool.on('connect', () => {
   console.log('PostgreSQL Database connected');
 });
 
+// A dropped idle connection is normal on hosted Postgres. The pool discards that client and opens
+// a new one on the next query, so log it and keep the server running.
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  console.error('Idle database client error (connection will be replaced):', err.message);
 });
 
 module.exports = pool;

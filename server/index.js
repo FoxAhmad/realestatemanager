@@ -38,30 +38,35 @@ app.use('/api/settings', require('./routes/settings'));
 app.use('/api/agencies', require('./routes/agencies'));
 app.use('/api/slips', require('./routes/slips'));
 
-// Initialize database and start server
+// Initialize database and start server.
+// The database may be asleep or briefly unreachable, so retry with a growing delay
+// before giving up instead of exiting on the first timeout.
+const MAX_ATTEMPTS = 8;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const connectAndInit = async () => {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      await db.query('SELECT NOW()');
+      console.log('PostgreSQL Database connected successfully');
+      await initDatabase();
+      return;
+    } catch (error) {
+      console.error(`Database not ready (attempt ${attempt}/${MAX_ATTEMPTS}): ${error.message}`);
+      if (attempt === MAX_ATTEMPTS) throw error;
+      await wait(Math.min(2000 * attempt, 10000));
+    }
+  }
+};
+
 const startServer = async () => {
   try {
-    // Test database connection
-    db.query('SELECT NOW()', (err, result) => {
-      if (err) {
-        console.error('Database connection error:', err);
-        process.exit(1);
-      } else {
-        console.log('PostgreSQL Database connected successfully');
-
-        // Initialize database tables
-        initDatabase().then(() => {
-          app.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
-          });
-        }).catch((error) => {
-          console.error('Error initializing database:', error);
-          process.exit(1);
-        });
-      }
+    await connectAndInit();
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('Error starting server:', error);
+    console.error('Could not start server:', error);
     process.exit(1);
   }
 };

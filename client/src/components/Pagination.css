@@ -1,0 +1,54 @@
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 0.25rem 0.2rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.pager-info strong { color: var(--text-main); font-variant-numeric: tabular-nums; }
+
+.pager-controls { display: flex; align-items: center; gap: 0.3rem; }
+
+.pager-btn {
+  min-width: 2.2rem;
+  height: 2.2rem;
+  padding: 0 0.6rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.pager-btn:hover:not(:disabled):not(.active) { border-color: var(--primary); background: #f6faf7; }
+.pager-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pager-btn:focus-visible { outline: 3px solid rgba(22, 163, 74, 0.4); outline-offset: 2px; }
+
+.pager-gap { padding: 0 0.2rem; color: var(--text-muted); }
+
+.pager-size { display: inline-flex; align-items: center; gap: 0.5rem; }
+.pager-size select {
+  height: 2.2rem;
+  padding: 0 0.6rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+@media (max-width: 640px) {
+  .pager { justify-content: center; }
+  .pager-info { width: 100%; text-align: center; }
+}

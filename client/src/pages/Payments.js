@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './Payments.css';
+import { notify, confirmDialog } from '../utils/notify';
+import PaymentsInsights from '../components/charts/PaymentsInsights';
 
 const PAYMENT_TYPE_LABELS = {
   booking: 'Booking / Down Payment',
@@ -46,13 +49,13 @@ const Payments = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Delete this payment record permanently?')) {
+    if (await confirmDialog('Delete this payment record permanently?')) {
       try {
         await api.delete(`/payments/${id}`);
         fetchPayments();
       } catch (error) {
         console.error('Error deleting payment:', error);
-        alert('Error deleting payment record');
+        notify('Error deleting payment record');
       }
     }
   };
@@ -64,6 +67,7 @@ const Payments = () => {
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
+    pagedData: pagedPayments, pagination,
   } = useTableFilters(payments, PAYMENT_COLUMNS);
 
   const totalAmount = filteredPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
@@ -91,6 +95,8 @@ const Payments = () => {
           <span className="summary-value">{filteredPayments.length} Entries</span>
         </div>
       </div>
+
+      <PaymentsInsights payments={filteredPayments} />
 
       <div className="glass-card">
         <TableToolbar
@@ -129,7 +135,7 @@ const Payments = () => {
                   </td>
                 </tr>
               ) : (
-                filteredPayments.map((p) => (
+                pagedPayments.map((p) => (
                   <tr key={p.id}>
                     <td data-label="Date" style={{ fontWeight: 600 }}>{new Date(p.payment_date).toLocaleDateString()}</td>
                     <td data-label="Classification">
@@ -173,6 +179,7 @@ const Payments = () => {
             </tbody>
           </table>
         </div>
+        <Pagination {...pagination} />
       </div>
     </div>
   );

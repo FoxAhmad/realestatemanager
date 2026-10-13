@@ -19,7 +19,7 @@
     color: var(--primary);
     font-weight: 800;
     margin-bottom: 0.25rem;
-    border: 1px solid rgba(84, 105, 212, 0.1);
+    border: 1px solid rgba(15, 81, 50, 0.1);
 }
 
 .empty-state {

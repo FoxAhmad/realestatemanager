@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
+import Pagination from '../components/Pagination';
 import './InventoryRequests.css';
+import { notify, confirmDialog } from '../utils/notify';
 
 const REQUEST_CATEGORY_LABELS = {
   plot: 'Plot',
@@ -38,6 +40,7 @@ const InventoryRequests = () => {
     search, setSearch,
     filters, setFilter, clearFilters,
     filteredData: filteredRequests,
+    pagedData: pagedRequests, pagination: requestsPagination,
     uniqueValues,
     showFilters, setShowFilters,
     activeFilterCount,
@@ -63,13 +66,13 @@ const InventoryRequests = () => {
       await api.post(`/inventory-requests/${requestId}/approve`, {
         admin_notes: adminNotes
       });
-      alert('Request approved successfully');
+      notify('Request approved successfully');
       fetchRequests();
       setActionModal(null);
       setAdminNotes('');
     } catch (error) {
       console.error('Error approving request:', error);
-      alert(error.response?.data?.message || 'Error approving request');
+      notify(error.response?.data?.message || 'Error approving request');
     }
   };
 
@@ -78,24 +81,24 @@ const InventoryRequests = () => {
       await api.post(`/inventory-requests/${requestId}/reject`, {
         admin_notes: adminNotes
       });
-      alert('Request rejected successfully');
+      notify('Request rejected successfully');
       fetchRequests();
       setActionModal(null);
       setAdminNotes('');
     } catch (error) {
       console.error('Error rejecting request:', error);
-      alert(error.response?.data?.message || 'Error rejecting request');
+      notify(error.response?.data?.message || 'Error rejecting request');
     }
   };
 
   const handleDelete = async (requestId) => {
-    if (window.confirm('Are you sure you want to delete this request?')) {
+    if (await confirmDialog('Are you sure you want to delete this request?')) {
       try {
         await api.delete(`/inventory-requests/${requestId}`);
         fetchRequests();
       } catch (error) {
         console.error('Error deleting request:', error);
-        alert(error.response?.data?.message || 'Error deleting request');
+        notify(error.response?.data?.message || 'Error deleting request');
       }
     }
   };
@@ -167,7 +170,7 @@ const InventoryRequests = () => {
                 </td>
               </tr>
             ) : (
-              filteredRequests.map((request) => (
+              pagedRequests.map((request) => (
                 <tr key={request.id}>
                   <td>{request.id}</td>
                   <td>{request.inventory_address || '-'}</td>
@@ -236,6 +239,7 @@ const InventoryRequests = () => {
           </tbody>
         </table>
       </div>
+      <Pagination {...requestsPagination} />
 
       {actionModal && (
         <div

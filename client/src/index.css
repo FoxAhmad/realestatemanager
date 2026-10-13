@@ -1,15 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --primary: #5469d4;
-  --primary-hover: #4355b9;
-  --bg-main: #f0f2f5;
-  --text-main: #1a1f36;
-  --text-muted: #697386;
+  --primary: #0f5132;
+  --primary-hover: #0b3d26;
+  --bg-main: #faf8f3;
+  --text-main: #14201a;
+  --text-muted: #5b6b62;
   --glass-bg: rgba(255, 255, 255, 0.7);
   --glass-border: rgba(255, 255, 255, 0.3);
   --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
-  --sidebar-bg: #1a1f36;
+  --sidebar-bg: #022c22;
   --white: #ffffff;
   --success: #22c55e;
   --danger: #ef4444;
@@ -245,7 +246,7 @@ body {
 .premium-btn-primary {
   background: var(--primary);
   color: white;
-  box-shadow: 0 4px 12px rgba(84, 105, 212, 0.2);
+  box-shadow: 0 4px 12px rgba(15, 81, 50, 0.2);
 }
 
 .premium-btn-primary:hover {
@@ -297,4 +298,36 @@ body {
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--primary);
+}
+
+/* ---- Plot Ledge typography: Bricolage Grotesque for headings and key figures ---- */
+:root {
+  --font-display: 'Bricolage Grotesque', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --paid: #16a34a;
+  --paid-soft: #d1fae5;
+  --paid-ink: #065f46;
+  --pending: #f59e0b;
+  --pending-soft: #fef3c7;
+  --pending-ink: #92400e;
+  --overdue: #b42318;
+  --overdue-soft: #fee2e2;
+  --overdue-ink: #991b1b;
+  --chart-1: #16a34a;
+  --chart-2: #f59e0b;
+  --chart-3: #0f5132;
+  --chart-4: #86efac;
+}
+
+h1, h2, h3,
+.premium-page-header h1,
+.modal-content h2,
+.section-header h2,
+.stat-value, .ops-value, .summary-value, .card-info .value,
+.summary-card-v2 .value, .forms-price-chip .value {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+.num, .stat-value, .ops-value, .summary-value, .card-info .value {
+  font-variant-numeric: tabular-nums;
 }

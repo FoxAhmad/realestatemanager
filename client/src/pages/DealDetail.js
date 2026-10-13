@@ -2,10 +2,25 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { FaArrowLeft, FaPlus, FaTrash, FaEdit, FaFileInvoiceDollar, FaFileContract, FaUser, FaMapMarkerAlt, FaChevronDown, FaChevronUp, FaFilePdf } from 'react-icons/fa';
+import {
+  LuArrowLeft,
+  LuPlus,
+  LuTrash2,
+  LuPencil,
+  LuFileText,
+  LuFileSignature,
+  LuUser,
+  LuMapPin,
+  LuChevronDown,
+  LuChevronUp,
+  LuFileDown
+} from 'react-icons/lu';
 import TableToolbar, { useTableFilters } from '../components/TableToolbar';
 import { buildDealProfilePDF } from '../utils/dealsReport';
 import './DealDetail.css';
+import { notify, confirmDialog } from '../utils/notify';
+import DealDetailInsights from '../components/charts/DealDetailInsights';
+import Pagination, { usePagerState, paginate } from '../components/Pagination';
 
 const LEDGER_COLUMNS = [
   { key: 'date', label: 'Date', type: 'date' },
@@ -19,6 +34,7 @@ const DealDetail = () => {
   const navigate = useNavigate();
   const { isAdmin, isAccountant, user } = useAuth();
   const [deal, setDeal] = useState(null);
+  const groupPager = usePagerState(10);
   const [payments, setPayments] = useState([]);
   const [adjustments, setAdjustments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -184,6 +200,9 @@ const DealDetail = () => {
       .sort((a, b) => rankOf(a) - rankOf(b));
   }, [filteredLedgerEntries]);
 
+  // Pages hold whole groups so each group's total always covers all of its payments.
+  const { pageItems: pagedPaymentGroups, pagination: paymentGroupsPagination } = paginate(groupedPaymentEntries, groupPager);
+
   const handleEditPayment = (p) => {
     const linkedAdj = adjustments.find(a => a.payment_id === p.id);
     setEditingPaymentId(p.id);
@@ -258,7 +277,7 @@ const DealDetail = () => {
       closePaymentModal();
     } catch (error) {
       console.error('Error recording payment:', error);
-      alert(error.response?.data?.message || 'Error recording payment');
+      notify(error.response?.data?.message || 'Error recording payment');
     }
   };
 
@@ -267,30 +286,30 @@ const DealDetail = () => {
       await api.put(`/deals/${id}`, { status: newStatus });
       fetchDealDetails();
     } catch (error) {
-      alert('Error updating status');
+      notify('Error updating status');
     }
   };
 
   const handlePaymentDelete = async (paymentId) => {
-    if (window.confirm('Are you sure you want to delete this payment record?')) {
+    if (await confirmDialog('Are you sure you want to delete this payment record?')) {
       try {
         await api.delete(`/payments/${paymentId}`);
         fetchDealDetails();
       } catch (error) {
         console.error('Error deleting payment:', error);
-        alert('Error deleting payment');
+        notify('Error deleting payment');
       }
     }
   };
 
   const handleAdjustmentDelete = async (transactionId) => {
-    if (window.confirm('Are you sure you want to delete this adjustment record?')) {
+    if (await confirmDialog('Are you sure you want to delete this adjustment record?')) {
       try {
         await api.delete(`/balance-transactions/${transactionId}`);
         fetchDealDetails();
       } catch (error) {
         console.error('Error deleting adjustment:', error);
-        alert('Error deleting adjustment');
+        notify('Error deleting adjustment');
       }
     }
   };
@@ -314,7 +333,7 @@ const DealDetail = () => {
       buildDealProfilePDF({ deal, payments, adjustments, preparedBy: user?.name });
     } catch (error) {
       console.error('Error exporting deal profile PDF:', error);
-      alert('Error generating PDF export');
+      notify('Error generating PDF export');
     }
   };
 
@@ -323,13 +342,14 @@ const DealDetail = () => {
       <div className="premium-page-header">
         <div className="profile-header-row">
           <button className="premium-btn premium-btn-secondary" onClick={() => navigate('/deals')}>
-            <FaArrowLeft /> Back
+            <LuArrowLeft /> Back
           </button>
           <div className="profile-header-main">
             <h1>Deal Profile #{id}</h1>
             {(isAdmin || isAccountant) ? (
               <select
                 className={`status-select-premium ${deal.status}`}
+                aria-label="Deal status"
                 value={deal.status}
                 onChange={(e) => handleStatusUpdate(e.target.value)}
               >
@@ -344,7 +364,7 @@ const DealDetail = () => {
             )}
           </div>
           <button className="premium-btn premium-btn-secondary" onClick={handleExportProfile}>
-            <FaFilePdf /> Export PDF
+            <LuFileDown /> Export PDF
           </button>
         </div>
       </div>
@@ -354,7 +374,7 @@ const DealDetail = () => {
           {/* Customer & Asset Info */}
           <div className="glass-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <FaUser style={{ color: 'var(--primary)' }} />
+              <LuUser style={{ color: 'var(--primary)' }} />
               <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Associate Information</h2>
             </div>
             <div className="info-grid">
@@ -373,7 +393,7 @@ const DealDetail = () => {
             </div>
             <hr style={{ margin: '1.5rem 0', border: 'none', borderTop: '1px solid #f1f5f9' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <FaMapMarkerAlt style={{ color: 'var(--primary)' }} />
+              <LuMapPin style={{ color: 'var(--primary)' }} />
               <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Asset Details</h2>
             </div>
             <div className="info-grid">
@@ -452,7 +472,7 @@ const DealDetail = () => {
           {/* Financial Summary */}
           <div className="glass-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <FaFileInvoiceDollar style={{ color: 'var(--primary)' }} />
+              <LuFileText style={{ color: 'var(--primary)' }} />
               <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Financial Status</h2>
             </div>
             <div className="payment-summary">
@@ -490,6 +510,8 @@ const DealDetail = () => {
           </div>
         </div>
 
+        <DealDetailInsights deal={deal} payments={payments} adjustments={adjustments} />
+
         {/* Payments Table Area */}
         <div className="glass-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -497,7 +519,7 @@ const DealDetail = () => {
             <div style={{ display: 'flex', gap: '1rem' }}>
               {(isAdmin || isAccountant) && (
                 <button className="premium-btn premium-btn-primary" onClick={() => { setEditingPaymentId(null); setShowPaymentModal(true); }}>
-                  <FaPlus /> Post Payment
+                  <LuPlus /> Post Payment
                 </button>
               )}
             </div>
@@ -545,19 +567,19 @@ const DealDetail = () => {
                       {a.description && <div className="payment-notes">{a.description}</div>}
                       {(a.plot_info || a.customer_info) && (
                         <div className="payment-notes" style={{ fontSize: '0.65rem', opacity: 0.8 }}>
-                          {a.customer_info && <span><FaUser size={8} /> {a.customer_info} </span>}
-                          {a.plot_info && <span><FaMapMarkerAlt size={8} /> {a.plot_info}</span>}
+                          {a.customer_info && <span><LuUser size={8} /> {a.customer_info} </span>}
+                          {a.plot_info && <span><LuMapPin size={8} /> {a.plot_info}</span>}
                         </div>
                       )}
                     </div>
                     {(isAdmin || isAccountant) && (
-                      <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} onClick={() => handleAdjustmentDelete(a.id)}>
-                        <FaTrash />
+                      <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} aria-label="Delete adjustment" title="Delete adjustment" onClick={() => handleAdjustmentDelete(a.id)}>
+                        <LuTrash2 />
                       </button>
                     )}
                   </div>
                 ))}
-                {groupedPaymentEntries.map((group) => (
+                {pagedPaymentGroups.map((group) => (
                   <div key={group.key} className="ledger-group">
                     <div className="ledger-group-header">
                       <span className="ledger-group-label">{group.label}</span>
@@ -577,7 +599,7 @@ const DealDetail = () => {
                                 title="View linked adjustment"
                                 onClick={() => setExpandedAdjustments(prev => ({ ...prev, [p.id]: !prev[p.id] }))}
                               >
-                                {expandedAdjustments[p.id] ? <FaChevronUp /> : <FaChevronDown />}
+                                {expandedAdjustments[p.id] ? <LuChevronUp /> : <LuChevronDown />}
                               </button>
                             )}
                             <div>
@@ -612,17 +634,17 @@ const DealDetail = () => {
                           {(isAdmin || isAccountant) && (
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                               <button className="premium-btn premium-btn-secondary" style={{ padding: '0.5rem' }} title="Edit payment" onClick={() => handleEditPayment(p)}>
-                                <FaEdit />
+                                <LuPencil />
                               </button>
-                              <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} onClick={() => handlePaymentDelete(p.id)}>
-                                <FaTrash />
+                              <button className="premium-btn premium-btn-danger" style={{ padding: '0.5rem' }} aria-label="Delete payment" title="Delete payment" onClick={() => handlePaymentDelete(p.id)}>
+                                <LuTrash2 />
                               </button>
                             </div>
                           )}
                         </div>
                         {_adjustment && expandedAdjustments[p.id] && (
                           <div className="linked-entries-detail">
-                            <h4><FaFileContract color="#ffc107" /> Linked Adjustment Form</h4>
+                            <h4><LuFileSignature color="#ffc107" /> Linked Adjustment Form</h4>
                             <div className="linked-grid">
                               <div className="linked-item-card">
                                 <div className="linked-item-header">
@@ -649,14 +671,14 @@ const DealDetail = () => {
                                       style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}
                                       onClick={() => handleEditPayment(p)}
                                     >
-                                      <FaEdit size={10} /> Edit
+                                      <LuPencil size={10} /> Edit
                                     </button>
                                     <button
                                       className="premium-btn premium-btn-danger"
                                       style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}
                                       onClick={() => handleAdjustmentDelete(_adjustment.id)}
                                     >
-                                      <FaTrash size={10} /> Remove
+                                      <LuTrash2 size={10} /> Remove
                                     </button>
                                   </div>
                                 )}
@@ -669,6 +691,7 @@ const DealDetail = () => {
                     </div>
                   </div>
                 ))}
+                <Pagination {...paymentGroupsPagination} />
               </>
             )}
           </div>
@@ -811,7 +834,7 @@ const DealDetail = () => {
                       checked={paymentForm.apply_adjustment}
                       onChange={(e) => setPaymentForm({ ...paymentForm, apply_adjustment: e.target.checked })}
                     />
-                    <FaFileContract color="#ffc107" />
+                    <LuFileSignature color="#ffc107" />
                     <span style={{ fontWeight: 700 }}>
                       {editingAdjustmentId ? 'Adjustment Form linked to this installment' : 'Apply an Adjustment Form against this installment'}
                     </span>

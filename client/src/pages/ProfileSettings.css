@@ -1,0 +1,133 @@
+/* Shared styles for My Profile and Settings */
+.ps-profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .ps-profile-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.ps-stack { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
+
+.ps-card {
+  min-width: 0;
+  padding: 1.6rem;
+  border: 1px solid #ece8dc;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(2, 44, 34, 0.04);
+}
+
+.ps-card h3 { margin: 0 0 0.25rem; font-size: 1.1rem; color: var(--text-main); }
+.ps-muted { margin: 0 0 1.4rem; font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; }
+.ps-muted code { padding: 0.1rem 0.35rem; border-radius: 5px; background: #f3f0e8; font-size: 0.82rem; }
+
+.ps-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+.ps-card-head .ps-muted { margin-bottom: 1rem; }
+
+.ps-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 0 1.25rem; }
+.ps-fields .form-group:has(textarea) { grid-column: 1 / -1; }
+.ps-hint { display: block; margin-top: 0.4rem; font-size: 0.78rem; color: var(--text-muted); }
+
+.ps-actions { display: flex; justify-content: flex-end; margin-top: 0.5rem; }
+.ps-actions .premium-btn:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+
+/* identity card */
+.ps-identity { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.3rem; }
+.ps-identity h2 { margin: 0.8rem 0 0; font-size: 1.25rem; color: var(--text-main); }
+.ps-identity .ps-muted { margin: 0; word-break: break-all; }
+
+.ps-avatar {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), #22a06b);
+  color: #fff;
+  font-family: var(--font-display, inherit);
+  font-size: 2.2rem;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(15, 81, 50, 0.25);
+}
+
+.ps-role {
+  margin-top: 0.6rem;
+  padding: 0.25rem 0.8rem;
+  border-radius: 999px;
+  background: var(--paid-soft, #d1fae5);
+  color: var(--paid-ink, #065f46);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ps-signout { margin-top: 1.2rem; justify-content: center; width: 100%; }
+
+/* settings tabs */
+.ps-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  padding: 0.3rem;
+  border: 1px solid #ece8dc;
+  border-radius: 14px;
+  background: #fff;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ps-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  padding: 0.6rem 1.1rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ps-tab:hover { background: #f6faf7; color: var(--text-main); }
+.ps-tab.active { background: var(--primary); color: #fff; }
+
+.ps-count {
+  min-width: 1.3rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  font-size: 0.72rem;
+  text-align: center;
+}
+.ps-tab:not(.active) .ps-count { background: #d1fae5; color: #065f46; }
+.ps-tab:not(.active) .ps-count.warn { background: #fef3c7; color: #92400e; }
+
+.ps-row-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.ps-flag { margin-left: 0.6rem; font-size: 0.68rem; }
+
+.ps-empty, .ps-ok { margin: 0; padding: 1rem 0; font-size: 0.92rem; color: var(--text-muted); }
+.ps-ok { color: var(--paid-ink, #065f46); font-weight: 600; }
+
+.ps-list { margin: 0; padding: 0; list-style: none; }
+.ps-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid #f4f1e8;
+}
+.ps-list li:last-child { border-bottom: 0; }
+.ps-list span { display: flex; flex-direction: column; min-width: 0; }
+.ps-list small { color: var(--text-muted); font-size: 0.8rem; word-break: break-all; }
+.ps-list a.premium-btn { text-decoration: none; }

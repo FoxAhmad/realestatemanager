@@ -483,6 +483,35 @@ router.post('/loans/:account_id/repay', auth, adminAndAccountantOnly, upload.sin
   }
 });
 
+// General ledger: every transaction line, newest first (Admin and Accountant)
+router.get('/ledger', auth, adminAndAccountantOnly, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT
+        tl.id,
+        tl.transaction_id,
+        t.transaction_date,
+        t.description,
+        t.reference_type,
+        t.voucher_no,
+        t.instrument,
+        t.instrument_number,
+        a.name AS account_name,
+        u.name AS party_name,
+        tl.debit,
+        tl.credit
+      FROM transaction_lines tl
+      JOIN transactions t ON tl.transaction_id = t.id
+      JOIN accounts a ON tl.account_id = a.id
+      LEFT JOIN users u ON tl.user_id = u.id
+      ORDER BY t.transaction_date DESC, t.id DESC, tl.id ASC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // List every open loan sub-account with its running balance
 router.get('/loans', auth, adminAndAccountantOnly, async (req, res) => {
   try {

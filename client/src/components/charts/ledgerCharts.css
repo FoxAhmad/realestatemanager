@@ -1,0 +1,29 @@
+/* Ledger-page charts: ranked bar list and extras. Cards, grids, axes, donut and tooltips come from dashboard/widgets.css (.wg-*). */
+
+.lc-wrap { margin-bottom: 1.5rem; }
+.lc-wrap .wg-grid-2,
+.lc-wrap .wg-grid-donut { margin-bottom: 1rem; }
+.lc-wrap > :last-child { margin-bottom: 0; }
+
+.lc-zero { stroke: var(--text-muted); stroke-opacity: 0.5; }
+
+.lc-donut { max-width: 190px; }
+.lc-donut .wg-donut-center strong { font-size: 1.25rem; }
+
+.lc-list { display: flex; flex-direction: column; gap: 0.85rem; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.lc-list li { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.lc-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.8rem; min-width: 0; }
+.lc-row-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.86rem; font-weight: 600; color: var(--text-main); }
+.lc-row-top strong { flex: none; font-size: 0.84rem; font-variant-numeric: tabular-nums; color: var(--text-main); }
+
+.lc-track { position: relative; height: 8px; overflow: hidden; border-radius: 999px; background: #f1efe6; }
+.lc-bar { position: absolute; top: 0; bottom: 0; border-radius: 999px; transform: scaleX(0); transform-origin: left; }
+.lc-bar.neg { transform-origin: right; }
+.lc-center { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(91, 107, 98, 0.45); z-index: 1; }
+.lc-list.in .lc-bar { animation: wg-scale-x 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards; animation-delay: calc(var(--i) * 60ms); }
+
+.lc-note { margin: 0.9rem 0 0; font-size: 0.78rem; color: var(--text-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-bar { transform: none; animation: none !important; }
+}

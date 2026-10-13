@@ -20,8 +20,8 @@
 }
 
 .summary-card.wallet-card {
-    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
-    border: 1px solid rgba(84, 105, 212, 0.2);
+    background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+    border: 1px solid rgba(15, 81, 50, 0.2);
 }
 
 .card-top {
@@ -115,7 +115,7 @@
     text-decoration: none;
     margin-top: 0.35rem;
     padding: 0.25rem 0.6rem;
-    background: #f0f7ff;
+    background: #f0fdf4;
     border-radius: 6px;
     font-weight: 600;
     transition: var(--transition);
