@@ -136,6 +136,17 @@
   white-space: nowrap;
 }
 
+.sub-banner {
+  margin-bottom: 1rem;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.sub-banner.warn { background: #fdf0e0; color: #8a4b08; border: 1px solid #f0cfa0; }
+.sub-banner.info { background: #e6f1fb; color: #0c447c; border: 1px solid #b5d4f4; }
+.sub-banner a { color: inherit; text-decoration: underline; margin-left: 0.25rem; }
+
 .branch-picker-overlay {
   position: fixed;
   inset: 0;

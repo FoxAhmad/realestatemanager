@@ -26,7 +26,7 @@ router.get('/', auth, async (req, res) => {
     }
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -52,7 +52,7 @@ router.get('/:id', auth, async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -92,7 +92,7 @@ router.post('/', auth, async (req, res) => {
     if (error.code === '23505') { // Unique violation
       return res.status(400).json({ message: 'CNIC already exists' });
     }
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -128,7 +128,7 @@ router.put('/:id', auth, async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -153,7 +153,7 @@ router.delete('/:id', auth, async (req, res) => {
     await db.query('DELETE FROM customers WHERE id = $1', [req.params.id]);
     res.json({ message: 'Customer deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 

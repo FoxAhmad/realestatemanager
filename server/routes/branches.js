@@ -13,7 +13,7 @@ const handle = (fn) => async (req, res) => {
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message, code: error.code });
     console.error(error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 };
 
@@ -23,7 +23,8 @@ router.get('/', auth, handle(async (req) => {
   const ctx = await tenantService.loadContext(req.user, null);
   return {
     plan: ctx.tenant.plan,
-    multiBranch: tenantService.isPlatinum(ctx.tenant),
+    multiBranch: ctx.multiBranch,
+    limit: ctx.entitlements.limits.branches,
     branches: ctx.branches.filter((b) => ctx.readBranchIds.includes(b.id)),
   };
 }));

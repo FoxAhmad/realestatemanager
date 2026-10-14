@@ -36,7 +36,7 @@ router.get('/forms/summary', auth, async (req, res) => {
     `);
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -101,7 +101,7 @@ router.get('/:accountId', auth, async (req, res) => {
     const result = await db.query(query, params);
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -249,7 +249,7 @@ router.post('/', auth, adminAndAccountantOnly, upload.single('proof_file'), db.k
     res.status(201).json({ message: 'Transaction created', transaction_id: transId });
   } catch (error) {
     await client.query('ROLLBACK');
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   } finally {
     client.release();
   }
@@ -309,7 +309,7 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
       res.status(201).json({ message: 'Adjustment recorded' });
     } catch (error) {
       await client.query('ROLLBACK');
-      res.status(500).json({ message: 'Server error', error: error.message });
+      res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
     } finally {
       client.release();
     }
@@ -366,7 +366,7 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
       res.json({ message: 'Adjustment updated' });
     } catch (error) {
       await client.query('ROLLBACK');
-      res.status(500).json({ message: 'Server error', error: error.message });
+      res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
     } finally {
       client.release();
     }
@@ -432,7 +432,7 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
 
       res.json({ message: 'Transaction updated', transaction: result.rows[0] });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
     }
   });
 
@@ -479,7 +479,7 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
       });
     } catch (error) {
       await client.query('ROLLBACK');
-      res.status(500).json({ message: 'Server error', error: error.message });
+      res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
     } finally {
       client.release();
     }
@@ -502,7 +502,7 @@ router.post('/adjust-deal', auth, adminAndAccountantOnly, async (req, res) => {
       }
       res.json({ message: 'Project assigned', line: result.rows[0] });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
     }
   });
 

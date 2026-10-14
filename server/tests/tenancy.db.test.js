@@ -85,10 +85,10 @@ if (process.env.RUN_DB_TESTS !== '1') {
   });
 
   test('non-platinum tenant cannot create/activate branches or assign users (service level)', async () => {
-    await assert.rejects(() => ts.createBranch(B.id, 'Second'), (e) => e.code === 'PLAN_REQUIRED' && e.status === 403);
+    await assert.rejects(() => ts.createBranch(B.id, 'Second'), (e) => e.code === 'FEATURE_NOT_IN_PLAN' && e.status === 403);
     const [def] = await ts.listBranches(B.id);
-    await assert.rejects(() => ts.updateBranch(B.id, def.id, { is_active: false }), (e) => e.code === 'PLAN_REQUIRED');
-    await assert.rejects(() => ts.setBranchUsers(B.id, def.id, []), (e) => e.code === 'PLAN_REQUIRED');
+    await assert.rejects(() => ts.updateBranch(B.id, def.id, { is_active: false }), (e) => e.code === 'FEATURE_NOT_IN_PLAN');
+    await assert.rejects(() => ts.setBranchUsers(B.id, def.id, []), (e) => e.code === 'FEATURE_NOT_IN_PLAN');
     assert.strictEqual((await ts.updateBranch(B.id, def.id, { name: 'HQ' })).name, 'HQ'); // rename is allowed
   });
 
@@ -133,7 +133,7 @@ if (process.env.RUN_DB_TESTS !== '1') {
     await ts.updateTenant(A.id, { plan: 'basic' });
 
     assert.strictEqual(await count(), before);
-    await assert.rejects(() => ts.createBranch(A.id, 'Another'), (e) => e.code === 'PLAN_REQUIRED');
+    await assert.rejects(() => ts.createBranch(A.id, 'Another'), (e) => e.code === 'FEATURE_NOT_IN_PLAN');
 
     const ctx = await ctxFor(A);
     assert.ok(ctx.readBranchIds.includes(x.id));   // still readable

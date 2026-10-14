@@ -28,7 +28,9 @@ import {
   LuScale,
   LuSettings,
   LuGitBranch,
-  LuBuilding2
+  LuBuilding2,
+  LuLayers,
+  LuCreditCard
 } from 'react-icons/lu';
 import BranchPicker from './BranchPicker';
 import './Layout.css';
@@ -43,7 +45,7 @@ const branchInitials = (name = '') => {
 const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidth <= 768;
 
 const Layout = () => {
-  const { user, logout, branches, currentBranch, needsBranch, setBranch, isSuperAdmin } = useAuth();
+  const { user, logout, branches, currentBranch, needsBranch, setBranch, isSuperAdmin, subscription } = useAuth();
   const [pickerOpen, setPickerOpen] = useState(false);
   const location = useLocation();
 
@@ -93,7 +95,7 @@ const Layout = () => {
   };
 
   // Platform admins only get the platform pages; tenant pages have no data for them.
-  if (isSuperAdmin && !['/dashboard', '/tenants', '/settings'].includes(location.pathname)) {
+  if (isSuperAdmin && !['/dashboard', '/tenants', '/plans', '/subscriptions', '/settings'].includes(location.pathname)) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -232,6 +234,35 @@ const Layout = () => {
                   {sidebarOpen && <span>Tenants</span>}
                 </Link>
               </div>
+            )}
+
+            {isSuperAdmin && (
+              <>
+                <div className="sidebar-section">
+                  <Link
+                    to="/plans"
+                    className={`sidebar-submenu-item ${isActive('/plans') ? 'active' : ''}`}
+                    aria-label="Plans"
+                    data-label="Plans"
+                    onClick={closeSidebarOnMobile}
+                  >
+                    <LuLayers className="sidebar-icon" />
+                    {sidebarOpen && <span>Plans</span>}
+                  </Link>
+                </div>
+                <div className="sidebar-section">
+                  <Link
+                    to="/subscriptions"
+                    className={`sidebar-submenu-item ${isActive('/subscriptions') ? 'active' : ''}`}
+                    aria-label="Subscriptions"
+                    data-label="Subscriptions"
+                    onClick={closeSidebarOnMobile}
+                  >
+                    <LuCreditCard className="sidebar-icon" />
+                    {sidebarOpen && <span>Subscriptions</span>}
+                  </Link>
+                </div>
+              </>
             )}
 
             {!isSuperAdmin && (
@@ -454,6 +485,21 @@ const Layout = () => {
               </>
             )}
 
+            {user?.role === 'admin' && !isSuperAdmin && (
+              <div className="sidebar-section">
+                <Link
+                  to="/my-plan"
+                  className={`sidebar-submenu-item ${isActive('/my-plan') ? 'active' : ''}`}
+                  aria-label="My Plan"
+                  data-label="My Plan"
+                  onClick={closeSidebarOnMobile}
+                >
+                  <LuCreditCard className="sidebar-icon" />
+                  {sidebarOpen && <span>My Plan</span>}
+                </Link>
+              </div>
+            )}
+
             {user?.role === 'admin' && (
               <div className="sidebar-section">
                 <Link
@@ -486,6 +532,14 @@ const Layout = () => {
 
         {/* Main Content Area */}
         <main className="main-content">
+          {subscription && !isSuperAdmin && ['trial', 'grace', 'expired', 'cancelled', 'suspended'].includes(subscription.status) && (
+            <div className={`sub-banner ${subscription.status === 'trial' ? 'info' : 'warn'}`} role="status">
+              {subscription.status === 'trial' && `Free trial of ${subscription.planName}${subscription.endDate ? ` ends ${new Date(subscription.endDate).toLocaleDateString()}` : ''}. `}
+              {subscription.status === 'grace' && `Your subscription ended${subscription.endDate ? ` on ${new Date(subscription.endDate).toLocaleDateString()}` : ''}. Renew soon to avoid read-only mode. `}
+              {['expired', 'cancelled', 'suspended'].includes(subscription.status) && `Your subscription is ${subscription.status}: the app is read-only. `}
+              {user?.role === 'admin' ? <Link to="/my-plan">Open My Plan</Link> : 'Contact your administrator.'}
+            </div>
+          )}
           {needsBranch ? (
             <BranchPicker branches={branches} onPick={setBranch} onLogout={logout} />
           ) : (

@@ -17,7 +17,9 @@ const BRANCH_TABLES = [
   'deal_adjustments', 'slips'
 ];
 // users and accounts are special-cased below. These tables are global/admin-only (no RLS, not granted to crm_app).
-const GLOBAL_TABLES = ['tenants', 'branches', 'user_branches', 'audit_log'];
+// Subscription/plan tables are platform data too (see subscriptionSchema.js).
+const { SUBSCRIPTION_TABLES } = require('./subscriptionSchema');
+const GLOBAL_TABLES = ['tenants', 'branches', 'user_branches', 'audit_log', ...SUBSCRIPTION_TABLES];
 // The standard chart of accounts (ids 1-9 + the 4 parent accounts) is shared by all tenants; only
 // per-tenant sub-accounts (individual loans/investments) carry a tenant_id.
 const SYSTEM_PARENT_NAMES = ['Investments', 'Loans Receivable', 'Loans Payable', 'Owner Equity / Drawings'];
@@ -79,6 +81,9 @@ const migrateMultiTenant = async () => {
     $$ SELECT nullif(current_setting('app.branch_id', true), '')::int $$`);
   await q(`CREATE OR REPLACE FUNCTION app_read_branches() RETURNS int[] LANGUAGE sql STABLE AS
     $$ SELECT string_to_array(nullif(current_setting('app.read_branches', true), ''), ',')::int[] $$`);
+  // False when the tenant's subscription is expired/cancelled/suspended: every write policy checks it.
+  await q(`CREATE OR REPLACE FUNCTION app_can_write() RETURNS boolean LANGUAGE sql STABLE AS
+    $$ SELECT coalesce(current_setting('app.read_only', true), '') <> '1' $$`);
   await q(`CREATE OR REPLACE FUNCTION app_write_branches() RETURNS int[] LANGUAGE sql STABLE AS
     $$ SELECT string_to_array(nullif(current_setting('app.write_branches', true), ''), ',')::int[] $$`);
 
@@ -98,12 +103,19 @@ const migrateMultiTenant = async () => {
       q(`CREATE POLICY ${name} ON ${table} FOR ${cmd} ${using ? `USING (${using})` : ''} ${check ? `WITH CHECK (${check})` : ''}`));
 
   const TENANT_OK = 'tenant_id = app_tid()';
+  const tenantPolicies = async (table, using, check = using) => {
+    await q(`DROP POLICY IF EXISTS tenant_isolation ON ${table}`); // legacy single policy
+    await policy(table, 'tenant_select', 'SELECT', using);
+    await policy(table, 'tenant_insert', 'INSERT', null, `${check} AND app_can_write()`);
+    await policy(table, 'tenant_update', 'UPDATE', `${using} AND app_can_write()`, `${check} AND app_can_write()`);
+    await policy(table, 'tenant_delete', 'DELETE', `${using} AND app_can_write()`);
+  };
   const READ_OK = `${TENANT_OK} AND branch_id = ANY(app_read_branches())`;
   const WRITE_OK = `${TENANT_OK} AND branch_id = ANY(app_write_branches())`;
 
   for (const t of TENANT_TABLES) {
     await addScope(t, false);
-    await policy(t, 'tenant_isolation', 'ALL', TENANT_OK, TENANT_OK);
+    await tenantPolicies(t, TENANT_OK);
   }
   for (const t of BRANCH_TABLES) {
     await addScope(t, true);
@@ -123,7 +135,7 @@ const migrateMultiTenant = async () => {
   await q(`ALTER TABLE users ADD CONSTRAINT users_tenant_required CHECK (role = 'super_admin' OR tenant_id IS NOT NULL)`);
   await q(`ALTER TABLE users ENABLE ROW LEVEL SECURITY`);
   // Tenant users can never create or become a platform super_admin, whatever a route does.
-  await policy('users', 'tenant_isolation', 'ALL', TENANT_OK, `${TENANT_OK} AND role <> 'super_admin'`);
+  await tenantPolicies('users', TENANT_OK, `${TENANT_OK} AND role <> 'super_admin'`);
 
   await q(`
     CREATE TABLE IF NOT EXISTS user_branches (
@@ -143,9 +155,9 @@ const migrateMultiTenant = async () => {
   await q(`CREATE INDEX IF NOT EXISTS idx_accounts_tenant ON accounts(tenant_id)`);
   await q(`ALTER TABLE accounts ENABLE ROW LEVEL SECURITY`);
   await policy('accounts', 'account_select', 'SELECT', `tenant_id IS NULL OR ${TENANT_OK}`);
-  await policy('accounts', 'account_insert', 'INSERT', null, TENANT_OK);
-  await policy('accounts', 'account_update', 'UPDATE', TENANT_OK, TENANT_OK);
-  await policy('accounts', 'account_delete', 'DELETE', TENANT_OK);
+  await policy('accounts', 'account_insert', 'INSERT', null, `${TENANT_OK} AND app_can_write()`);
+  await policy('accounts', 'account_update', 'UPDATE', `${TENANT_OK} AND app_can_write()`, `${TENANT_OK} AND app_can_write()`);
+  await policy('accounts', 'account_delete', 'DELETE', `${TENANT_OK} AND app_can_write()`);
 
   // Unique constraints that must be tenant-scoped.
   await q(`ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_cnic_key`);
@@ -177,7 +189,9 @@ const migrateMultiTenant = async () => {
   await q('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO crm_app');
   await q('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO crm_app');
   await q('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO crm_app');
-  await q(`REVOKE ALL ON ${GLOBAL_TABLES.join(', ')} FROM crm_app`);
+  // Revoke only tables that exist yet (subscription tables are created right after this runs on a first boot).
+  const existing = (await q(`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = ANY($1)`, [GLOBAL_TABLES])).rows.map((r) => r.tablename);
+  if (existing.length) await q(`REVOKE ALL ON ${existing.join(', ')} FROM crm_app`);
 
   // Every table must be classified: a table without tenant_id (other than the global ones) fails the boot.
   const missing = (await q(

@@ -1,0 +1,52 @@
+/* Shared by Tenants, Plans, Subscriptions, My Plan and Branches. Labeled fields use the app's global
+   `.form-group` floating-label style (floating-fields.css); this only lays them out. */
+.form-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  align-items: start;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.form-grid .form-group,
+.form-stack .form-group { margin-bottom: 0; }
+
+.form-stack { display: grid; gap: 1rem; }
+
+.form-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+/* Checkbox next to a label (not a floating field). */
+.ff-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  font-weight: 500;
+}
+
+.ff-check input { width: auto; }
+
+/* Unlabeled dropdowns/inputs inside table rows: same look as the floating fields, compact. */
+select.ff-inline,
+input.ff-inline {
+  min-height: 2.5rem;
+  padding: 0.45rem 0.85rem;
+  border: 1.5px solid var(--ff-border, #cbd5e1);
+  border-radius: 12px;
+  background-color: var(--ff-bg, #fff);
+  font: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+select.ff-inline:hover,
+input.ff-inline:hover { border-color: #94a3b8; }
+
+select.ff-inline:focus,
+input.ff-inline:focus {
+  outline: none;
+  border-color: var(--ff-color, var(--primary, #0f5132));
+  box-shadow: 0 0 0 3px rgba(15, 81, 50, 0.12);
+}
+
+.limit-field small { display: block; margin-top: 0.25rem; }

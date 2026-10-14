@@ -59,7 +59,7 @@ router.get('/summary', auth, async (req, res) => {
         dealer_finance_balance: balance
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -129,7 +129,7 @@ router.get('/entries', auth, async (req, res) => {
         const result = await db.query(query, params);
         res.json(result.rows);
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
     }
 });
 
@@ -301,7 +301,7 @@ router.post('/entries', auth, upload.single('proof_file'), db.keepContext, async
         });
     } catch (error) {
         await client.query('ROLLBACK');
-        res.status(500).json({ message: 'Server error', error: error.message });
+        res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
     } finally {
         client.release();
     }
@@ -329,7 +329,7 @@ router.get('/monthly', auth, async (req, res) => {
     result = await db.query(query, isManagement ? [] : [req.user.id]);
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -359,7 +359,7 @@ router.get('/by-dealer', auth, adminAndAccountantOnly, async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -424,7 +424,7 @@ router.post('/loans', auth, adminAndAccountantOnly, upload.single('proof_file'),
     res.status(201).json({ message: 'Loan recorded', transaction_id: transId, account_id: subAccountId });
   } catch (error) {
     await client.query('ROLLBACK');
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   } finally {
     client.release();
   }
@@ -477,7 +477,7 @@ router.post('/loans/:account_id/repay', auth, adminAndAccountantOnly, upload.sin
     res.status(201).json({ message: 'Repayment recorded', transaction_id: transId });
   } catch (error) {
     await client.query('ROLLBACK');
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   } finally {
     client.release();
   }
@@ -508,7 +508,7 @@ router.get('/ledger', auth, adminAndAccountantOnly, async (req, res) => {
     `);
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -533,7 +533,7 @@ router.get('/loans', auth, adminAndAccountantOnly, async (req, res) => {
 
     res.json({ receivable, payable });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -581,7 +581,7 @@ router.post('/investments', auth, adminAndAccountantOnly, upload.single('proof_f
     res.status(201).json({ message: 'Investment entry recorded', transaction_id: transId, account_id: subAccountId });
   } catch (error) {
     await client.query('ROLLBACK');
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   } finally {
     client.release();
   }
@@ -602,7 +602,7 @@ router.get('/investments', auth, adminAndAccountantOnly, async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -651,7 +651,7 @@ router.post('/owner-transactions', auth, adminAndAccountantOnly, upload.single('
     res.status(201).json({ message: 'Owner transaction recorded', transaction_id: transId });
   } catch (error) {
     await client.query('ROLLBACK');
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   } finally {
     client.release();
   }
@@ -665,7 +665,7 @@ router.get('/owner-balance', auth, adminAndAccountantOnly, async (req, res) => {
     const balance = await ledgerService.calculateBalance(ownerAccRes.rows[0].id);
     res.json({ balance });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 

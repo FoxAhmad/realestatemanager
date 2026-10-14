@@ -15,12 +15,13 @@ const PlatformDashboard = () => {
   if (!tenants) return <div className="premium-loading">Loading…</div>;
 
   const count = (fn) => tenants.filter(fn).length;
+  // one card per plan actually in use, so new plans show up without code changes
+  const byPlan = [...new Set(tenants.map((t) => t.plan_name || t.plan))].map((name) => [name, count((t) => (t.plan_name || t.plan) === name)]);
   const cards = [
     ['Tenants', tenants.length],
-    ['Platinum', count((t) => t.plan === 'platinum')],
-    ['Pro', count((t) => t.plan === 'pro')],
-    ['Basic', count((t) => t.plan === 'basic')],
-    ['Suspended', count((t) => t.status !== 'active')],
+    ...byPlan,
+    ['Expired / grace', count((t) => ['expired', 'grace'].includes(t.subscription_status))],
+    ['Suspended', count((t) => t.status !== 'active' || t.subscription_status === 'suspended')],
   ];
 
   return (
@@ -28,7 +29,7 @@ const PlatformDashboard = () => {
       <div className="premium-page-header">
         <div>
           <h1>Welcome back, {user?.name}</h1>
-          <p>Platform overview. Manage organizations and their plans on the <Link to="/tenants">Tenants</Link> page.</p>
+          <p>Platform overview. Manage organizations on the <Link to="/tenants">Tenants</Link> page, plans on <Link to="/plans">Plans</Link> and billing on <Link to="/subscriptions">Subscriptions</Link>.</p>
         </div>
       </div>
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>

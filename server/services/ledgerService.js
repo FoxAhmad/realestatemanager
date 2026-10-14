@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const { assertLimitFor } = require('./entitlementService');
 
 /**
  * Double-Entry Accounting Service
@@ -50,6 +51,9 @@ const ledgerService = {
 
   createTransaction: async (client, { date, description, type, refId, lines, voucherNo, instrument, instrumentNumber, proofFile }) => {
     // Note: 'client' must be passed in so this happens within an existing DB transaction
+    // Plan limit: transactions per month (also blocks writes when the subscription is not active).
+    const tenant = (await client.query('SELECT app_tid() AS t')).rows[0].t;
+    if (tenant) await assertLimitFor(tenant, 'transactions_per_month');
     const transRes = await client.query(
       `INSERT INTO transactions
         (transaction_date, description, reference_type, reference_id, voucher_no, instrument, instrument_number, proof_file)

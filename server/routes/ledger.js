@@ -10,7 +10,7 @@ router.get('/accounts', auth, adminAndAccountantOnly, async (req, res) => {
     const result = await db.query('SELECT * FROM accounts ORDER BY id ASC');
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -77,7 +77,7 @@ router.get('/transactions', auth, async (req, res) => {
 
     res.json(grouped);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -95,7 +95,7 @@ router.get('/balance/:accountId', auth, async (req, res) => {
     const bal = await ledgerService.calculateBalance(req.params.accountId, effectiveUserId);
     res.json({ account_id: req.params.accountId, user_id: effectiveUserId, balance: bal });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 

@@ -5,14 +5,18 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/database');
 const { auth, adminOnly } = require('../middleware/auth');
 const tenantService = require('../services/tenantService');
+const { assertLimitFor } = require('../services/entitlementService');
 
 // Tenant/plan/branch info the client needs after login (none for platform super_admins).
 const sessionInfo = async (user) => {
   if (user.role === 'super_admin') return { tenant: null, branches: [] };
   const ctx = await tenantService.loadContext(user);
+  const s = ctx.entitlements.subscription;
   return {
     tenant: { id: ctx.tenant.id, name: ctx.tenant.name, plan: ctx.tenant.plan },
     branches: ctx.branches.filter((b) => ctx.readBranchIds.includes(b.id)),
+    multiBranch: ctx.multiBranch,
+    subscription: { status: s.status, planName: s.planName, endDate: s.endDate, canWrite: ctx.entitlements.canWrite },
   };
 };
 
@@ -32,6 +36,8 @@ router.post('/register', auth, adminOnly, async (req, res) => {
       return res.status(400).json({ message: 'Only admin accounts can be created here. Use /api/dealers to create salesperson accounts.' });
     }
 
+    await assertLimitFor(req.tenantId, 'users'); // plan limit
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await db.query(
@@ -45,10 +51,11 @@ router.post('/register', auth, adminOnly, async (req, res) => {
       user
     });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message, code: error.code });
     if (error.code === '23505') { // Unique violation
       return res.status(400).json({ message: 'Email already exists' });
     }
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -104,7 +111,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message, code: error.code });
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -123,7 +130,7 @@ router.get('/me', auth, async (req, res) => {
     res.json({ ...result.rows[0], ...(await sessionInfo(result.rows[0])) });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message, code: error.code });
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -154,7 +161,7 @@ router.put('/profile', require('../middleware/auth').auth, async (req, res) => {
     if (error.code === '23505') {
       return res.status(400).json({ message: 'Email already exists' });
     }
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -185,7 +192,7 @@ router.put('/password', require('../middleware/auth').auth, async (req, res) => 
 
     res.json({ message: 'Password updated' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 

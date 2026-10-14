@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { notify } from '../utils/notify';
+import './Billing.css';
 
 const errMsg = (error, fallback) => error.response?.data?.message || fallback;
 
@@ -85,15 +86,14 @@ const Branches = () => {
       </div>
 
       {info.multiBranch && (
-        <form className="glass-card" onSubmit={add} style={{ display: 'flex', gap: 8, padding: '1rem', marginBottom: 16, flexWrap: 'wrap' }}>
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="New branch name"
-            required
-            style={{ flex: '1 1 200px' }}
-          />
-          <button className="premium-btn premium-btn-primary" type="submit">Add Branch</button>
+        <form className="glass-card form-grid" onSubmit={add}>
+          <div className="form-group">
+            <label>New Branch Name *</label>
+            <input value={newName} onChange={(e) => setNewName(e.target.value)} required />
+          </div>
+          <div className="form-actions">
+            <button className="premium-btn premium-btn-primary" type="submit">Add Branch</button>
+          </div>
         </form>
       )}
 

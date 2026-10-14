@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { auth, adminOnly, adminAndAccountantOnly } = require('../middleware/auth');
 const db = require('../config/database');
+const { assertLimitFor } = require('../services/entitlementService');
 
 // Get all salespersons (Admin and Accountant)
 router.get('/', auth, adminAndAccountantOnly, async (req, res) => {
@@ -12,7 +13,7 @@ router.get('/', auth, adminAndAccountantOnly, async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -30,7 +31,7 @@ router.get('/:id', auth, adminAndAccountantOnly, async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -55,6 +56,8 @@ router.post('/', auth, adminAndAccountantOnly, async (req, res) => {
       return res.status(400).json({ message: 'Password must be at least 6 characters long' });
     }
 
+    await assertLimitFor(req.tenantId, 'users'); // plan limit: 403 USER_LIMIT_REACHED with an upgrade message
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await db.query(
@@ -67,10 +70,11 @@ router.post('/', auth, adminAndAccountantOnly, async (req, res) => {
       message: 'Salesperson account created successfully. Salesperson can now login with these credentials.'
     });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message, code: error.code });
     if (error.code === '23505') { // Unique violation
       return res.status(400).json({ message: 'Email already exists' });
     }
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -109,7 +113,7 @@ router.put('/:id', auth, adminAndAccountantOnly, async (req, res) => {
     if (error.code === '23505') {
       return res.status(400).json({ message: 'Email already exists' });
     }
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -127,7 +131,7 @@ router.delete('/:id', auth, adminAndAccountantOnly, async (req, res) => {
 
     res.json({ message: 'Salesperson deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 

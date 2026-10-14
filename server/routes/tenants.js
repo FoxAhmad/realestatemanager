@@ -10,7 +10,7 @@ const handle = (fn, status = 200) => async (req, res) => {
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message, code: error.code });
     console.error(error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 };
 

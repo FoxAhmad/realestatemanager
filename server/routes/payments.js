@@ -28,7 +28,7 @@ router.get('/', auth, async (req, res) => {
     }
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -41,7 +41,7 @@ router.get('/deal/:dealId', auth, async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -82,7 +82,7 @@ router.post('/', auth, async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     await client.query('ROLLBACK');
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   } finally {
     client.release();
   }
@@ -114,7 +114,7 @@ router.put('/:id', auth, async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -124,7 +124,7 @@ router.delete('/:id', auth, async (req, res) => {
     await db.query('DELETE FROM payments WHERE id = $1', [req.params.id]);
     res.json({ message: 'Payment deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 

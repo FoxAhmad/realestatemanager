@@ -9,7 +9,7 @@ router.get('/', auth, adminAndAccountantOnly, async (req, res) => {
     const result = await db.query('SELECT * FROM app_settings ORDER BY setting_key ASC');
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 
@@ -35,7 +35,7 @@ router.put('/:key', auth, adminAndAccountantOnly, async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 

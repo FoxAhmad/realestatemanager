@@ -15,6 +15,8 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [tenant, setTenant] = useState(null);
   const [branches, setBranches] = useState([]);
+  const [multiBranch, setMultiBranch] = useState(false); // plan includes the multi_branch feature (server decides)
+  const [subscription, setSubscription] = useState(null);
   const [branchId, setBranchId] = useState(localStorage.getItem('branchId') || '');
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -30,10 +32,12 @@ export const AuthProvider = ({ children }) => {
   const fetchUser = async () => {
     try {
       const response = await api.get('/auth/me');
-      const { tenant: t, branches: b, ...u } = response.data;
+      const { tenant: t, branches: b, multiBranch: mb, subscription: sub, ...u } = response.data;
       setUser(u);
       setTenant(t || null);
       setBranches(b || []);
+      setMultiBranch(!!mb);
+      setSubscription(sub || null);
     } catch (error) {
       // Only drop the session when the server rejects the token; a network blip or a
       // server restart should not sign the user out.
@@ -52,7 +56,7 @@ export const AuthProvider = ({ children }) => {
         email,
         password,
       });
-      const { token: newToken, user: userData, tenant: t, branches: b } = response.data;
+      const { token: newToken, user: userData, tenant: t, branches: b, multiBranch: mb, subscription: sub } = response.data;
       localStorage.setItem('token', newToken);
       localStorage.removeItem('branchId');
       setBranchId('');
@@ -60,6 +64,8 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       setTenant(t || null);
       setBranches(b || []);
+      setMultiBranch(!!mb);
+      setSubscription(sub || null);
       return { success: true };
     } catch (error) {
       return {
@@ -77,10 +83,11 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setTenant(null);
     setBranches([]);
+    setMultiBranch(false);
+    setSubscription(null);
   };
 
   // The branch is picked once after login (BranchPicker). api.js sends it as X-Branch-Id on every request.
-  const multiBranch = tenant?.plan === 'platinum';
   const choosable = multiBranch && branches.length > 1;
   const currentBranch = choosable ? branches.find((b) => String(b.id) === String(branchId)) || null : null;
   const needsBranch = !!user && choosable && !currentBranch;
@@ -108,6 +115,7 @@ export const AuthProvider = ({ children }) => {
     needsBranch,
     setBranch,
     multiBranch,
+    subscription,
     updateUser,
     loading,
     login,

@@ -34,7 +34,7 @@ router.post('/', auth, async (req, res) => {
       res.status(201).json(result.rows[0]);
     }
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error', error: error.message, code: error.code });
   }
 });
 

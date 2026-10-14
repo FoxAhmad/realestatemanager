@@ -24,6 +24,9 @@ import LoansAndInvestments from './pages/LoansAndInvestments';
 import Settings from './pages/Settings';
 import Branches from './pages/Branches';
 import Tenants from './pages/Tenants';
+import Plans from './pages/Plans';
+import Subscriptions from './pages/Subscriptions';
+import MyPlan from './pages/MyPlan';
 import PlatformDashboard from './pages/PlatformDashboard';
 import { useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
@@ -70,6 +73,9 @@ function App() {
             <Route path="settings" element={<Settings />} />
             <Route path="branches" element={<Branches />} />
             <Route path="tenants" element={<Tenants />} />
+            <Route path="plans" element={<Plans />} />
+            <Route path="subscriptions" element={<Subscriptions />} />
+            <Route path="my-plan" element={<MyPlan />} />
             <Route path="loans-and-investments" element={<LoansAndInvestments />} />
           </Route>
         </Routes>

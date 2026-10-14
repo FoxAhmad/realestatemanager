@@ -26,7 +26,7 @@ const auth = async (req, res, next) => {
 
     // Platform super_admins belong to no tenant: no context, so tenant tables are invisible to them.
     if (user.role === 'super_admin') {
-      if (!/^\/api\/(tenants|auth)(\/|$)/.test(req.baseUrl)) {
+      if (!/^\/api\/(tenants|auth|plans|features|addons|subscriptions)(\/|$)/.test(req.baseUrl)) {
         return res.status(403).json({ message: 'Platform admins can only use the tenant management API' });
       }
       return next();
@@ -37,6 +37,17 @@ const auth = async (req, res, next) => {
     req.tenantId = ctx.tenantId;
     req.branches = ctx.branches;
     req.dbCtx = ctx;
+
+    // Expired/cancelled/suspended subscription: the app is read-only. RLS already blocks the writes; this gives
+    // a clear 403 instead of a database error. Auth and the tenant's own subscription/billing routes stay open
+    // so they can still renew or upgrade.
+    if (ctx.readOnly && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !/^\/api\/(subscription|auth)(\/|$)/.test(req.baseUrl)) {
+      const status = ctx.entitlements.subscription.status;
+      return res.status(403).json({
+        message: `Your subscription is ${status}, so the app is read-only. ${user.role === 'admin' ? 'Open My Plan to upgrade, or contact your administrator.' : 'Contact your administrator.'}`,
+        code: 'SUBSCRIPTION_INACTIVE',
+      });
+    }
     res.on('close', () => db.releaseContext(ctx));
     db.als.run(ctx, next);
   } catch (error) {

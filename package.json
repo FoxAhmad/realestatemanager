@@ -15,7 +15,7 @@
     "migrate-inventory": "node migrate-inventory-deals.js",
     "migrate-plots": "node migrate-inventory-to-plots.js",
     "migrate:live": "node migrate-live.js",
-    "test": "node --test server/tests/*.test.js"
+    "test": "node --test --test-concurrency=1 server/tests/*.test.js"
   },
   "keywords": [
     "crm",

@@ -1,31 +1,31 @@
 const bcrypt = require('bcryptjs');
 const db = require('../config/database');
+const ent = require('./entitlementService');
+const subscriptions = require('./subscriptionService');
 
 const pool = db.admin; // owner-level: every statement below carries an explicit tenant_id
 
-const httpError = (status, message, code) => Object.assign(new Error(message), { status, code });
-const PLANS = ['basic', 'pro', 'platinum'];
+const { httpError } = ent;
 const STATUSES = ['active', 'suspended'];
-const isPlatinum = (tenant) => tenant.plan === 'platinum' && tenant.status === 'active';
-
-// Subscription entitlement. Called inside the service functions (not only routes) so no caller can skip it.
-const assertMultiBranch = (tenant) => {
-  if (!isPlatinum(tenant)) {
-    throw httpError(403, 'Multiple branches require the Platinum subscription', 'PLAN_REQUIRED');
-  }
-};
 
 // Pure: which branches may this user read/write on this request?
-//  - Non-Platinum: only the default branch is writable. Branches left over from a downgrade stay
-//    readable (no data "disappears") but are frozen.
-//  - Platinum: admins see every branch, others only their user_branches (default branch if none assigned).
+//  - Without the multi_branch feature only the default branch is writable. Branches left over from a downgrade
+//    stay readable (no data "disappears") but are frozen.
+//  - With it: admins see every branch, others only their user_branches (default branch if none assigned).
 //    X-Branch-Id narrows the request to one branch the user may access.
-const resolveBranchAccess = ({ tenant, branches, role, userBranchIds = [], requestedBranchId = null }) => {
+//  - branchLimit freezes branches beyond the plan's limit (default branch first, then oldest) as read-only.
+//  - canWrite=false (expired/cancelled/suspended subscription) makes everything read-only.
+const resolveBranchAccess = ({ multiBranch, canWrite = true, branchLimit = null, branches, role, userBranchIds = [], requestedBranchId = null }) => {
   const def = branches.find((b) => b.is_default);
   if (!def) throw httpError(500, 'Tenant has no default branch');
 
-  if (!isPlatinum(tenant)) {
-    return { readIds: branches.map((b) => b.id), writeIds: [def.id], insertId: def.id };
+  const active = branches.filter((b) => b.is_active);
+  const withinLimit = branchLimit === null || branchLimit === undefined ? active : active.slice(0, Math.max(0, branchLimit));
+  const writable = (list) => (canWrite ? list.filter((b) => withinLimit.some((w) => w.id === b.id)).map((b) => b.id) : []);
+
+  if (!multiBranch) {
+    const w = writable([def]);
+    return { readIds: branches.map((b) => b.id), writeIds: w, insertId: w[0] || null };
   }
 
   let accessible = branches;
@@ -36,16 +36,13 @@ const resolveBranchAccess = ({ tenant, branches, role, userBranchIds = [], reque
   if (requestedBranchId) {
     const b = accessible.find((x) => x.id === Number(requestedBranchId));
     if (!b) throw httpError(403, 'You do not have access to this branch');
-    return { readIds: [b.id], writeIds: b.is_active ? [b.id] : [], insertId: b.is_active ? b.id : null };
+    const w = writable([b]);
+    return { readIds: [b.id], writeIds: w, insertId: w[0] || null };
   }
 
-  const active = accessible.filter((b) => b.is_active);
-  const insertBranch = active.find((b) => b.is_default) || active[0];
-  return {
-    readIds: accessible.map((b) => b.id),
-    writeIds: active.map((b) => b.id),
-    insertId: insertBranch ? insertBranch.id : null,
-  };
+  const w = writable(accessible);
+  const insertId = w.includes(def.id) ? def.id : (w[0] || null);
+  return { readIds: accessible.map((b) => b.id), writeIds: w, insertId };
 };
 
 // Builds the request context for an authenticated (non super_admin) user.
@@ -55,12 +52,16 @@ const loadContext = async (user, requestedBranchId) => {
   const tenant = t.rows[0];
   if (tenant.status !== 'active') throw httpError(403, 'This account is suspended', 'TENANT_SUSPENDED');
 
-  const [branches, assigned] = await Promise.all([
+  const [branches, assigned, entitlements] = await Promise.all([
     pool.query('SELECT id, name, is_default, is_active FROM branches WHERE tenant_id = $1 ORDER BY is_default DESC, id', [tenant.id]),
     pool.query('SELECT branch_id FROM user_branches WHERE user_id = $1', [user.id]),
+    ent.getEntitlements(tenant.id),
   ]);
+  const multiBranch = entitlements.features.has('multi_branch');
   const access = resolveBranchAccess({
-    tenant,
+    multiBranch,
+    canWrite: entitlements.canWrite,
+    branchLimit: entitlements.limits.branches,
     branches: branches.rows,
     role: user.role,
     userBranchIds: assigned.rows.map((r) => r.branch_id),
@@ -70,6 +71,9 @@ const loadContext = async (user, requestedBranchId) => {
     tenantId: tenant.id,
     tenant,
     branches: branches.rows,
+    multiBranch,
+    entitlements,
+    readOnly: !entitlements.canWrite,
     readBranchIds: access.readIds,
     writeBranchIds: access.writeIds,
     insertBranchId: access.insertId,
@@ -91,8 +95,17 @@ const getTenant = async (tenantId) => {
 const listBranches = async (tenantId) =>
   (await pool.query('SELECT id, name, is_default, is_active FROM branches WHERE tenant_id = $1 ORDER BY is_default DESC, id', [tenantId])).rows;
 
+// Creating a branch needs the multi_branch feature AND room under the plan's branch limit. Enforced here, in the
+// service, so no caller (route, script, test) can skip it.
+const assertCanAddBranch = async (tenantId) => {
+  const e = await ent.getEntitlements(tenantId);
+  await ent.assertFeature(tenantId, e, 'multi_branch', 'Multiple branches');
+  if (!e.canWrite) throw httpError(403, `Your subscription is ${e.subscription.status}.`, 'SUBSCRIPTION_INACTIVE');
+  await ent.assertLimit(tenantId, e, 'branches', 1);
+};
+
 const createBranch = async (tenantId, name, actorId) => {
-  assertMultiBranch(await getTenant(tenantId));
+  await assertCanAddBranch(tenantId);
   if (!name || !String(name).trim()) throw httpError(400, 'Branch name is required');
   try {
     const r = await pool.query(
@@ -107,15 +120,17 @@ const createBranch = async (tenantId, name, actorId) => {
   }
 };
 
-// Rename is allowed on any plan (including the default branch); (de)activating needs Platinum
-// and never touches the default branch. Branches are never deleted, so no data is lost.
+// Rename is allowed on any plan (including the default branch); (de)activating needs multi_branch (and room
+// under the limit when re-activating) and never touches the default branch. Branches are never deleted.
 const updateBranch = async (tenantId, branchId, { name, is_active }, actorId) => {
   const r = await pool.query('SELECT * FROM branches WHERE id = $1 AND tenant_id = $2', [branchId, tenantId]);
   if (!r.rows.length) throw httpError(404, 'Branch not found');
   const branch = r.rows[0];
   if (is_active !== undefined && is_active !== branch.is_active) {
-    assertMultiBranch(await getTenant(tenantId));
+    const e = await ent.getEntitlements(tenantId);
+    await ent.assertFeature(tenantId, e, 'multi_branch', 'Multiple branches');
     if (branch.is_default) throw httpError(400, 'The default branch cannot be deactivated');
+    if (is_active) await ent.assertLimit(tenantId, e, 'branches', 1);
   }
   const u = await pool.query(
     'UPDATE branches SET name = COALESCE($1, name), is_active = COALESCE($2, is_active) WHERE id = $3 AND tenant_id = $4 RETURNING id, name, is_default, is_active',
@@ -133,7 +148,8 @@ const getBranchUsers = async (tenantId, branchId) =>
 
 // Replaces the user list of a branch. Both the branch and every user must belong to the tenant.
 const setBranchUsers = async (tenantId, branchId, userIds, actorId) => {
-  assertMultiBranch(await getTenant(tenantId));
+  const e = await ent.getEntitlements(tenantId);
+  await ent.assertFeature(tenantId, e, 'multi_branch', 'Multiple branches');
   const b = await pool.query('SELECT id FROM branches WHERE id = $1 AND tenant_id = $2', [branchId, tenantId]);
   if (!b.rows.length) throw httpError(404, 'Branch not found');
   const ids = [...new Set((userIds || []).map(Number))];
@@ -145,9 +161,9 @@ const setBranchUsers = async (tenantId, branchId, userIds, actorId) => {
     await client.query('DELETE FROM user_branches WHERE branch_id = $1', [branchId]);
     for (const id of ids) await client.query('INSERT INTO user_branches (user_id, branch_id) VALUES ($1, $2)', [id, branchId]);
     await client.query('COMMIT');
-  } catch (e) {
+  } catch (err) {
     await client.query('ROLLBACK');
-    throw e;
+    throw err;
   } finally {
     client.release();
   }
@@ -157,12 +173,13 @@ const setBranchUsers = async (tenantId, branchId, userIds, actorId) => {
 
 // ---- Tenant management (super_admin) -----------------------------------------------------------
 
-const createTenant = async ({ name, slug, plan = 'basic', adminName, adminEmail, adminPassword }, actorId) => {
+const createTenant = async ({ name, slug, plan = 'basic', billingCycle = 'monthly', currency = 'PKR', trial = false, adminName, adminEmail, adminPassword }, actorId) => {
   if (!name || !slug || !adminName || !adminEmail || !adminPassword) throw httpError(400, 'name, slug, adminName, adminEmail and adminPassword are required');
-  if (!PLANS.includes(plan)) throw httpError(400, `plan must be one of: ${PLANS.join(', ')}`);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const p = await client.query('SELECT code FROM plans WHERE code = $1 AND is_active', [plan]);
+    if (!p.rows.length) throw httpError(400, `Unknown or inactive plan: ${plan}`);
     const t = await client.query('INSERT INTO tenants (name, slug, plan) VALUES ($1, $2, $3) RETURNING id, name, slug, plan, status', [name, slug, plan]);
     const tenant = t.rows[0];
     const b = await client.query(`INSERT INTO branches (tenant_id, name, is_default) VALUES ($1, 'Main Branch', TRUE) RETURNING id`, [tenant.id]);
@@ -176,6 +193,7 @@ const createTenant = async ({ name, slug, plan = 'basic', adminName, adminEmail,
          ($1, 'ADJUSTMENT_FORM_CUSTOMER_VALUE', '40000', 'Default value credited toward deal for adjustment forms')`,
       [tenant.id]
     );
+    await subscriptions.activate(tenant.id, plan, { billingCycle, currency, trial }, { id: actorId, role: 'super_admin' }, client);
     await client.query('COMMIT');
     await audit(tenant.id, actorId, 'tenant.create', { slug, plan, defaultBranchId: b.rows[0].id });
     return tenant;
@@ -188,27 +206,27 @@ const createTenant = async ({ name, slug, plan = 'basic', adminName, adminEmail,
   }
 };
 
-// Downgrade/upgrade never deletes anything; see resolveBranchAccess for what a downgrade freezes.
+// Plan changes go through the subscription service (history + warnings). Nothing is ever deleted.
 const updateTenant = async (tenantId, { plan, status }, actorId) => {
-  if (plan && !PLANS.includes(plan)) throw httpError(400, `plan must be one of: ${PLANS.join(', ')}`);
   if (status && !STATUSES.includes(status)) throw httpError(400, `status must be one of: ${STATUSES.join(', ')}`);
-  const r = await pool.query(
-    'UPDATE tenants SET plan = COALESCE($1, plan), status = COALESCE($2, status) WHERE id = $3 RETURNING id, name, slug, plan, status',
-    [plan || null, status || null, tenantId]
-  );
-  if (!r.rows.length) throw httpError(404, 'Tenant not found');
+  await getTenant(tenantId);
+  let warnings = [];
+  if (plan) ({ warnings } = await subscriptions.changePlan(tenantId, plan, { id: actorId, role: 'super_admin' }));
+  if (status) await pool.query('UPDATE tenants SET status = $1 WHERE id = $2', [status, tenantId]);
   await audit(tenantId, actorId, 'tenant.update', { plan, status });
-  return r.rows[0];
+  return { ...(await getTenant(tenantId)), warnings };
 };
 
 const listTenants = async () =>
   (await pool.query(
-    `SELECT t.id, t.name, t.slug, t.plan, t.status, (SELECT COUNT(*) FROM branches b WHERE b.tenant_id = t.id)::int AS branch_count,
+    `SELECT t.id, t.name, t.slug, t.plan, t.status, p.name AS plan_name, s.status AS subscription_status, s.end_date,
+            (SELECT COUNT(*) FROM branches b WHERE b.tenant_id = t.id)::int AS branch_count,
             (SELECT COUNT(*) FROM users u WHERE u.tenant_id = t.id)::int AS user_count
-     FROM tenants t ORDER BY t.id`)).rows;
+     FROM tenants t LEFT JOIN tenant_subscriptions s ON s.tenant_id = t.id LEFT JOIN plans p ON p.id = s.plan_id
+     ORDER BY t.id`)).rows;
 
 module.exports = {
-  httpError, isPlatinum, assertMultiBranch, resolveBranchAccess, loadContext, audit,
+  httpError, resolveBranchAccess, loadContext, audit,
   getTenant, listBranches, createBranch, updateBranch, getBranchUsers, setBranchUsers,
   createTenant, updateTenant, listTenants,
 };

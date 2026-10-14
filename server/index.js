@@ -15,7 +15,8 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+// rawBody is kept for payment-provider webhook signature verification
+app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -42,6 +43,13 @@ app.use('/api/agencies', require('./routes/agencies'));
 app.use('/api/slips', require('./routes/slips'));
 app.use('/api/branches', require('./routes/branches'));
 app.use('/api/tenants', require('./routes/tenants'));
+const catalogRoutes = require('./routes/catalog');
+app.use('/api/plans', catalogRoutes.plans);
+app.use('/api/features', catalogRoutes.features);
+app.use('/api/addons', catalogRoutes.addons);
+app.use('/api/subscriptions', require('./routes/subscriptions'));
+app.use('/api/subscription', require('./routes/subscription'));
+app.use('/api/billing', require('./routes/billing'));
 
 // Initialize database and start server.
 // The database may be asleep or briefly unreachable, so retry with a growing delay

@@ -2,6 +2,7 @@
 const db = require('./database').admin;
 const bcrypt = require('bcryptjs');
 const { migrateMultiTenant } = require('./multiTenant');
+const { migrateSubscriptions } = require('./subscriptionSchema');
 
 const initDatabase = async () => {
   try {
@@ -780,6 +781,8 @@ const initDatabase = async () => {
 
     // Multi-tenancy: tenants, branches, tenant_id/branch_id columns, RLS policies (idempotent).
     await migrateMultiTenant();
+    // Plans, features, limits, addons, subscriptions (idempotent, seeds the default plans).
+    await migrateSubscriptions();
 
     // Create default admin user (password: admin123)
     const hashedPassword = await bcrypt.hash('admin123', 10);

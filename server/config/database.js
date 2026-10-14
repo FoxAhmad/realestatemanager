@@ -43,8 +43,9 @@ const USE_ROLE = process.env.ALLOW_NO_RLS !== 'true'; // escape hatch if the hos
 
 const applyContext = (client, ctx) => client.query(
   `SELECT set_config('app.tenant_id', $1, false), set_config('app.branch_id', $2, false),
-          set_config('app.read_branches', $3, false), set_config('app.write_branches', $4, false)`,
-  [String(ctx.tenantId ?? ''), String(ctx.insertBranchId ?? ''), (ctx.readBranchIds || []).join(','), (ctx.writeBranchIds || []).join(',')]
+          set_config('app.read_branches', $3, false), set_config('app.write_branches', $4, false),
+          set_config('app.read_only', $5, false)`,
+  [String(ctx.tenantId ?? ''), String(ctx.insertBranchId ?? ''), (ctx.readBranchIds || []).join(','), (ctx.writeBranchIds || []).join(','), ctx.readOnly ? '1' : '']
 );
 
 // Non-strict sessions: owner role defaulting to a tenant (TENANT_ID env, else the first/legacy tenant).
